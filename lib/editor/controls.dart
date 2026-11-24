@@ -1,5 +1,11 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
+import 'platform_ui.dart';
+import 'desk_text_field.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'drawing.dart';
 import 'desktop.dart';
@@ -11,13 +17,15 @@ import 'model.dart';
 import 'controller.dart';
 import 'stock_axis.dart';
 
+const double inspectorFieldWidth = 92;
+
 class StockSizeRow extends StatelessWidget {
   const StockSizeRow(
     this.editor,
     this.axis,
     this.field, {
     this.trailing,
-    this.fieldWidth = 92,
+    this.fieldWidth = inspectorFieldWidth,
     super.key,
   });
   final Editor editor;
@@ -42,7 +50,9 @@ class StockSizeRow extends StatelessWidget {
               height: 18,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: axis.color.withValues(alpha: .10),
+                color: context.colors
+                    .diagramColor(axis.color)
+                    .withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -50,7 +60,7 @@ class StockSizeRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: axis.color,
+                  color: context.colors.diagramColor(axis.color),
                 ),
               ),
             ),
@@ -58,10 +68,11 @@ class StockSizeRow extends StatelessWidget {
             Expanded(
               child: Text(
                 axis.label,
-                style: const TextStyle(fontSize: 12, color: ink),
+                style: TextStyle(fontSize: 12, color: context.colors.ink),
               ),
             ),
             SizedBox(width: fieldWidth, child: field),
+            if (trailing != null) const SizedBox(width: 6),
             ?trailing,
           ],
         ),
@@ -78,16 +89,27 @@ Widget iconAction(
   double size = 18,
 }) => DeskIcon(icon, tip, action, active: active, size: size);
 
+Widget sizeLockButton(StockAxis axis, bool locked, VoidCallback? toggle) =>
+    dimensionLockButton(axis.label, locked, toggle);
+
+Widget dimensionLockButton(String label, bool locked, VoidCallback? toggle) =>
+    iconAction(
+      locked ? cu.CupertinoIcons.lock : cu.CupertinoIcons.lock_open,
+      editorStrings.resizeLockHint(
+        locked ? editorStrings.unlock : editorStrings.lock,
+        label,
+      ),
+      toggle,
+      active: locked,
+      size: 15,
+    );
+
 Widget sectionTitle(String label, {Widget? trailing}) => Row(
   children: [
     Expanded(
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: ink,
-        ),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
     ),
     ?trailing,
@@ -114,14 +136,17 @@ class ValueBox extends StatefulWidget {
     this.signed = false,
     this.live = false,
     this.autofocus = false,
+    this.enabled = true,
     this.onSubmitted,
     this.onValidityChanged,
+    this.onFocusChanged,
   });
   final double value;
   final String? unit;
-  final bool signed, live, autofocus;
+  final bool signed, live, autofocus, enabled;
   final VoidCallback? onSubmitted;
   final ValueChanged<bool>? onValidityChanged;
+  final ValueChanged<bool>? onFocusChanged;
   final ValueChanged<double> changed;
   @override
   State<ValueBox> createState() => _ValueBoxState();
@@ -146,7 +171,9 @@ class _ValueBoxState extends State<ValueBox> {
   final focus = FocusNode();
   double? increment;
   KeyEventResult arrow(FocusNode node, KeyEvent ev) {
-    if (ev is KeyUpEvent || increment == null) return KeyEventResult.ignored;
+    if (!widget.enabled || ev is KeyUpEvent || increment == null) {
+      return KeyEventResult.ignored;
+    }
     final dir = ev.logicalKey == LogicalKeyboardKey.arrowUp
         ? 1
         : ev.logicalKey == LogicalKeyboardKey.arrowDown
@@ -173,6 +200,7 @@ class _ValueBoxState extends State<ValueBox> {
   }
 
   void _focus() {
+    widget.onFocusChanged?.call(focus.hasFocus);
     if (mounted) setState(() {});
     if (focus.hasFocus) {
       text.selection = TextSelection(
@@ -196,6 +224,10 @@ class _ValueBoxState extends State<ValueBox> {
 
   void _commit() {
     if (text.text == format(widget.value)) return;
+    if (!widget.enabled) {
+      text.text = format(widget.value);
+      return;
+    }
     final n = parse(text.text);
     if (n == null && widget.onValidityChanged != null) return;
     if (n != null && n != widget.value) widget.changed(n);
@@ -225,14 +257,17 @@ class _ValueBoxState extends State<ValueBox> {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 31,
-    child: cu.CupertinoTextField(
+    height: macControls ? 27 : 31,
+    child: DeskTextField(
       controller: text,
       focusNode: focus,
       autofocus: widget.autofocus,
-      style: mono.copyWith(fontSize: 12, color: ink),
+      enabled: widget.enabled,
+      style: mono.copyWith(
+        fontSize: 12,
+        color: widget.enabled ? context.colors.ink : context.colors.muted,
+      ),
       textAlign: TextAlign.right,
-      textInputAction: TextInputAction.done,
       onSubmitted: (_) {
         if (widget.onSubmitted != null) {
           if (parse(text.text) != null) widget.onSubmitted!();
@@ -247,19 +282,23 @@ class _ValueBoxState extends State<ValueBox> {
               widget.onValidityChanged?.call(n != null);
             }
           : null,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       suffix: Padding(
         padding: const EdgeInsets.only(right: 6),
         child: Text(
           widget.unit ?? units.symbol,
-          style: const TextStyle(fontSize: 10, color: muted),
+          style: TextStyle(
+            fontSize: 10,
+            color: widget.enabled
+                ? context.colors.muted
+                : context.colors.disabled,
+          ),
         ),
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      cupertinoDecoration: BoxDecoration(
+        color: widget.enabled ? context.colors.field : context.colors.chrome,
         borderRadius: BorderRadius.circular(5),
         border: Border.all(
-          color: focus.hasFocus ? accent : line,
+          color: focus.hasFocus ? context.colors.accent : context.colors.line,
           width: focus.hasFocus ? 1.5 : .8,
         ),
       ),
@@ -270,50 +309,12 @@ class _ValueBoxState extends State<ValueBox> {
 class Mark extends StatelessWidget {
   const Mark({super.key});
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => SvgPicture.asset(
+    'assets/mark.svg',
     width: 32,
     height: 32,
-    decoration: BoxDecoration(
-      color: accent,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: CustomPaint(painter: _MarkPainter()),
+    excludeFromSemantics: true,
   );
-}
-
-class _MarkPainter extends CustomPainter {
-  @override
-  void paint(Canvas c, Size s) {
-    final p = Paint()
-      ..color = const Color(0xfff1f6e8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.7
-      ..strokeJoin = StrokeJoin.round;
-    for (var i = 0; i < 2; i++) {
-      final y = 9.0 + i * 8;
-      c.drawPath(
-        Path()
-          ..moveTo(6, y + 2)
-          ..lineTo(20, y - 3)
-          ..lineTo(26, y)
-          ..lineTo(12, y + 5)
-          ..close(),
-        p,
-      );
-      c.drawPath(
-        Path()
-          ..moveTo(6, y + 2)
-          ..lineTo(6, y + 5)
-          ..lineTo(12, y + 8)
-          ..lineTo(26, y + 3)
-          ..lineTo(26, y),
-        p,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MarkPainter old) => false;
 }
 
 class MenuChoice<T> extends StatelessWidget {
@@ -323,25 +324,26 @@ class MenuChoice<T> extends StatelessWidget {
     required this.items,
     required this.change,
     this.icon,
+    this.selected,
   });
   final String label;
   final List<(T, String)> items;
   final ValueChanged<T> change;
   final IconData? icon;
+  final T? selected;
   @override
   Widget build(BuildContext context) => DeskMenu<T>(
     title: label,
+    selected: selected,
     change: change,
     items: items,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        spacing: controlGap,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: muted),
-            const SizedBox(width: 6),
-          ],
+          if (icon != null) Icon(icon, size: 16, color: context.colors.muted),
           Flexible(
             child: Text(
               label,
@@ -350,7 +352,11 @@ class MenuChoice<T> extends StatelessWidget {
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ),
-          const Icon(cu.CupertinoIcons.chevron_down, size: 15, color: muted),
+          Icon(
+            cu.CupertinoIcons.chevron_down,
+            size: 15,
+            color: context.colors.muted,
+          ),
         ],
       ),
     ),

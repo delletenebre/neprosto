@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256">
+  <title>neprosto — кресло</title>
+  <defs>
+    <linearGradient id="linen" x2=".72" y2="1">
+      <stop stop-color="#fff4df"/>
+      <stop offset="1" stop-color="#ecd7b9"/>
+    </linearGradient>
+    <linearGradient id="back" x2=".4" y2="1">
+      <stop stop-color="#ff9566"/>
+      <stop offset="1" stop-color="#dc6746"/>
+    </linearGradient>
+    <linearGradient id="arm" x2=".7" y2="1">
+      <stop stop-color="#f68a5d"/>
+      <stop offset="1" stop-color="#cd573c"/>
+    </linearGradient>
+    <radialGradient id="shadow">
+      <stop stop-color="#75503c" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#75503c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#linen)" d="M67 2h122c45 0 65 20 65 65v122c0 45-20 65-65 65H67c-45 0-65-20-65-65V67C2 22 22 2 67 2Z"/>
+  <ellipse cx="128" cy="184" rx="88" ry="22" fill="url(#shadow)"/>
+
+  <!-- The tapered feet share the plane of the seat. -->
+  <g fill="#394444">
+    <path d="m51 146 14 6-3 20-7 2-3-2Z"/>
+    <path d="m182 148 12-3-1 23-7 2-3-2Z"/>
+    <path d="m94 168 17 4-4 25-8 2-3-2Z"/>
+  </g>
+  <path fill="#a34433" d="m47 132 100-26 56 30-1 13q0 6-7 8l-91 24q-6 2-12-2l-39-22q-6-3-6-10Z"/>
+  <path fill="#b44c36" d="m99 161 104-25-1 13q0 6-7 8l-91 24q-3 1-5 0Z"/>
+
+  <!-- Rolled back cushion, with the welt just inside its upper edge. -->
+  <path fill="#bc503a" d="M45 86q-2-10 8-14l88-25q9-3 16 2l7 5q5 3 6 12l6 42-114 33-12-10Z"/>
+  <path fill="url(#back)" d="M59 89q-1-10 9-13l85-24q11-3 13 9l8 47q1 8-7 11l-86 23q-10 3-12-7Z"/>
+  <path fill="none" stroke="#ffbd89" stroke-width="1.5" stroke-linecap="round" d="M64 94q-2-11 6-14l82-23q6-2 8 1"/>
+
+  <!-- The far arm sits behind the loose seat cushion. -->
+  <path fill="#bd513a" d="M150 105q-2-9 5-14l9-4q6-3 12 1l23 15q6 4 6 11v29q0 7-6 10l-12 3-37-24Z"/>
+  <path fill="#f58a5d" d="M155 91q9-7 18-3l26 15q8 5 5 12l-13 5-31-19q-6-4-5-10Z"/>
+  <path fill="#d46041" d="M190 122q0-6 6-8l8-3 1 5v27q0 7-6 10l-10 2Z"/>
+
+  <path fill="#c5593e" d="m75 125 76-19q5-1 10 2l26 17q5 3 5 9v9q0 6-6 8l-74 20q-6 2-11-1l-25-16q-4-3-4-8v-12q0-6 3-9Z"/>
+  <path fill="#ffaa76" d="m77 124 74-19q5-1 10 2l27 17q8 5 0 9l-77 21q-6 1-11-2l-25-16q-10-7 2-12Z"/>
+  <path fill="none" stroke="#f49262" stroke-width="1.5" stroke-linecap="round" d="m116 157 68-18"/>
+
+  <!-- The upholstered near arm wraps around the front corner. -->
+  <path fill="url(#arm)" d="M44 113q-1-11 9-15l7-2q5-1 10 2l32 20q8 5 8 14v31q0 9-7 12l-6 2q-5 1-10-2l-37-22q-6-4-6-10Z"/>
+  <path fill="#ff9e6a" d="M47 103q3-5 12-7 6-2 11 2l32 20q8 5 8 12-3-2-8 0l-5 2q-4-5-9-8l-34-20q-4-2-7-1Z"/>
+  <path fill="#db6847" d="M96 134q0-5 6-7 8-3 8 5v31q0 9-7 12l-6 2q-2 0-3-1 3-2 3-6Z"/>
+</svg>

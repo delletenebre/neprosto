@@ -1,3 +1,7 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
+import 'desk_text_field.dart';
+
 import 'dart:math' as math;
 
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -5,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import 'controls.dart';
 import 'desktop.dart';
+import 'finish_picker.dart';
 import 'model.dart';
 import 'controller.dart';
 import 'stock_axis.dart';
@@ -21,22 +26,22 @@ Future<void> showPartProperties(
   editor.refresh();
   if (result == null ||
       editor.project.byId[part.id] != part ||
-      (result.name == part.name && result.size == part.size)) {
+      (result.name == part.name &&
+          result.size == part.size &&
+          result.finish == part.finish &&
+          result.locks == part.locks)) {
     return;
   }
-  editor.commit(
-    editor.project.edit({
-      part.id,
-    }, (b) => b.copy(name: result.name, size: result.size)),
-  );
+  editor.commit(editor.project.edit({part.id}, (_) => result));
 }
 
-Future<({String name, Vector3 size})?> editPartSize(
+Future<Beam?> editPartSize(
   BuildContext context,
   Editor editor,
   Beam part,
-  Offset globalPoint,
-) {
+  Offset globalPoint, {
+  bool creating = false,
+}) {
   final overlay =
       Navigator.of(
             context,
@@ -44,14 +49,16 @@ Future<({String name, Vector3 size})?> editPartSize(
           ).overlay!.context.findRenderObject()!
           as RenderBox;
   final origin = overlay.globalToLocal(globalPoint);
-  final size = part.size.clone();
-  var name = part.name;
+  var draft = part;
+  final firstEditable = StockAxis.values.indexWhere(
+    (a) => !part.locked(a.index),
+  );
   final valid = [true, true, true];
   final reduceMotion = MediaQuery.disableAnimationsOf(context);
-  return showGeneralDialog<({String name, Vector3 size})>(
+  return showGeneralDialog<Beam>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Закрыть размеры детали',
+    barrierLabel: context.strings.closePartDimensions,
     barrierColor: const Color(0x18000000),
     transitionDuration: reduceMotion
         ? Duration.zero
@@ -61,15 +68,14 @@ Future<({String name, Vector3 size})?> editPartSize(
       animation: animation,
       child: StatefulBuilder(
         builder: (_, update) {
-          final ready =
-              name.trim().isNotEmpty &&
-              valid.every((v) => v) &&
-              size.x >= part.minimumLength;
+          bool validSize(int i) =>
+              valid[i] && draft.size[i] >= draft.minimumSize(i);
+          bool ready() =>
+              draft.name.trim().isNotEmpty &&
+              StockAxis.values.every((axis) => validSize(axis.index));
           void apply() {
-            if (name.trim().isNotEmpty &&
-                valid.every((v) => v) &&
-                size.x >= part.minimumLength) {
-              Navigator.pop(ctx, (name: name.trim(), size: size));
+            if (ready()) {
+              Navigator.pop(ctx, draft.copy(name: draft.name.trim()));
             }
           }
 
@@ -80,52 +86,89 @@ Future<({String name, Vector3 size})?> editPartSize(
             },
             child: DeskDialog(
               compact: true,
-              title: CupertinoTextFormFieldRow(
+              title: DeskTextField(
                 key: const ValueKey('part-dialog-name'),
                 initialValue: part.name,
-                padding: EdgeInsets.zero,
-                placeholder: 'Название детали',
-                prefix: const Icon(CupertinoIcons.pencil, size: 16),
-                style: const TextStyle(
+                placeholder: context.strings.partName,
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: CupertinoColors.label,
+                  color: context.colors.ink,
                 ),
-                onChanged: (v) => update(() => name = v),
-                onFieldSubmitted: (_) => apply(),
+                onChanged: (v) => update(() => draft = draft.copy(name: v)),
+                onSubmitted: (_) => apply(),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final (i, axis) in StockAxis.values.indexed)
-                    StockSizeRow(
-                      editor,
-                      axis,
-                      ValueBox(
-                        size[i],
-                        (v) => update(() => size[i] = v),
-                        key: ValueKey('dialog-size-$i'),
-                        live: true,
-                        autofocus: i == 0,
-                        onValidityChanged: (ok) {
-                          if (valid[i] != ok) update(() => valid[i] = ok);
-                        },
-                        onSubmitted: apply,
+              content: FocusTraversalGroup(
+                policy: OrderedTraversalPolicy(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final (i, axis) in StockAxis.values.indexed)
+                      StockSizeRow(
+                        editor,
+                        axis,
+                        FocusTraversalOrder(
+                          order: NumericFocusOrder(i.toDouble()),
+                          child: ValueBox(
+                            draft.size[i],
+                            (v) => update(
+                              () => draft = draft.copy(
+                                size: draft.size.clone()..[i] = v,
+                              ),
+                            ),
+                            key: ValueKey('dialog-size-$i'),
+                            live: true,
+                            enabled: !draft.locked(i),
+                            autofocus: i == firstEditable,
+                            onValidityChanged: (ok) {
+                              if (valid[i] != ok) update(() => valid[i] = ok);
+                            },
+                            onSubmitted: apply,
+                          ),
+                        ),
+                        fieldWidth: 104,
+                        trailing: sizeLockButton(
+                          axis,
+                          draft.locked(i),
+                          validSize(i)
+                              ? () => update(
+                                  () => draft = draft.withSizeLock(
+                                    i,
+                                    !draft.locked(i),
+                                  ),
+                                )
+                              : null,
+                        ),
                       ),
-                      fieldWidth: 122,
+                    const SizedBox(height: 8),
+                    Row(
+                      spacing: controlGap,
+                      children: [
+                        Text(context.strings.partFinish),
+                        Expanded(
+                          child: PartFinishButton(draft.finish, (finish) {
+                            update(() => draft = draft.copy(finish: finish));
+                          }),
+                        ),
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 DeskButton(
                   plain: true,
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Отмена'),
+                  child: Text(context.strings.cancel),
                 ),
                 DeskButton(
                   primary: true,
-                  onPressed: ready ? apply : null,
-                  child: const Text('Применить'),
+                  onPressed: ready() ? apply : null,
+                  child: Text(
+                    creating
+                        ? context.strings.choosePartPosition
+                        : context.strings.apply,
+                  ),
                 ),
               ],
             ),
@@ -207,8 +250,7 @@ Future<double?> editDimensionLabel(
     transitionDuration: Duration.zero,
     pageBuilder: (ctx, _, _) {
       void apply() {
-        if (valid &&
-            (axis != StockAxis.length || value >= part.minimumLength)) {
+        if (valid && value >= part.minimumSize(axis.index)) {
           Navigator.pop(ctx, value);
         }
       }

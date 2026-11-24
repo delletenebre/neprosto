@@ -1,0 +1,236 @@
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
+import 'package:material_ui/material_ui.dart';
+
+import '../l10n/strings.dart';
+import 'controls.dart';
+import 'desk_text_field.dart';
+import 'desktop.dart';
+import 'finish_painter.dart';
+import 'palette.dart';
+import 'part_finish.dart';
+
+String _hex(int rgb) =>
+    '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+class PartFinishButton extends StatelessWidget {
+  const PartFinishButton(this.finish, this.onChanged, {super.key});
+  final PartFinish finish;
+  final ValueChanged<PartFinish> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final preset = FinishPreset.values
+        .where((p) => p.finish == finish)
+        .firstOrNull;
+    return DeskButton(
+      onPressed: () async {
+        final chosen = await showDeskDialog<PartFinish>(
+          context: context,
+          builder: (_) => _FinishDialog(finish),
+        );
+        if (context.mounted && chosen != null && chosen != finish) {
+          onChanged(chosen);
+        }
+      },
+      child: Row(
+        spacing: controlGap,
+        children: [
+          _Sample(finish),
+          Expanded(child: Text(preset?.label ?? finish.texture.label)),
+          const Icon(CupertinoIcons.chevron_down, size: 13),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinishDialog extends StatefulWidget {
+  const _FinishDialog(this.initial);
+  final PartFinish initial;
+
+  @override
+  State<_FinishDialog> createState() => _FinishDialogState();
+}
+
+class _FinishDialogState extends State<_FinishDialog> {
+  late PartFinish finish = widget.initial;
+  late final hex = TextEditingController(text: _hex(finish.rgb));
+  bool valid = true;
+
+  @override
+  void dispose() {
+    hex.dispose();
+    super.dispose();
+  }
+
+  void select(PartFinish value) => setState(() {
+    finish = value;
+    valid = true;
+    hex.text = _hex(value.rgb);
+  });
+
+  void typeColor(String value) => setState(() {
+    final digits = value.trim().replaceFirst(RegExp('^#'), '');
+    valid = RegExp(r'^[a-fA-F0-9]{6}$').hasMatch(digits);
+    if (valid) {
+      finish = (texture: finish.texture, rgb: int.parse(digits, radix: 16));
+    }
+  });
+
+  void apply() {
+    if (valid) Navigator.pop(context, finish);
+  }
+
+  @override
+  Widget build(BuildContext context) => DeskDialog(
+    maxWidth: 390,
+    title: Text(context.strings.partFinish),
+    content: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Sample(finish, height: 48),
+        const SizedBox(height: 14),
+        sectionTitle(context.strings.finishPresets),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: controlGap,
+          runSpacing: controlGap,
+          children: [
+            for (final preset in FinishPreset.values)
+              DeskButton(
+                active: valid && finish == preset.finish,
+                onPressed: () => select(preset.finish),
+                icon: _Sample(preset.finish, width: 22),
+                label: Text(preset.label),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        sectionTitle(context.strings.finishTexture),
+        const SizedBox(height: 6),
+        DeskSegments(
+          finish.texture.choice,
+          {for (final texture in PartTexture.choices) texture: texture.label},
+          (texture) =>
+              setState(() => finish = (texture: texture, rgb: finish.rgb)),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: sectionTitle(context.strings.finishColor)),
+            SizedBox(
+              width: 100,
+              child: DeskTextField(
+                controller: hex,
+                placeholder: '#RRGGBB',
+                onChanged: typeColor,
+                onSubmitted: (_) => apply(),
+              ),
+            ),
+          ],
+        ),
+        if (!valid)
+          Text(
+            context.strings.invalidHexColor,
+            style: TextStyle(color: context.colors.danger),
+          ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: controlGap,
+          runSpacing: controlGap,
+          children: [
+            for (final rgb in const [
+              0xf4f2ec,
+              0xb0b8c1,
+              0x484b50,
+              0x252629,
+              0x456351,
+              0x446688,
+              0xa44c3c,
+            ])
+              Tooltip(
+                message: _hex(rgb),
+                child: Semantics(
+                  label: _hex(rgb),
+                  selected: valid && finish.rgb == rgb,
+                  child: DeskControl(
+                    minimumSize: const Size.square(27),
+                    background: Color(0xff000000 | rgb),
+                    outlined: true,
+                    onPressed: () =>
+                        select((texture: finish.texture, rgb: rgb)),
+                    child: valid && finish.rgb == rgb
+                        ? Icon(
+                            CupertinoIcons.check_mark,
+                            size: 15,
+                            color: finishColor(finish).computeLuminance() < .35
+                                ? Colors.white
+                                : Colors.black,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    ),
+    actions: [
+      DeskButton(
+        plain: true,
+        onPressed: () => Navigator.pop(context),
+        child: Text(context.strings.cancel),
+      ),
+      DeskButton(
+        primary: true,
+        onPressed: valid ? apply : null,
+        child: Text(context.strings.apply),
+      ),
+    ],
+  );
+}
+
+class _Sample extends StatelessWidget {
+  const _Sample(this.finish, {this.width = 35, this.height = 16});
+  final PartFinish finish;
+  final double width, height;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(3),
+    child: CustomPaint(
+      size: Size(width, height),
+      painter: _SamplePainter(finish),
+    ),
+  );
+}
+
+class _SamplePainter extends CustomPainter {
+  const _SamplePainter(this.finish);
+  final PartFinish finish;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final color = finishColor(finish);
+    canvas.drawRect(rect, Paint()..color = color);
+    paintFinishTexture(
+      canvas,
+      finish.texture,
+      color,
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomRight,
+      rect.bottomLeft,
+    );
+    canvas.drawRect(
+      rect.deflate(.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = const Color(0x35000000),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SamplePainter old) => old.finish != finish;
+}

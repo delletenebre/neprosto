@@ -12,7 +12,7 @@ import 'package:neprosto/editor/step.dart';
 import 'package:neprosto/editor/positioning.dart';
 import 'package:neprosto/editor/scene.dart';
 
-import 'dart:ui' show Size;
+import 'dart:ui' show Offset, Size;
 
 Beam bar(
   int id,
@@ -33,6 +33,69 @@ Beam bar(
 void near(Vector3 a, Vector3 b) => expect(a.distanceTo(b), lessThan(1e-6));
 
 void main() {
+  test('Ruler guides stay on the visible face in perspective', () {
+    const viewport = Size(900, 600);
+    final board = bar(1, 0, 0, 0, 600, height: 60);
+    final camera = Camera()
+      ..view(ViewAngle.perspective)
+      ..target = Vector3(300, 0, 30)
+      ..scale = 1.5
+      ..eyeDistance = 600;
+    final project = Project('Полка', [board]);
+    final scene = Scene(project, camera, viewport);
+    final point = Vector3(210, 0, 30);
+    final pos = camera.project(point, viewport);
+    final target = scene.rulerTarget(pos + const Offset(0, 2), sticky: true)!;
+    expect(target.face?.face, 2);
+    expect(target.anchor.point.z, closeTo(30, 1e-8));
+    expect(target.anchor.point.y, closeTo(0, 1e-8));
+    near(target.anchor.point, target.anchor.resolve(project));
+    near(scene.rulerTarget(pos, sticky: true)!.anchor.point, point);
+    final free = scene.rulerTarget(pos + const Offset(0, 2), sticky: false)!;
+    expect(free.guide, isNull);
+    expect((free.anchor.point.z - 30).abs(), greaterThan(.1));
+    final cover = bar(2, 0, -50, -50, 600, width: 30, height: 220);
+    final covered = Scene(
+      project.copy(beams: [board, cover]),
+      camera,
+      viewport,
+    );
+    expect(covered.rulerTarget(pos, sticky: true)!.face?.beam.id, 2);
+  });
+
+  test('Hiding an upper part exposes the part below and preserves the assembly on disk', () {
+    final bottom = bar(1, 0, 0, 0, 100).copy(group: 1);
+    final top = bottom.copy(id: 2, origin: Vector3(0, 0, 60));
+    final dimension = Dimension(
+      Anchor(bottom.corner(7), 1, 7),
+      Anchor(top.corner(7), 2, 7),
+    );
+    final original = Project('Рама', [bottom, top], [dimension]);
+    final e = Editor(original)..select(2);
+    const viewport = Size(600, 400);
+    final camera = Camera()..view(ViewAngle.top);
+    final at = camera.project(top.pointAt(Vector3.all(.5)), viewport);
+    Scene scene() => Scene(e.project, camera, viewport);
+    expect(scene().hit(at)?.beam.id, 2);
+    e.setPartsHidden({2}, true);
+    expect(e.selection, {1});
+    expect(scene().hit(at)?.beam.id, 1);
+    expect(scene().snap(at, mode: SnapMode.surface)?.beam, 1);
+    expect(scene().project.dimensions, isEmpty);
+    e.selectAll();
+    expect(e.selection, {1});
+    e.select(1);
+    expect(e.selection, {1});
+    final restored = Project.decode(e.project.encode());
+    expect(restored.assembly(1), {1, 2});
+    expect(restored.byId[2]!.hidden, isTrue);
+    expect(restored.dimensions.single.b.beam, 2);
+    e.undo();
+    expect(scene().hit(at)?.beam.id, 2);
+    e.redo();
+    expect(scene().hit(at)?.beam.id, 1);
+  });
+
   test(
     'Dragging aligns stock ends and matches the clear space between slats',
     () {
@@ -145,30 +208,29 @@ void main() {
     expect(intersects(resizeEnd(a, 0, true, 80), b), false);
     expect(intersects(resizeEnd(a, 0, true, 80.01), b), true);
   });
-  test('Magnetic end alignment needs dwell, holds briefly and releases', () {
-    final a = bar(1, 0, 0, 0, 100),
-        b = bar(2, 0, 35, 0, 137.25),
-        far = bar(3, 0, 1000, 0, 138);
-    final targets = alignedEnds(a, 0, true, [b, far], 80);
-    expect(targets.any((t) => t.id == 3), false);
-    final magnet = EndMagnet();
-    expect(magnet.update(36, targets, 5, Duration.zero), null);
-    expect(
-      magnet.update(38, targets, 5, const Duration(milliseconds: 179)),
-      null,
-    );
-    expect(
-      magnet.update(38, targets, 5, const Duration(milliseconds: 180))!.travel,
-      37.25,
-    );
-    expect(
-      magnet.update(44, targets, 5, const Duration(milliseconds: 200)),
-      isNotNull,
-    );
-    expect(
-      magnet.update(50, targets, 5, const Duration(milliseconds: 210)),
-      null,
-    );
+  test('Fitting needs two opposing supports and an unlocked dimension', () {
+    final part = bar(1, 20, 0, 0, 40);
+    final touching = bar(2, 0, 0, 0, 20);
+    final stop = bar(3, 90, 0, 0, 30);
+    final beside = bar(4, 65, 30, 0, 20);
+    for (final parts in [
+      [part, touching, beside],
+      [part.copy(locks: 1), touching, stop],
+      [part, touching, stop.copy(origin: Vector3(59, 0, 0))],
+    ]) {
+      final project = Project('Рама', parts);
+      final e = Editor(project)..select(part.id);
+      e.stretchBetweenSupports(height: false);
+      expect(e.project, same(project));
+      expect(e.canUndo, false);
+    }
+    final frame = Project('Рама', [part, touching, stop, beside]);
+    final rotated = frame.rotate(frame.byId.keys.toSet(), axis(2), 25);
+    final e = Editor(rotated)..select(part.id);
+    e.stretchBetweenSupports(height: false);
+    near(e.single!.origin, rotated.byId[part.id]!.origin);
+    expect(e.single!.size.x, closeTo(70, 1e-6));
+    expect(e.project.overlaps, isEmpty);
   });
   test('Face placement rotates a group rigidly and mates opposite normals', () {
     final a = bar(1, 0, 0, 0, 100), b = bar(2, 300, 40, 30, 200);
@@ -262,16 +324,24 @@ void main() {
       );
       final a = j.fixed.copy(group: 2, locks: 6), b = j.moving.copy(group: 2);
       final d = Dimension(Anchor(a.corner(2), 1, 2), Anchor(b.corner(7), 2, 7));
-      final p = Project('Стеллаж', [a, b], [d], LengthUnit.inch);
+      final p = Project(
+        'Стеллаж',
+        [a, b],
+        [d],
+        LengthUnit.inch,
+      ).copy(groupNames: {2: 'Каркас'});
       final copy = Project.decode(p.encode());
       expect(copy.encode(), p.encode());
       expect(copy.assembly(1), {1, 2});
+      expect(copy.groupNames, {2: 'Каркас'});
       expect(copy.dimensions.single.length(copy), closeTo(d.length(p), 1e-7));
       expect(copy.remove({1}).dimensions, isEmpty);
       expect(copy.remove({1}).beams.single.group, null);
+      expect(copy.remove({1}).groupNames, isEmpty);
       final editor = Editor(copy)..select(1);
       editor.duplicate();
       expect(editor.project.beams, hasLength(4));
+      expect(editor.project.groupNames, {2: 'Каркас', 3: 'Каркас'});
       editor.undo();
       expect(editor.project.beams, hasLength(2));
       editor.redo();
@@ -343,11 +413,17 @@ void main() {
     expect(d.length(p), closeTo(292, 1e-7));
     final moved = p.move({2}, Vector3(100, 0, 30));
     expect(d.length(moved), closeTo(322, 1e-7));
-    final exact = moved.setDistance(d, 250);
-    expect(d.length(exact), closeTo(250, 1e-7));
-    expect(exact.byId[2]!.origin.x, moved.byId[2]!.origin.x);
-    final rotated = Project.decode(exact.rotate({1, 2}, axis(1), 31).encode());
-    expect(rotated.dimensions.single.length(rotated), closeTo(250, 1e-6));
+    expect(d.withLength(moved, 250), same(d));
+    final rotated = Project.decode(moved.rotate({1, 2}, axis(1), 31).encode());
+    expect(rotated.dimensions.single.length(rotated), closeTo(322, 1e-6));
+    final edited = d.copy(locked: false).withLength(moved, 250);
+    expect(edited.b.beam, isNull);
+    expect(edited.length(moved), closeTo(250, 1e-7));
+    near(edited.a.resolve(moved), d.geometry(moved)!.from);
+    final resized = moved.copy(dimensions: [edited]);
+    final restored = Project.decode(resized.encode());
+    expect(restored.dimensions.single.locked, isFalse);
+    expect(restored.dimensions.single.length(restored), closeTo(250, 1e-7));
     expect(d.geometry(p.move({2}, Vector3(1000, 0, 0))), null);
   });
   test('Rotation dial only offers the active plane and both directions wrap to zero', () {

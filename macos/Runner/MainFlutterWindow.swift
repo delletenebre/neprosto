@@ -7,6 +7,52 @@ private final class PopupSelection: NSObject {
 }
 
 class MainFlutterWindow: NSWindow {
+  private func registerProjectFiles(_ controller: FlutterViewController) {
+    let channel = FlutterMethodChannel(name: "neprosto/project-files", binaryMessenger: controller.engine.binaryMessenger)
+    channel.setMethodCallHandler { call, result in
+      guard ["link", "write"].contains(call.method),
+            let args = call.arguments as? [String: Any], let path = args["path"] as? String else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.global(qos: .userInitiated).async {
+        do {
+          var url = URL(fileURLWithPath: path)
+          if let encoded = args["bookmark"] as? String, let data = Data(base64Encoded: encoded) {
+            var stale = false
+            url = try URL(resolvingBookmarkData: data, options: [.withSecurityScope, .withoutUI],
+                          relativeTo: nil, bookmarkDataIsStale: &stale)
+          }
+          let access = url.startAccessingSecurityScopedResource()
+          defer { if access { url.stopAccessingSecurityScopedResource() } }
+          func modificationTime() throws -> Double? {
+            try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate?.timeIntervalSince1970
+          }
+          if call.method == "write", let bytes = args["bytes"] as? FlutterStandardTypedData {
+            if let expected = args["modified"] as? Double, try modificationTime() != expected {
+              DispatchQueue.main.async {
+                result(FlutterError(code: "changed", message: "Файл изменён вне редактора", details: nil))
+              }
+              return
+            }
+            try bytes.data.write(to: url, options: .atomic)
+            url.removeAllCachedResourceValues()
+          }
+          let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+          var link: [String: Any] = ["path": url.path, "bookmark": bookmark.base64EncodedString()]
+          link["modified"] = try modificationTime()
+          DispatchQueue.main.async { result(link) }
+        } catch {
+          DispatchQueue.main.async {
+            result(FlutterError(code: "project_file", message: error.localizedDescription, details: nil))
+          }
+        }
+      }
+    }
+  }
+
+  var workspaceMenuEnabled = false
+
   private var suspendedKeys: [(NSMenuItem, String)] = []
 
   private func menuItems(in menu: NSMenu?) -> [NSMenuItem] {
@@ -29,10 +75,14 @@ class MainFlutterWindow: NSWindow {
   private func configureEditorShortcuts(_ defaults: [String: Bool]) {
     let actions = [
       "undoDrawing:": ("undo", "z"), "redoDrawing:": ("redo", "Z"),
-      "drawingSettings:": ("settings", ","), "selectDrawing:": ("selectAll", "a")
+      "drawingSettings:": ("settings", ","), "selectDrawing:": ("selectAll", "a"),
+      "terminate:": ("quit", "q")
     ]
+    let fileKeys = ["np.new": ("newProject", "n"), "np.open": ("open", "o"),
+                      "np.close": ("closeTab", "w"), "np.save": ("save", "s"), "np.saveAs": ("saveAs", "S")]
     for item in menuItems(in: NSApp.mainMenu) {
-      guard let selector = item.action, let (name, key) = actions[NSStringFromSelector(selector)] else { continue }
+      guard let selector = item.action,
+            let (name, key) = fileKeys[item.identifier?.rawValue ?? ""] ?? actions[NSStringFromSelector(selector)] else { continue }
       item.keyEquivalent = defaults[name] == true ? key : ""
     }
   }
@@ -64,9 +114,28 @@ class MainFlutterWindow: NSWindow {
     self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    registerProjectFiles(flutterViewController)
 
     let popup = FlutterMethodChannel(name: "neprosto/popup", binaryMessenger: flutterViewController.engine.binaryMessenger)
     popup.setMethodCallHandler { [weak self, weak flutterViewController] call, result in
+      if call.method == "appearance", let args = call.arguments as? [String: Any],
+         let theme = args["theme"] as? String, let titles = args["menu"] as? [String: String] {
+        let appearance = theme == "system" ? nil : NSAppearance(named: theme == "dark" ? .darkAqua : .aqua)
+        if NSApp.appearance != appearance { NSApp.appearance = appearance }
+        for item in self?.menuItems(in: NSApp.mainMenu) ?? [] {
+          if let key = item.identifier?.rawValue, let title = titles[key] {
+            item.title = title
+            item.submenu?.title = title
+          }
+        }
+        result(nil)
+        return
+      }
+      if call.method == "workspaceMenuEnabled", let enabled = call.arguments as? Bool {
+        self?.workspaceMenuEnabled = enabled
+        result(nil)
+        return
+      }
       if call.method == "editorShortcuts", let defaults = call.arguments as? [String: Bool] {
         self?.configureEditorShortcuts(defaults)
         result(nil)
@@ -90,6 +159,7 @@ class MainFlutterWindow: NSWindow {
         header.isEnabled = false
         menu.addItem(header)
       }
+      let checked = Set(args["checked"] as? [Int] ?? [])
       let dividers = Set(args["dividers"] as? [Int] ?? [])
       let symbols = args["symbols"] as? [String] ?? []
       let shortcuts = args["shortcuts"] as? [String] ?? []
@@ -102,6 +172,7 @@ class MainFlutterWindow: NSWindow {
         if shortcuts.indices.contains(index) {
           self?.setShortcut(shortcuts[index], for: item)
         }
+        item.state = checked.contains(index) ? .on : .off
         item.target = selection
         item.tag = index
       }

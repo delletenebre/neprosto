@@ -1,3 +1,5 @@
+import '../l10n/strings.dart';
+
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:cupertino_ui/cupertino_ui.dart';
 
@@ -5,6 +7,8 @@ import 'hotkeys.dart';
 
 import 'controller.dart';
 import 'desktop.dart';
+import 'end_cut_dialog.dart';
+import 'rabbet_dialog.dart';
 import 'joint_dialog.dart';
 import 'size_dialog.dart';
 
@@ -13,11 +17,15 @@ Future<void> showDrawingMenu(
   Editor editor,
   Offset position, {
   int? partId,
+  bool? end,
   VoidCallback? addHere,
 }) async {
   FocusManager.instance.primaryFocus?.unfocus();
   FocusManager.instance.applyFocusChangesIfNeeded();
-  if (partId != null && !editor.selection.contains(partId)) {
+  final clicked = editor.project.byId[partId];
+  if (clicked != null &&
+      !clicked.hidden &&
+      !editor.selection.contains(partId)) {
     editor.setTool(Tool.select);
     editor.select(partId);
   }
@@ -48,39 +56,58 @@ Future<void> showDrawingMenu(
 
   final String heading;
   if (partId == null) {
-    heading = 'Чертёж';
+    heading = context.strings.drawing;
     if (addHere != null) {
-      add('Новая деталь здесь', CupertinoIcons.plus, 'plus', addHere);
+      add(context.strings.newPartHere, CupertinoIcons.plus, 'plus', addHere);
     }
     add(
-      'Измерить расстояние',
+      context.strings.measureDistance,
       CupertinoIcons.resize,
       'ruler',
-      () => editor.setTool(Tool.measure),
+      () => editor.setTool(Tool.ruler),
       key: editor.hotkeys[Command.measure].label,
     );
-    if (doc.beams.isNotEmpty) {
+    if (doc.visibleGeometry.beams.isNotEmpty) {
       add(
-        'Выбрать все детали',
+        context.strings.selectAllParts,
         CupertinoIcons.square_stack,
         'square.dashed',
-        () {
-          editor.selection = doc.byId.keys.toSet();
-          editor.refresh();
-        },
+        editor.selectAll,
         key: editor.hotkeys[Command.selectAll].label,
         divider: true,
       );
-      add('Вписать в окно', CupertinoIcons.viewfinder, 'viewfinder', () {
-        editor.fitRequested = true;
-        editor.refresh();
-      }, key: editor.hotkeys[Command.fit].label);
+      add(
+        context.strings.fitToWindow,
+        CupertinoIcons.viewfinder,
+        'viewfinder',
+        () {
+          editor.fitRequested = true;
+          editor.refresh();
+        },
+        key: editor.hotkeys[Command.fit].label,
+      );
     }
+    if (doc.hasHiddenParts) {
+      add(
+        context.strings.showAllParts,
+        CupertinoIcons.eye,
+        'eye',
+        editor.showAllHiddenParts,
+      );
+    }
+  } else if (clicked != null && clicked.hidden) {
+    heading = clicked.name;
+    add(
+      context.strings.showPart,
+      CupertinoIcons.eye,
+      'eye',
+      () => editor.setPartsHidden({clicked.id}, false),
+    );
   } else {
-    heading = part?.name ?? 'Выбрано деталей · ${ids.length}';
+    heading = part?.name ?? context.strings.selectedParts(ids.length);
     if (editor.canGroup) {
       add(
-        'Сгруппировать',
+        context.strings.groupLabel,
         CupertinoIcons.square_stack,
         'square.3.layers.3d',
         editor.group,
@@ -89,7 +116,7 @@ Future<void> showDrawingMenu(
     }
     if (editor.canUngroup) {
       add(
-        'Разгруппировать',
+        context.strings.ungroup,
         CupertinoIcons.rectangle_on_rectangle_angled,
         'rectangle.on.rectangle.angled',
         editor.ungroup,
@@ -98,22 +125,34 @@ Future<void> showDrawingMenu(
     }
     if (part != null) {
       add(
-        'Название и размеры…',
+        context.strings.nameAndDimensions,
         CupertinoIcons.pencil,
         'pencil.and.ruler',
         () => showPartProperties(context, editor, part, position),
       );
-      if (doc.beams.length > 1) {
+      add(
+        context.strings.endCutsTitle,
+        CupertinoIcons.triangle,
+        'triangle',
+        () => showEndCuts(context, editor, part, end: end),
+      );
+      add(
+        context.strings.rabbetTitle,
+        CupertinoIcons.crop,
+        'crop',
+        () => showRabbets(context, editor, part),
+      );
+      if (doc.visibleGeometry.beams.length > 1) {
         add(
-          'Выровнять по опоре…',
+          context.strings.alignToReference,
           CupertinoIcons.scope,
           'scope',
-          editor.beginAlignment,
+          () => editor.beginAlignment(pickReference: true),
         );
       }
     }
     add(
-      'Переместить по точкам…',
+      context.strings.placeAgainstReference,
       CupertinoIcons.move,
       'arrow.up.and.down.and.arrow.left.and.right',
       () => editor.setTool(Tool.move),
@@ -121,7 +160,7 @@ Future<void> showDrawingMenu(
       divider: rows.isNotEmpty,
     );
     add(
-      'Повернуть…',
+      context.strings.rotateMenu,
       CupertinoIcons.arrow_clockwise,
       'arrow.clockwise',
       () => editor.setTool(Tool.rotate),
@@ -129,14 +168,27 @@ Future<void> showDrawingMenu(
     );
     if (ids.length == 2) {
       add(
-        'Угловой стык…',
+        context.strings.miterJointMenu,
         CupertinoIcons.triangle,
         'triangle',
         () => showPartJoint(context, editor),
       );
     }
+    final hideKey = editor.hotkeys[Command.hideSelected];
     add(
-      'Дублировать',
+      ids.length == 1
+          ? context.strings.hidePart
+          : context.strings.hideSelectedParts,
+      CupertinoIcons.eye_slash,
+      'eye.slash',
+      () => editor.setPartsHidden(ids, true),
+      key: editor.hotkeys.commandFor(hideKey) == Command.hideSelected
+          ? hideKey.label
+          : '',
+      divider: true,
+    );
+    add(
+      context.strings.duplicate,
       CupertinoIcons.doc_on_doc,
       'doc.on.doc',
       editor.duplicate,
@@ -144,7 +196,7 @@ Future<void> showDrawingMenu(
       divider: true,
     );
     add(
-      'Удалить',
+      context.strings.delete,
       CupertinoIcons.trash,
       'trash',
       editor.delete,

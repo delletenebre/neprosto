@@ -1,6 +1,11 @@
+import '../l10n/strings.dart';
+
+import 'dart:ui' show Offset;
+
 import 'package:flutter/foundation.dart';
 
 import 'model.dart';
+import 'grid_visibility.dart';
 import 'hotkeys.dart';
 import 'scene.dart';
 import 'step.dart';
@@ -8,7 +13,7 @@ import 'stock_sketch.dart';
 import 'contact.dart';
 import 'positioning.dart';
 
-enum Tool { select, move, beam, measure, face, rotate, align, gap }
+enum Tool { select, move, beam, ruler, measure, face, rotate, align, gap }
 
 class Editor extends ChangeNotifier {
   Project project;
@@ -19,16 +24,24 @@ class Editor extends ChangeNotifier {
   final List<Project> _past = [], _future = [];
   Camera camera = Camera();
   final _viewCameras = <ViewAngle, (Camera, WorkPlane)>{};
-  ViewAngle get activeView =>
-      view ?? (camera.perspective ? ViewAngle.perspective : ViewAngle.iso);
+  ViewAngle selectedView = ViewAngle.iso;
+  bool _freeView = false;
+  ViewAngle? get activeView => _freeView ? null : selectedView;
+
+  GridVisibility gridVisibility = const GridVisibility();
   WorkPlane plane = WorkPlane.xy();
   Tool tool = Tool.select;
-  ViewAngle? view = ViewAngle.iso;
-  bool snap = true, magneticResize = true;
+  bool snap = true;
   bool snapByDefault = true;
   bool dimensionsByDefault = true;
+  bool showHiddenOutlines = false;
+  Project get framedProject =>
+      showHiddenOutlines ? project : project.visibleGeometry;
   bool dimensionTabHeld = false;
-  bool get dimensionsVisible => dimensionsByDefault != dimensionTabHeld;
+  bool get rulerActive =>
+      tool == Tool.ruler || tool == Tool.measure || tool == Tool.gap;
+  bool get dimensionsVisible =>
+      rulerActive || dimensionsByDefault != dimensionTabHeld;
 
   void holdDimensionTab(bool held) {
     if (dimensionTabHeld == held) return;
@@ -36,10 +49,26 @@ class Editor extends ChangeNotifier {
     refresh();
   }
 
-  (Vector3, Vector3)? guide;
   SnapMode snapMode = SnapMode.auto;
-  int resizeAxis = 0, rotationAxis = 2;
+  int rotationAxis = 2;
   int? hoveredSize, focusedSize;
+  int? _focusedPositionAxis;
+  void focusPositionAxis(int dim, bool focused) {
+    if (!focused && _focusedPositionAxis != dim) return;
+    final next = focused ? dim : null;
+    if (_focusedPositionAxis == next) return;
+    _focusedPositionAxis = next;
+    refresh();
+  }
+
+  ({int axis, Vector3 origin})? get positionGuide {
+    final dim = _focusedPositionAxis;
+    if (dim == null || selection.isEmpty) return null;
+    final origin =
+        single?.origin ?? Bounds3.points(selected.expand((b) => b.corners)).low;
+    return (axis: dim, origin: origin);
+  }
+
   int? get highlightedSize => hoveredSize ?? focusedSize;
   void markSize(int axis, bool active, {bool focus = false}) {
     final old = focus ? focusedSize : hoveredSize;
@@ -63,15 +92,27 @@ class Editor extends ChangeNotifier {
   }
 
   double angle = 0;
+  // The preview needs a continuous target when a step crosses 0°.
+  int _fullTurns = 0;
+  double get rotationDegrees => angle + 360 * _fullTurns;
+
   void setAngle(double next) {
+    final previous = angle;
     angle = next % 360;
     if (angle.abs() < 1e-8 || (360 - angle).abs() < 1e-8) angle = 0;
+    final delta = angle - previous;
+    if (delta > 180 || (delta == 180 && next < previous)) {
+      _fullTurns--;
+    } else if (delta < -180 || (delta == -180 && next > previous)) {
+      _fullTurns++;
+    }
     refresh();
   }
 
   void chooseRotationAxis(int next) {
     rotationAxis = next;
     angle = 0;
+    _fullTurns = 0;
     ensureVisibleRotationPlane();
     refresh();
   }
@@ -80,15 +121,31 @@ class Editor extends ChangeNotifier {
     final n = rotationBasis[rotationAxis];
     if (n.dot(camera.eye).abs() < .20) {
       final u = rotationBasis[(rotationAxis + 1) % 3];
+      _rememberView();
       camera.facePlane(WorkPlane('', Vector3.zero(), u, n.cross(u)));
-      view = null;
+      _freeView = true;
     }
   }
 
   int? referenceId;
   StockAlignment alignment = StockAlignment.middle;
   StockAlignment? hoverAlignment;
-  bool overAlignmentPanel = false;
+  bool _referencePickHeld = false;
+  bool get pickingAlignmentSupport =>
+      tool == Tool.align && (_referencePickHeld || referenceId == null);
+
+  void holdReferencePick(bool held) {
+    if (tool != Tool.align || _referencePickHeld == held) return;
+    _referencePickHeld = held;
+    faceHover = null;
+    refresh();
+  }
+
+  void releaseModifiers() {
+    holdReferencePick(false);
+    holdDimensionTab(false);
+  }
+
   bool hasPlacementChoice = false;
   Project? _suggestedProject;
   int? _suggestedFor;
@@ -106,7 +163,7 @@ class Editor extends ChangeNotifier {
     if (!identical(_suggestedProject, project) || _suggestedFor != part.id) {
       _suggestedProject = project;
       _suggestedFor = part.id;
-      final ref = adjacentSupport(project, part);
+      final ref = adjacentSupport(project.visibleGeometry, part);
       _suggested = ref == null
           ? null
           : StockPlacement(part, ref, _useThickness(part));
@@ -115,30 +172,23 @@ class Editor extends ChangeNotifier {
   }
 
   StockAlignment? get visibleAlignment =>
-      hoverAlignment ??
-      (tool == Tool.align && hasPlacementChoice ? alignment : null);
-  StockPlacement? get alignmentPlacement => tool == Tool.align
-      ? placement
-      : tool == Tool.select
-      ? suggestedPlacement
-      : null;
+      hoverAlignment ?? (hasPlacementChoice ? alignment : null);
   StockPlacement? get previewPlacement =>
-      visibleAlignment == null ? null : alignmentPlacement;
+      pickingAlignmentSupport || visibleAlignment == null ? null : placement;
   Beam? get alignmentSupport {
-    if (tool == Tool.align && referenceId == null) return faceHover?.beam;
-    return tool == Tool.align || overAlignmentPanel || visibleAlignment != null
-        ? alignmentPlacement?.reference
-        : null;
-  }
-
-  void showAlignmentSupport(bool over) {
-    if (overAlignmentPanel == over) return;
-    overAlignmentPanel = over;
-    refresh();
+    if (tool != Tool.align) return null;
+    if (pickingAlignmentSupport) {
+      return project.byId[hover?.beam] ?? faceHover?.beam;
+    }
+    final target = hover?.beam;
+    if (first != null && target != null && !selection.contains(target)) {
+      return project.byId[target];
+    }
+    return placement?.reference;
   }
 
   void hoverPlacement(StockAlignment option, bool over) {
-    if (!over && hoverAlignment != option) return;
+    if (tool != Tool.align || (!over && hoverAlignment != option)) return;
     final next = over ? option : null;
     if (hoverAlignment == next) return;
     hoverAlignment = next;
@@ -146,15 +196,9 @@ class Editor extends ChangeNotifier {
   }
 
   void chooseAlignment(StockAlignment option, {double? offset}) {
-    if (tool != Tool.align) {
-      final initial = suggestedPlacement;
-      if (initial == null) return;
-      chooseSupport(
-        initial.reference.id,
-        alongThickness: initial.alongThickness,
-      );
-    }
     if (placement == null) return;
+    first = hover = null;
+    preview = null;
     hoverAlignment = null;
     hasPlacementChoice = true;
     alignment = option;
@@ -165,32 +209,41 @@ class Editor extends ChangeNotifier {
   bool alignThickness = false;
   double manualOffset = 0;
   StockPlacement? get placement {
-    final part = single, ref = project.byId[referenceId];
+    if (tool != Tool.align) return null;
+    final part = single, ref = project.visibleGeometry.byId[referenceId];
     return part == null || ref == null || ref.id == part.id
         ? null
         : StockPlacement(part, ref, alignThickness);
   }
 
-  void beginAlignment() {
+  void beginAlignment({bool pickReference = false}) {
     final part = single;
     if (part == null) return;
-    if (project.beams.length < 2) {
-      message = 'Добавьте вторую деталь для выравнивания';
+    if (project.visibleGeometry.beams.length < 2) {
+      message = editorStrings.addASecondPartToAlignThem;
       refresh();
       return;
     }
     resetTransient();
-    referenceId = null;
-    alignThickness = _useThickness(part);
+    final initial = pickReference ? null : suggestedPlacement;
+    referenceId = initial?.reference.id;
+    alignThickness = initial?.alongThickness ?? _useThickness(part);
+    manualOffset = initial?.current ?? 0;
     alignment = StockAlignment.offset;
     tool = Tool.align;
     refresh();
   }
 
   void chooseSupport(int id, {bool? alongThickness}) {
-    if (project.byId[id] == null || single == null || id == single!.id) return;
-    if (tool != Tool.align) beginAlignment();
+    if (tool != Tool.align ||
+        !project.visibleGeometry.byId.containsKey(id) ||
+        single == null ||
+        id == single!.id) {
+      return;
+    }
     if (alongThickness != null) alignThickness = alongThickness;
+    first = hover = null;
+    preview = null;
     referenceId = id;
     hoverAlignment = null;
     hasPlacementChoice = false;
@@ -205,11 +258,13 @@ class Editor extends ChangeNotifier {
     return p == null ? 0 : p.offset(alignment, manualOffset) - p.current;
   }
 
+  Project rotationPreview(double degrees) => degrees % 360 == 0
+      ? project
+      : project.rotate(selection, rotationBasis[rotationAxis], degrees % 360);
+
   Project get displayed {
-    if (tool == Tool.rotate && selection.isNotEmpty) {
-      return project.rotate(selection, rotationBasis[rotationAxis], angle);
-    }
-    final p = tool == Tool.align ? placement : null;
+    if (tool == Tool.rotate) return rotationPreview(angle);
+    final p = hasPlacementChoice ? placement : null;
     if (p != null && alignmentDelta.abs() > 1e-7) {
       return project.edit(selection, (_) => p.placed(alignment, manualOffset));
     }
@@ -255,16 +310,19 @@ class Editor extends ChangeNotifier {
         ? step.millimeters(project.unit)
         : 1 / camera.scale;
     if (untilStop) {
-      final stop = travelToStop(project, selection, direction);
+      final stop = travelToStop(project.visibleGeometry, selection, direction);
       if (stop == null) {
-        message = 'В этом направлении нет упора';
+        message = editorStrings.noStopInThisDirection;
         refresh();
         return;
       }
       travel = stop.travel;
-      message = 'Упор · ${project.byId[stop.obstacle]!.name}';
+      message = editorStrings.stop(project.byId[stop.obstacle]!.name);
     } else {
-      message = 'Сдвиг · ${project.unit.format(travel)} ${project.unit.symbol}';
+      message = editorStrings.nudgeDistance(
+        project.unit.format(travel),
+        project.unit.symbol,
+      );
     }
     if (travel < 1e-7) {
       refresh();
@@ -273,8 +331,11 @@ class Editor extends ChangeNotifier {
     commit(project.move(selection, direction * travel));
   }
 
+  bool get canApplyRotation =>
+      tool == Tool.rotate && selection.isNotEmpty && angle != 0;
+
   void applyRotation() {
-    if (selection.isEmpty) return;
+    if (!canApplyRotation) return;
     final next = displayed;
     tool = Tool.select;
     resetTransient();
@@ -282,9 +343,51 @@ class Editor extends ChangeNotifier {
   }
 
   int? firstShelf;
+  Dimension? selectedDimension;
+  final _dimensionRowIds = Expando<Object>();
+  Object dimensionRowId(Dimension dimension) =>
+      _dimensionRowIds[dimension] ?? dimension;
+
+  void selectDimension(Dimension? dimension) {
+    resetTransient();
+    tool = Tool.ruler;
+    selectedDimension = dimension;
+    refresh();
+  }
+
+  void addDimension(Dimension dimension) {
+    resetTransient();
+    tool = Tool.ruler;
+    selectedDimension = dimension;
+    commit(project.copy(dimensions: [...project.dimensions, dimension]));
+  }
+
+  void updateDimension(Dimension dimension, Dimension updated) {
+    if (!project.dimensions.contains(dimension) || updated == dimension) {
+      return;
+    }
+    // Keep focus in the same row across numeric edits and lock changes.
+    _dimensionRowIds[updated] = dimensionRowId(dimension);
+    if (selectedDimension == dimension) selectedDimension = updated;
+    commit(
+      project.copy(
+        dimensions: [
+          for (final d in project.dimensions) d == dimension ? updated : d,
+        ],
+      ),
+    );
+  }
+
+  void removeDimension(Dimension dimension) {
+    commit(
+      project.copy(dimensions: project.dimensions.where((d) => d != dimension)),
+    );
+  }
+
   Dimension? gapPreview;
   Anchor? first, hover;
   StockSketch? sketch;
+  Beam? partToPlace;
   SceneFace? faceHover;
   Beam? preview;
   String message = '';
@@ -293,7 +396,7 @@ class Editor extends ChangeNotifier {
   Set<int> _overlaps = {};
   Set<int> get overlaps {
     if (!identical(_checked, project)) {
-      _overlaps = project.overlaps;
+      _overlaps = project.visibleGeometry.overlaps;
       _checked = project;
     }
     return _overlaps;
@@ -327,16 +430,32 @@ class Editor extends ChangeNotifier {
   }
 
   void _prune() {
-    selection = selection.where(project.byId.containsKey).toSet();
+    if (selectedDimension != null &&
+        !project.dimensions.contains(selectedDimension)) {
+      selectedDimension = null;
+    }
+    selection = selection
+        .where(project.visibleGeometry.byId.containsKey)
+        .toSet();
+    if (tool == Tool.align &&
+        (single == null || project.visibleGeometry.beams.length < 2)) {
+      tool = Tool.select;
+      resetTransient();
+    }
+    if (!project.visibleGeometry.byId.containsKey(referenceId)) {
+      referenceId = null;
+    }
   }
 
-  void resetTransient() {
-    overAlignmentPanel = false;
+  void resetTransient({bool keepPartToPlace = false}) {
+    selectedDimension = null;
+    _referencePickHeld = false;
     hoverAlignment = null;
     hasPlacementChoice = false;
     hoveredSize = focusedSize = null;
+    _focusedPositionAxis = null;
     sketch = null;
-    guide = null;
+    if (!keepPartToPlace) partToPlace = null;
     firstShelf = null;
     gapPreview = null;
     first = null;
@@ -377,19 +496,22 @@ class Editor extends ChangeNotifier {
     resetTransient();
     tool = Tool.select;
     plane = WorkPlane.xy();
-    view = ViewAngle.iso;
-    camera.view(view!);
+    selectedView = ViewAngle.iso;
+    _freeView = false;
+    camera.view(selectedView);
     fitRequested = true;
     onDocumentChange?.call(project);
     notifyListeners();
   }
 
   void select(int? id, {bool multi = false, bool individual = false}) {
+    if (id != null && !project.visibleGeometry.byId.containsKey(id)) return;
+    if (tool == Tool.align) tool = Tool.select;
     resetTransient();
     if (id == null) {
       selection = {};
     } else {
-      final target = individual ? {id} : project.assembly(id);
+      final target = individual ? {id} : project.visibleGeometry.assembly(id);
       if (multi) {
         selection = selection.containsAll(target)
             ? (selection.difference(target))
@@ -401,32 +523,76 @@ class Editor extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectAll() {
+    if (tool == Tool.align) tool = Tool.select;
+    resetTransient();
+    selection = project.visibleGeometry.byId.keys.toSet();
+    refresh();
+  }
+
+  void setPartsHidden(Set<int> ids, bool hidden) {
+    if (!ids.any((id) => project.byId[id]?.hidden == !hidden)) return;
+    resetTransient();
+    referenceId = null;
+    tool = Tool.select;
+    commit(project.edit(ids, (b) => b.copy(hidden: hidden)));
+  }
+
+  void showAllHiddenParts() => setPartsHidden({
+    for (final b in project.beams)
+      if (b.hidden) b.id,
+  }, false);
+
   void setTool(Tool next) {
     resetTransient();
     tool = next;
     if (next == Tool.rotate) {
-      angle = 0;
-      ensureVisibleRotationPlane();
+      chooseRotationAxis(rotationAxis);
+      return;
     }
+    notifyListeners();
+  }
+
+  void beginPlacing(Beam part) {
+    resetTransient();
+    tool = Tool.beam;
+    partToPlace = part;
     notifyListeners();
   }
 
   void setPlane(WorkPlane next) {
-    resetTransient();
-    plane = next;
+    resetTransient(keepPartToPlace: true);
     if (next.normal.dot(camera.eye).abs() < .025) {
+      _rememberView();
       camera.facePlane(next);
-      view = null;
+      _freeView = true;
     }
+    plane = next;
     if (tool == Tool.face) tool = Tool.select;
     notifyListeners();
   }
 
+  void _rememberView() {
+    final preset = activeView;
+    if (preset != null && !fitRequested) {
+      _viewCameras[preset] = (camera.copy(), plane);
+    }
+  }
+
+  void orbit(Offset delta, Vector3 pivot) {
+    if (delta == Offset.zero) return;
+    _rememberView();
+    _freeView = true;
+    camera.orbit(delta, pivot);
+    hover = null;
+  }
+
   void setView(ViewAngle next) {
-    if (next == view) return;
-    if (!fitRequested) _viewCameras[activeView] = (camera.copy(), plane);
-    resetTransient();
-    view = next;
+    if (next == activeView) return;
+    _rememberView();
+    resetTransient(keepPartToPlace: true);
+    selectedView = next;
+    _freeView = false;
     if (_viewCameras[next] case final saved?) {
       camera = saved.$1.copy();
       plane = saved.$2;
@@ -468,6 +634,10 @@ class Editor extends ChangeNotifier {
   }
 
   void delete() {
+    if (rulerActive) {
+      if (selectedDimension case final d?) removeDimension(d);
+      return;
+    }
     if (selection.isNotEmpty) {
       resetTransient();
       commit(project.remove(selection));
@@ -476,6 +646,10 @@ class Editor extends ChangeNotifier {
 
   void duplicate() {
     if (selection.isEmpty) return;
+    if (tool == Tool.align) {
+      tool = Tool.select;
+      resetTransient();
+    }
     var next = project.nextId, nextGroup = project.nextGroup;
     final groups = <int, int>{};
     final copies = selected
@@ -490,33 +664,60 @@ class Editor extends ChangeNotifier {
         )
         .toList();
     selection = copies.map((b) => b.id).toSet();
-    commit(project.copy(beams: [...project.beams, ...copies]));
+    commit(
+      project.copy(
+        beams: [...project.beams, ...copies],
+        groupNames: {
+          ...project.groupNames,
+          for (final entry in groups.entries)
+            entry.value: ?project.groupNames[entry.key],
+        },
+      ),
+    );
   }
 
-  void extend(bool positive) {
-    final b = single;
-    if (b == null) return;
-    if (b.locked(resizeAxis)) {
-      message = 'Размер заблокирован';
-      notifyListeners();
+  void stretchBetweenSupports({required bool height}) {
+    final part = single;
+    if (part == null || tool != Tool.select) return;
+    final basis = [part.along, part.across, part.up];
+    var vertical = 0;
+    for (var i = 1; i < basis.length; i++) {
+      if (basis[i].z.abs() > basis[vertical].z.abs()) vertical = i;
+    }
+    final horizontal = (vertical + 1) % 3, other = (vertical + 2) % 3;
+    final width = basis[horizontal].x.abs() >= basis[other].x.abs()
+        ? horizontal
+        : other;
+    final dim = height ? vertical : width;
+    if (part.locked(dim)) {
+      message = editorStrings.dimensionLocked;
+      refresh();
       return;
     }
-    final hit = firstContact(b, resizeAxis, positive, project.beams);
-    if (hit == null) {
-      message = 'В этом направлении нет упора';
-      notifyListeners();
+    final start = firstContact(part, dim, false, project.visibleGeometry.beams);
+    final end = firstContact(part, dim, true, project.visibleGeometry.beams);
+    if (start == null || end == null || start.obstacle == end.obstacle) {
+      message = editorStrings.referencesAreNeededOnBothSides;
+      refresh();
       return;
     }
-    message = 'Упор · ${project.byId[hit.obstacle]!.name}';
-    if (hit.travel < 1e-6) {
-      notifyListeners();
+    final left = project.byId[start.obstacle]!,
+        right = project.byId[end.obstacle]!;
+    if ((start.travel == 0 && intersects(part, left)) ||
+        (end.travel == 0 && intersects(part, right))) {
+      message = editorStrings.thePartIntersectsItsReference;
+      refresh();
       return;
     }
+    if (start.travel + end.travel < 1e-6) {
+      message = editorStrings.alreadyTouchesReferences;
+      refresh();
+      return;
+    }
+    final grown = resizeEnd(part, dim, false, start.travel);
+    message = editorStrings.bothStops(left.name, right.name);
     commit(
-      project.edit(
-        selection,
-        (b) => resizeEnd(b, resizeAxis, positive, hit.travel, stop: hit),
-      ),
+      project.edit(selection, (_) => resizeEnd(grown, dim, true, end.travel)),
     );
   }
 }

@@ -62,6 +62,11 @@ Iterable<Vector3> _polyAxes(Beam a, Beam b) sync* {
 }
 
 bool intersects(Beam a, Beam b) {
+  if (a.rabbets.isNotEmpty || b.rabbets.isNotEmpty) {
+    return a.solidStrips().any(
+      (first) => b.solidStrips().any((second) => intersects(first, second)),
+    );
+  }
   if (a.bevelled || b.bevelled) {
     final ac = a.corners, bc = b.corners;
     for (final n in _polyAxes(a, b)) {
@@ -90,6 +95,16 @@ Contact? firstContact(
   bool positive,
   Iterable<Beam> neighbours,
 ) {
+  if (beam.rabbets.isNotEmpty) {
+    Contact? first;
+    for (final strip in beam.solidStrips(vertical: dimension == 2)) {
+      final hit = firstContact(strip, dimension, positive, neighbours);
+      if (hit != null && (first == null || hit.travel < first.travel)) {
+        first = hit;
+      }
+    }
+    return first;
+  }
   final box = _Box.beam(beam);
   final direction = box.basis[dimension] * (positive ? 1.0 : -1.0);
   final half = box.half.clone()..[dimension] = 0;
@@ -99,7 +114,7 @@ Contact? firstContact(
     box.basis,
   );
   Contact? first;
-  for (final other in neighbours) {
+  for (final other in neighbours.expand((b) => b.solidStrips())) {
     if (other.id == beam.id) continue;
     if (beam.bevelled || other.bevelled) {
       final f = [
@@ -166,17 +181,17 @@ Beam resizeEnd(
   Contact? stop,
 }) {
   if (b.locked(dimension)) return b;
-  final actual = change.clamp(
-    (dimension == 0
-            ? math.max(b.minimumLength, math.min(1, b.size.x))
-            : math.min(1, b.size[dimension])) -
-        b.size[dimension],
-    stop?.travel ?? double.infinity,
-  );
+  final oldSize = b.size[dimension];
+  final newSize = (oldSize + change)
+      .clamp(
+        math.max(b.minimumSize(dimension), math.min(1.0, oldSize)),
+        oldSize + (stop?.travel ?? double.infinity),
+      )
+      .toDouble();
   final dir = [b.along, b.across, b.up][dimension];
   return b.copy(
-    size: b.size.clone()..[dimension] = b.size[dimension] + actual,
-    origin: positive ? b.origin : b.origin - dir * actual,
+    size: b.size.clone()..[dimension] = newSize,
+    origin: positive ? b.origin : b.origin - dir * (newSize - oldSize),
   );
 }
 
@@ -238,96 +253,20 @@ Project mate(Project project, Set<int> selection, Anchor from, Anchor to) {
   );
 }
 
-class EndAlignment {
-  final double travel;
-  final Vector3 target;
-  final int id;
-  EndAlignment(this.travel, this.target, this.id);
-}
-
-List<EndAlignment> alignedEnds(
-  Beam beam,
-  int dimension,
-  bool positive,
-  Iterable<Beam> neighbours,
-  double clearance,
-) {
-  final basis = [beam.along, beam.across, beam.up],
-      start = faceCenter(beam, dimension, positive);
-  final direction = basis[dimension] * (positive ? 1.0 : -1.0),
-      source = beam.corners;
-  final result = <EndAlignment>[];
-  for (final part in neighbours) {
-    if (part.id == beam.id) continue;
-    final corners = part.corners;
-    var nearby = true;
-    for (var i = 0; i < 3; i++) {
-      if (i == dimension) continue;
-      final a = _range(source, basis[i]), b = _range(corners, basis[i]);
-      if (math.max(b.lo - a.hi, a.lo - b.hi) > clearance) {
-        nearby = false;
-        break;
-      }
-    }
-    if (!nearby) continue;
-    for (var j = 0; j < 6; j++) {
-      if (part.faceNormal(j).dot(direction).abs() < .99999) continue;
-      final anchor = faceCenter(part, j ~/ 2, j.isOdd);
-      final travel = (anchor - start).dot(direction);
-      if (beam.size[dimension] + travel >= 1) {
-        result.add(EndAlignment(travel, anchor, part.id));
-      }
-    }
-  }
-  return result;
-}
-
-class EndMagnet {
-  EndAlignment? candidate, latched;
-  Duration? since;
-  EndAlignment? update(
-    double travel,
-    List<EndAlignment> targets,
-    double tolerance,
-    Duration time,
-  ) {
-    if (latched != null &&
-        (latched!.travel - travel).abs() <= tolerance * 1.8) {
-      return latched;
-    }
-    latched = null;
-    EndAlignment? nearest;
-    var distance = tolerance;
-    for (final t in targets) {
-      final d = (t.travel - travel).abs();
-      if (d <= distance) {
-        nearest = t;
-        distance = d;
-      }
-    }
-    if (nearest != candidate) {
-      candidate = nearest;
-      since = time;
-    }
-    if (nearest != null &&
-        time - (since ?? time) >= const Duration(milliseconds: 180)) {
-      latched = nearest;
-    }
-    return latched;
-  }
-}
-
 /// Swept separating-axis intervals for rigid translation, including mitred
 /// ends and a group whose members have different orientations.
 Contact? travelToStop(Project project, Set<int> ids, Vector3 direction) {
   Contact? nearest;
-  for (final id in ids) {
-    final part = project.byId[id]!, a = part.corners;
-    for (final other in project.beams) {
-      if (ids.contains(other.id)) continue;
-      final b = other.corners;
+  final obstacles = project.beams
+      .where((b) => !ids.contains(b.id))
+      .expand((b) => b.solidStrips())
+      .toList();
+  for (final part in ids.expand((id) => project.byId[id]!.solidStrips())) {
+    final a = part.corners;
+    for (final target in obstacles) {
+      final b = target.corners;
       var enter = double.negativeInfinity, exit = double.infinity;
-      for (final n in _polyAxes(part, other)) {
+      for (final n in _polyAxes(part, target)) {
         final ra = _range(a, n), rb = _range(b, n), speed = direction.dot(n);
         if (speed.abs() < 1e-8) {
           if (ra.hi <= rb.lo + 1e-7 || rb.hi <= ra.lo + 1e-7) {
@@ -347,7 +286,7 @@ Contact? travelToStop(Project project, Set<int> ids, Vector3 direction) {
       }
       final distance = math.max(0.0, enter);
       if (nearest == null || distance < nearest.travel) {
-        nearest = Contact(distance, other.id);
+        nearest = Contact(distance, target.id);
       }
     }
   }

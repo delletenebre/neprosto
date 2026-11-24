@@ -1,20 +1,19 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
+
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
 import 'model.dart';
+import 'finish_painter.dart';
+import 'part_finish.dart';
 import 'move_snap.dart';
 import 'stock_axis.dart';
 import 'positioning.dart';
 import 'scene.dart';
 import 'contact.dart';
 
-const ink = Color(0xff242428),
-    muted = Color(0xff67676d),
-    accent = Color(0xff176cc0),
-    pale = Color(0xffe2edfc),
-    line = Color(0xffd5d5d9),
-    paper = Color(0xfffafaf6);
 const alignmentColors = {
   StockAlignment.front: Color(0xff087d63),
   StockAlignment.middle: Color(0xff1b74cd),
@@ -28,97 +27,166 @@ const mono = TextStyle(
   fontFeatures: [FontFeature.tabularFigures()],
 );
 
+class EndFaceOutline extends CustomPainter {
+  final Beam beam;
+  final bool end;
+  final Camera camera;
+  final Color color;
+  EndFaceOutline(this.beam, this.end, this.camera, this.color);
+  @override
+  void paint(Canvas c, Size s) {
+    final points = beam.rabbets.isNotEmpty
+        ? [
+            for (final p in beam.sectionOutline)
+              camera.project(beam.pointAt(p..x = end ? 1 : 0), s),
+          ]
+        : [
+            for (final point in beam.sectionOutline)
+              camera.project(
+                beam.pointAt(Vector3(end ? 1 : 0, point.y, point.z)),
+                s,
+              ),
+          ];
+    final path = Path()..addPolygon(points, true);
+    final pen = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..color = color;
+    c.drawPath(path, pen);
+    final bounds = path.getBounds();
+    if (bounds.longestSide < 12) {
+      c.drawCircle(bounds.center, 6, pen..strokeWidth = 1.5);
+    }
+  }
+
+  @override
+  bool shouldRepaint(EndFaceOutline old) => true;
+}
+
 class DrawingPainter extends CustomPainter {
   final stockLabels = <StockAxis, Rect>{};
+  final _dimensionLines =
+      <Dimension, ({Offset start, Offset end, Rect label})>{};
+  final Dimension? selectedDimension;
+
+  Dimension? dimensionAt(Offset position) {
+    Dimension? closest;
+    var best = 7.0 * 7.0;
+    for (final entry in _dimensionLines.entries) {
+      final line = entry.value;
+      final distance = line.label.inflate(2).contains(position)
+          ? 0.0
+          : segmentDistanceSquared(position, line.start, line.end);
+      if (distance <= best) {
+        best = distance;
+        closest = entry.key;
+      }
+    }
+    return closest;
+  }
+
   final Scene scene;
+  final Iterable<Beam> hiddenOutlines;
   final Set<int> selection;
   final int? referenceId;
   final Beam? alignmentSupport;
   final Dimension? gapPreview;
-  final WorkPlane plane;
   final Anchor? hover, first;
   final Beam? preview;
+  final EditorPalette colors;
   final Color previewColor;
   final SceneFace? activeFace;
-  final bool grid, dimensions, dimensionsVisible;
-  final double gridStep;
+  final RulerTarget? rulerTarget;
+  final bool showRise, dimensions, dimensionsVisible;
+  final bool showAllStockSizes;
   final Set<int> overlaps;
-  final int? handleAxis;
+  final Set<int> moveHighlight;
+  final int? resizePart;
+  final ResizeEdge? activeEdge;
+  final Offset? edgePointer;
   final Project? original;
-  final (Vector3, Vector3)? guide;
   final List<MoveGuide> moveGuides;
   final int rotationAxis;
   final int? highlightedSize;
+  final ({int axis, Vector3 origin})? positionGuide;
   final bool localRotation;
   final List<Vector3>? rotationBasis;
   final double angle;
   DrawingPainter({
     required this.scene,
+    this.hiddenOutlines = const [],
     required this.selection,
+    this.selectedDimension,
     this.referenceId,
     this.alignmentSupport,
     this.gapPreview,
-    required this.plane,
     this.hover,
     this.first,
     this.preview,
-    this.previewColor = accent,
+    this.colors = EditorPalette.light,
+    Color? previewColor,
     this.activeFace,
-    required this.grid,
+    this.rulerTarget,
+    this.showRise = false,
     required this.dimensions,
     this.dimensionsVisible = true,
-    required this.gridStep,
+    this.showAllStockSizes = false,
     this.overlaps = const {},
-    this.handleAxis,
+    this.moveHighlight = const {},
+    this.resizePart,
+    this.activeEdge,
+    this.edgePointer,
     this.original,
     this.rotationAxis = 2,
     this.highlightedSize,
+    this.positionGuide,
     this.localRotation = false,
     this.rotationBasis,
-    this.guide,
     this.moveGuides = const [],
     this.angle = 0,
-  });
+  }) : previewColor = previewColor ?? colors.accent;
   Offset project(Vector3 p) => scene.camera.project(p, scene.size);
   @override
   void paint(Canvas c, Size s) {
     stockLabels.clear();
+    _dimensionLines.clear();
     c.save();
     c.clipRect(Offset.zero & s);
-    c.drawRect(Offset.zero & s, Paint()..color = paper);
-    if (grid) _grid(c, s);
     _workspace(c);
     if (original != null) {
+      final pen = Paint()
+        ..color = const Color(0xff87958a)
+        ..strokeWidth = 1;
       for (final b in original!.beams.where((b) => selection.contains(b.id))) {
-        final corners = b.corners;
-        for (var i = 0; i < 8; i++) {
-          for (final bit in [1, 2, 4]) {
-            if ((i & bit) == 0) {
-              c.drawLine(
-                project(corners[i]),
-                project(corners[i | bit]),
-                Paint()
-                  ..color = const Color(0xff87958a)
-                  ..strokeWidth = 1,
-              );
-            }
-          }
-        }
+        _partOutline(c, b, pen);
       }
     }
     for (final f in scene.faces) {
       _face(c, f);
+      if (f == rulerTarget?.face) {
+        _highlightFace(c, f);
+        if (rulerTarget?.guide case final guide?) {
+          c.drawLine(
+            project(guide.$1),
+            project(guide.$2),
+            Paint()
+              ..color = colors.accent
+              ..strokeWidth = 3.5,
+          );
+        }
+      }
+    }
+    if (hiddenOutlines.isNotEmpty) {
+      final pen = Paint()
+        ..color = colors.muted.withValues(alpha: .48)
+        ..strokeWidth = 1;
+      for (final b in hiddenOutlines) {
+        _partOutline(c, b, pen);
+      }
     }
     if (original != null && selection.isNotEmpty) _rotation(c);
     if (activeFace case final face?) {
-      c.drawPath(face.path, Paint()..color = accent.withValues(alpha: .22));
-      c.drawPath(
-        face.path,
-        Paint()
-          ..color = accent
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
+      _highlightFace(c, face);
     }
     if (preview case final b?) {
       final ghost = Scene(Project('', [b]), scene.camera, s);
@@ -166,64 +234,25 @@ class DrawingPainter extends CustomPainter {
     ]) {
       final g = d.geometry(scene.project);
       if (g == null) continue;
-      _ruler(c, g.from, g.to, -17, accent);
-      if (d.clearance) {
-        _marker(c, project(g.from));
-        _marker(c, project(g.to));
-      }
-    }
-    if (handleAxis != null && selection.length == 1) {
-      final b = scene.project.byId[selection.first];
-      if (b != null) {
-        for (final positive in [false, true]) {
-          final at = project(faceCenter(b, handleAxis!, positive));
-          c.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromCenter(center: at, width: 10, height: 10),
-              const Radius.circular(2),
-            ),
-            Paint()..color = Colors.white,
-          );
-          c.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromCenter(center: at, width: 10, height: 10),
-              const Radius.circular(2),
-            ),
-            Paint()
-              ..color = accent
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 2,
-          );
-        }
-      }
-    }
-    if (guide != null) {
-      final (a, b) = guide!;
-      final start = project(a), end = project(b), delta = end - start;
-      if (delta.distance > 1) {
-        final d = delta / delta.distance;
-        for (double i = -15; i < delta.distance + 15; i += 8) {
-          c.drawLine(
-            start + d * i,
-            start + d * (i + 4),
-            Paint()
-              ..color = accent
-              ..strokeWidth = 1.5,
-          );
-        }
-      }
-      _marker(c, end);
-      _label(
+      final selected = d == selectedDimension;
+      final line = _ruler(
         c,
-        start + const Offset(0, -15),
-        'Совпадение',
-        accent,
-        filled: true,
+        g.from,
+        g.to,
+        -17,
+        colors.accent,
+        selected: selected,
+        showDepth: true,
       );
+      if (line != null && d != gapPreview) _dimensionLines[d] = line;
+      if (selected) {
+        if (d.a.beam != null) _marker(c, project(g.from));
+        if (d.b.beam != null) _marker(c, project(g.to));
+      }
     }
     for (final g in moveGuides) {
       final paint = Paint()
-        ..color = accent
+        ..color = colors.accent
         ..strokeWidth = 1.4;
       final start = project(g.line.$1), end = project(g.line.$2);
       if (g.reference case final ref?) {
@@ -243,8 +272,8 @@ class DrawingPainter extends CustomPainter {
         _label(
           c,
           (start + end) / 2 + const Offset(0, -15),
-          'Зазор ${unit.format(g.gap!)} ${unit.symbol}',
-          accent,
+          editorStrings.gap(unit.format(g.gap!), unit.symbol),
+          colors.accent,
           filled: true,
         );
       } else {
@@ -256,7 +285,28 @@ class DrawingPainter extends CustomPainter {
         }
       }
     }
+    if (alignmentSupport case final support?) _drawSupport(c, s, support);
     if (first case final a?) {
+      if (showRise && hover != null) {
+        final start = a.resolve(scene.project),
+            end = hover!.resolve(scene.project);
+        final top = project(Vector3(start.x, start.y, end.z));
+        final base = project(start), tip = project(end);
+        final pen = Paint()
+          ..color = colors.accent.withValues(alpha: .75)
+          ..strokeWidth = 1.2;
+        c.drawLine(base, top, pen);
+        c.drawLine(top, tip, pen);
+        if (dimensionsVisible) {
+          final unit = scene.project.unit;
+          _label(
+            c,
+            top + const Offset(0, -24),
+            'Z +${unit.format(end.z - start.z)} ${unit.symbol}',
+            colors.accent,
+          );
+        }
+      }
       _marker(c, project(a.resolve(scene.project)));
       if (hover case final b? when dimensionsVisible) {
         _ruler(
@@ -264,7 +314,7 @@ class DrawingPainter extends CustomPainter {
           a.resolve(scene.project),
           b.resolve(scene.project),
           -12,
-          accent,
+          colors.accent,
         );
       }
     }
@@ -272,13 +322,103 @@ class DrawingPainter extends CustomPainter {
       final screen = project(a.resolve(scene.project));
       if (a.beam != null) {
         _marker(c, screen);
-        _label(c, screen + const Offset(0, -24), a.label, accent, filled: true);
+        _label(
+          c,
+          screen + const Offset(0, -24),
+          a.displayLabel,
+          colors.accent,
+          filled: true,
+        );
       } else {
-        c.drawCircle(screen, 3, Paint()..color = accent);
+        c.drawCircle(screen, 3, Paint()..color = colors.accent);
       }
     }
-    if (alignmentSupport case final support?) _drawSupport(c, s, support);
+    if (activeEdge case final edge? when edgePointer != null) {
+      final part = scene.project.byId[edge.face.beam.id]!;
+      final unit = scene.project.unit;
+      _label(
+        c,
+        edgePointer! + const Offset(0, -24),
+        '${StockAxis.values[edge.axis].label} · ${unit.format(part.size[edge.axis])} ${unit.symbol}',
+        colors.accent,
+        filled: true,
+      );
+    }
+    if (positionGuide case final guide?) {
+      _drawPositionAxis(c, guide.axis, guide.origin);
+    }
     c.restore();
+  }
+
+  void _highlightFace(Canvas c, SceneFace face) {
+    c.drawPath(
+      face.path,
+      Paint()..color = colors.accent.withValues(alpha: .22),
+    );
+    c.drawPath(
+      face.path,
+      Paint()
+        ..color = colors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  void _drawPositionAxis(Canvas c, int dim, Vector3 origin) {
+    final center = project(origin);
+    final direction = project(origin + axis(dim)) - center;
+    final color = colors.axisColor(dim);
+    final pen = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    Offset label;
+    if (direction.distance <
+        .01 * scene.camera.scale * scene.camera.projectionFactor(origin)) {
+      // The axis points toward or away from the viewer in this projection.
+      c.drawCircle(center, 7, Paint()..color = colors.paper);
+      c.drawCircle(center, 6, pen..style = PaintingStyle.stroke);
+      if (scene.camera.towardEye(origin)[dim] > 0) {
+        c.drawCircle(center, 2, pen..style = PaintingStyle.fill);
+      } else {
+        c.drawLine(
+          center - const Offset(3, 3),
+          center + const Offset(3, 3),
+          pen,
+        );
+        c.drawLine(
+          center - const Offset(3, -3),
+          center + const Offset(3, -3),
+          pen,
+        );
+      }
+      label = center + const Offset(0, -19);
+    } else {
+      final unit = direction / direction.distance;
+      final normal = Offset(-unit.dy, unit.dx);
+      final tip = center + unit * 64;
+      final path = Path()
+        ..moveTo(center.dx - unit.dx * 48, center.dy - unit.dy * 48)
+        ..lineTo(tip.dx, tip.dy);
+      for (final side in [-1, 1]) {
+        final wing = tip - unit * 8 + normal * (side * 4);
+        path
+          ..moveTo(tip.dx, tip.dy)
+          ..lineTo(wing.dx, wing.dy);
+      }
+      pen.style = PaintingStyle.stroke;
+      c.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..color = colors.paper,
+      );
+      c.drawPath(path, pen);
+      c.drawCircle(center, 3.5, pen..style = PaintingStyle.fill);
+      label = tip + unit * 13;
+    }
+    _label(c, label, 'XYZ'[dim], color);
   }
 
   void _drawSupport(Canvas c, Size size, Beam support) {
@@ -322,7 +462,7 @@ class DrawingPainter extends CustomPainter {
     if (cross.isEmpty) return;
     final caption = TextPainter(
       text: TextSpan(
-        text: 'Опора · ${support.name}',
+        text: editorStrings.anchorLabel(support.name),
         style: mono.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
       ),
       textDirection: TextDirection.ltr,
@@ -373,7 +513,7 @@ class DrawingPainter extends CustomPainter {
     c.drawPath(
       path,
       Paint()
-        ..color = Colors.white.withValues(alpha: .85)
+        ..color = colors.panel.withValues(alpha: .85)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
     );
@@ -422,7 +562,7 @@ class DrawingPainter extends CustomPainter {
       dial.axisEnd + const Offset(0, -10),
       localRotation
           ? StockAxis.values[rotationAxis].label
-          : 'Ось ${'XYZ'[rotationAxis]}',
+          : editorStrings.axis('XYZ'[rotationAxis]),
       color,
     );
   }
@@ -452,6 +592,26 @@ class DrawingPainter extends CustomPainter {
     final pen = Paint()
       ..strokeWidth = 1.2
       ..color = const Color(0xff95a6b4);
+    _wireframe(c, corners, pen);
+  }
+
+  void _partOutline(Canvas c, Beam b, Paint pen) {
+    if (b.rabbets.isEmpty) {
+      _wireframe(c, b.corners, pen);
+      return;
+    }
+    final section = b.sectionOutline;
+    final start = section.map(b.pointAt).toList();
+    final end = [for (final p in section) b.pointAt(p.clone()..x = 1)];
+    for (var i = 0; i < section.length; i++) {
+      final j = (i + 1) % section.length;
+      _worldLine(c, start[i], start[j], pen);
+      _worldLine(c, end[i], end[j], pen);
+      _worldLine(c, start[i], end[i], pen);
+    }
+  }
+
+  void _wireframe(Canvas c, List<Vector3> corners, Paint pen) {
     for (var i = 0; i < corners.length; i++) {
       for (final bit in [1, 2, 4]) {
         if (i & bit == 0) _worldLine(c, corners[i], corners[i | bit], pen);
@@ -459,67 +619,23 @@ class DrawingPainter extends CustomPainter {
     }
   }
 
-  void _grid(Canvas c, Size s) {
-    final camera = scene.camera;
-    if (camera.eye.dot(plane.normal).abs() < .025) return;
-    final across = <Vector3>[];
-    if (camera.perspective) {
-      final center = camera.target - plane.origin, r = camera.eyeDistance * 3;
-      for (final sign in [-1.0, 1.0]) {
-        across.add(center + (plane.u + plane.v) * (sign * r));
-      }
-    } else {
-      across.addAll(
-        [
-          Offset.zero,
-          Offset(s.width, 0),
-          s.bottomRight(Offset.zero),
-          Offset(0, s.height),
-        ].map((p) => camera.onPlane(p, s, plane)! - plane.origin),
-      );
-    }
-    var step = gridStep;
-    while (step * camera.scale < 18) {
-      step *= 2;
-    }
-    double minU = double.infinity, maxU = -minU, minV = minU, maxV = -minU;
-    for (final a in across) {
-      minU = math.min(minU, a.dot(plane.u));
-      maxU = math.max(maxU, a.dot(plane.u));
-      minV = math.min(minV, a.dot(plane.v));
-      maxV = math.max(maxV, a.dot(plane.v));
-    }
-    while ((maxU - minU + maxV - minV) / step > 240) {
-      step *= 2;
-    }
-    Vector3 pt(double u, double v) => plane.origin + plane.u * u + plane.v * v;
-    Paint paint(int i) => Paint()
-      ..color = i == 0
-          ? const Color(0xffc3cbbb)
-          : i % 5 == 0
-          ? const Color(0xffdce1d5)
-          : const Color(0xffe9ece3)
-      ..strokeWidth = i == 0 ? 1 : .7;
-    for (var i = (minU / step).floor(); i <= (maxU / step).ceil(); i++) {
-      _worldLine(c, pt(i * step, minV), pt(i * step, maxV), paint(i));
-    }
-    for (var i = (minV / step).floor(); i <= (maxV / step).ceil(); i++) {
-      _worldLine(c, pt(minU, i * step), pt(maxU, i * step), paint(i));
-    }
-  }
-
   void _face(Canvas c, SceneFace f) {
     final selected = selection.contains(f.beam.id);
+    final movable = moveHighlight.contains(f.beam.id);
     final reference = f.beam.id == referenceId;
     final light = Vector3(-.38, -.48, .79).normalized();
-    final shade = (f.normal.dot(light) * .22 + .57 + (f.beam.id % 4) * .018)
-        .clamp(0.0, 1.0);
+    final finish = f.beam.finish;
+    final cutBoard =
+        f.face < 2 &&
+        (finish.texture == PartTexture.laminate ||
+            finish.texture == PartTexture.woodLaminate);
+    final base = cutBoard ? const Color(0xffbd9d79) : finishColor(finish);
+    final shade = f.normal.dot(light) * .24 - .12;
     var fill = Color.lerp(
-      const Color(0xff986d45),
-      const Color(0xfff2d8ae),
-      shade,
+      base,
+      shade < 0 ? Colors.black : Colors.white,
+      shade.abs(),
     )!;
-    if (f.face <= 1) fill = Color.lerp(fill, const Color(0xffac8059), .25)!;
     if (overlaps.contains(f.beam.id)) {
       fill = Color.lerp(fill, const Color(0xffda7657), .53)!;
     }
@@ -527,53 +643,111 @@ class DrawingPainter extends CustomPainter {
     if (f.beam.id == alignmentSupport?.id) {
       fill = Color.lerp(fill, supportColor, .38)!;
     }
-    if (selected) fill = Color.lerp(fill, const Color(0xffb8c79a), .44)!;
+    if (selected) fill = Color.lerp(fill, EditorPalette.highlight, .22)!;
     if (selected && highlightedSize == f.face ~/ 2) {
       fill = Color.lerp(fill, StockAxis.values[highlightedSize!].color, .33)!;
     }
-    if (original != null && !selected) fill = Color.lerp(fill, paper, .58)!;
-    c.drawPath(f.path, Paint()..color = fill);
-    // Fine longitudinal fibres follow the part even when the assembly rotates.
-    c.save();
-    c.clipPath(f.path);
-    final grain = Paint()
-      ..color = const Color(0xff81582e).withValues(alpha: .22)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .65;
-    final points = f.points;
-    final longEdge = f.world[1] - f.world[0];
-    final reverse = f.face > 1 && longEdge.dot(f.beam.along).abs() < .01;
-    final a = points[0],
-        b = points[reverse ? 3 : 1],
-        d = points[reverse ? 1 : 3];
-    final u = b - a, v = d - a;
-    final count = (v.distance / 5).clamp(2, 24).toInt();
-    for (var i = 1; i <= count; i++) {
-      final seed = math.sin(i * 12.31 + f.beam.id * 7.1),
-          t = (i + seed * .31) / (count + 1);
-      final begin = a + v * t, end = begin + u;
-      final wave = v * (math.sin(i * 2.1 + f.beam.id) * .045);
-      final path = Path()
-        ..moveTo(begin.dx, begin.dy)
-        ..cubicTo(
-          begin.dx + u.dx * .30 + wave.dx,
-          begin.dy + u.dy * .30 + wave.dy,
-          end.dx - u.dx * .28 - wave.dx,
-          end.dy - u.dy * .28 - wave.dy,
-          end.dx,
-          end.dy,
-        );
-      c.drawPath(path, grain);
+    if (original != null && !selected) {
+      fill = Color.lerp(fill, colors.paper, .58)!;
     }
-    c.restore();
+    c.drawPath(f.path, Paint()..color = fill);
+    final clipTexture = f.boreRim != null || f.points.length != 4;
+    if (clipTexture) {
+      c.save();
+      c.clipPath(f.path);
+    }
+    final points = f.points.length == 4
+        ? f.points
+        : [for (final i in faceCorners[f.face]) project(f.beam.corner(i))];
+    // Faces 0, 3 and 4 wind across the grain first (see faceCorners).
+    final acrossFirst = f.face == 0 || f.face == 3 || f.face == 4;
+    if (finish.texture == PartTexture.plywood && f.face < 4) {
+      // Alternating veneer layers run parallel to the broad faces of the sheet.
+      final corners = faceCorners[f.face];
+      final bottom = corners.where((index) => index & 4 == 0).toList();
+      final pen = Paint()
+        ..color = const Color(0x665d422c)
+        ..strokeWidth = .7;
+      Offset layer(int corner, double fraction) => Offset.lerp(
+        points[corners.indexOf(corner)],
+        points[corners.indexOf(corner | 4)],
+        fraction,
+      )!;
+      for (final fraction in [.25, .5, .75]) {
+        c.drawLine(
+          layer(bottom.first, fraction),
+          layer(bottom.last, fraction),
+          pen,
+        );
+      }
+    } else {
+      paintFinishTexture(
+        c,
+        finish.texture,
+        fill,
+        points[0],
+        points[acrossFirst ? 3 : 1],
+        points[2],
+        points[acrossFirst ? 1 : 3],
+        seed: f.beam.id,
+        endGrain: f.face < 2,
+      );
+    }
+    if (clipTexture) c.restore();
+    if (f.boreRim case final rim?) {
+      c.drawPath(rim, Paint()..color = Color.lerp(fill, Colors.black, .65)!);
+    }
     c.drawPath(
       f.path,
       Paint()
-        ..color = selected ? accent : const Color(0xff836e53)
+        ..color = selected || movable
+            ? colors.accent
+            : Color.lerp(base, Colors.black, .42)!
         ..style = PaintingStyle.stroke
-        ..strokeWidth = selected ? 1.65 : .8
+        ..strokeWidth = movable
+            ? 2.4
+            : selected
+            ? 1.65
+            : .8
         ..strokeJoin = StrokeJoin.round,
     );
+    if (f.beam.id == resizePart) {
+      for (var i = 0; i < f.points.length; i++) {
+        final edge = ResizeEdge(f, i);
+        if (!edge.canResize(scene.camera)) continue;
+        final active =
+            activeEdge?.face.face == f.face &&
+            activeEdge?.index == i &&
+            activeEdge?.start == edge.start;
+        final midpoint = (edge.start + edge.end) / 2;
+        // On a shared edge, each face offers a different resize direction.
+        // Put its marker just inside the face that owns that gesture.
+        final inward = f.points.length == 4
+            ? (points[(i + 2) % 4] + points[(i + 3) % 4]) / 2 - midpoint
+            : f.bounds.center - midpoint;
+        final inset = inward * math.min(.2, 3 / math.max(1, inward.distance));
+        final center = midpoint + inset;
+        final line = edge.end - edge.start;
+        final half = line * math.min(.5, 6 / line.distance);
+        final start = active ? edge.start : center - half;
+        final end = active ? edge.end : center + half;
+        final pen = Paint()..strokeCap = StrokeCap.round;
+        c.drawLine(
+          start,
+          end,
+          pen
+            ..color = colors.paper
+            ..strokeWidth = 5,
+        );
+        c.drawLine(
+          start,
+          end,
+          pen
+            ..color = colors.diagramColor(StockAxis.values[edge.axis].color)
+            ..strokeWidth = 3,
+        );
+      }
+    }
   }
 
   void _dimensions(Canvas c, List<Vector3> corners, {Beam? part}) {
@@ -609,8 +783,15 @@ class DrawingPainter extends CustomPainter {
     for (final axis in StockAxis.values) {
       final k = axis.index, bit = 1 << k;
       final active = part != null && k == highlightedSize;
-      if (part != null && highlightedSize != null && !active) continue;
-      final color = part == null ? const Color(0xff63735d) : axis.color;
+      if (!showAllStockSizes &&
+          part != null &&
+          highlightedSize != null &&
+          !active) {
+        continue;
+      }
+      final color = part == null
+          ? colors.muted
+          : colors.diagramColor(axis.color);
       final label = part == null
           ? null
           : '${active ? axis.label : axis.letter} ${scene.project.unit.format(part.size[k])}';
@@ -650,7 +831,7 @@ class DrawingPainter extends CustomPainter {
               ..strokeWidth = 3,
           );
         }
-        final rect = _ruler(
+        final line = _ruler(
           c,
           from,
           to,
@@ -659,10 +840,10 @@ class DrawingPainter extends CustomPainter {
           label: label,
           place: part == null ? null : place,
         );
-        if (part != null && rect != null) stockLabels[axis] = rect;
+        if (part != null && line != null) stockLabels[axis] = line.label;
       } else if (part != null && label != null) {
         final p = project(faceCenter(part, k, true));
-        final title = active ? '$label · в глубину' : '⊙ $label';
+        final title = active ? editorStrings.depthDirection(label) : '⊙ $label';
         final badge = place(p + const Offset(28, -19), title);
         final pen = Paint()
           ..color = color
@@ -674,32 +855,47 @@ class DrawingPainter extends CustomPainter {
     }
   }
 
-  Rect? _ruler(
+  ({Offset start, Offset end, Rect label})? _ruler(
     Canvas c,
     Vector3 from,
     Vector3 to,
     double gap,
     Color color, {
     String? label,
+    bool selected = false,
+    bool showDepth = false,
     Offset Function(Offset, String)? place,
   }) {
     final a = project(from), b = project(to), dir = b - a;
-    if (dir.distance < 1) return null;
+    final text = label ?? scene.project.unit.format(from.distanceTo(to));
+    if (dir.distance < 1) {
+      if (!showDepth) return null;
+      final badge = a + const Offset(0, -17);
+      c.drawLine(a, badge, Paint()..color = color);
+      return (
+        start: a,
+        end: badge,
+        label: _label(c, badge, text, color, filled: selected),
+      );
+    }
     final unit = dir / dir.distance, n = Offset(-unit.dy, unit.dx);
     final a1 = a + n * gap, b1 = b + n * gap;
     final pen = Paint()
       ..color = color.withValues(alpha: .78)
-      ..strokeWidth = .9;
+      ..strokeWidth = selected ? 2.2 : .9;
     c.drawLine(a + n * (gap.sign * 3), a1 + n * (gap.sign * 4), pen);
     c.drawLine(b + n * (gap.sign * 3), b1 + n * (gap.sign * 4), pen);
     c.drawLine(a1, b1, pen);
     for (final p in [a1, b1]) {
       c.drawLine(p - n * 2.5 - unit * 2, p + n * 2.5 + unit * 2, pen);
     }
-    final text = label ?? scene.project.unit.format(from.distanceTo(to));
     final mid = (a1 + b1) / 2, badge = place?.call(mid, text) ?? mid;
     if ((badge - mid).distance > 1) c.drawLine(mid, badge, pen);
-    return _label(c, badge, text, color);
+    return (
+      start: a1,
+      end: b1,
+      label: _label(c, badge, text, color, filled: selected),
+    );
   }
 
   Rect _label(
@@ -713,7 +909,9 @@ class DrawingPainter extends CustomPainter {
       text: TextSpan(
         text: value,
         style: mono.copyWith(
-          color: filled ? Colors.white : color,
+          color: filled
+              ? (colors.isDark ? EditorPalette.onHighlight : Colors.white)
+              : color,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -727,23 +925,23 @@ class DrawingPainter extends CustomPainter {
     );
     c.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(3)),
-      Paint()..color = filled ? accent : paper,
+      Paint()..color = filled ? colors.accent : colors.paper,
     );
     text.paint(c, center - Offset(text.width / 2, text.height / 2));
     return rect;
   }
 
   void _marker(Canvas c, Offset p) {
-    c.drawCircle(p, 6, Paint()..color = Colors.white);
+    c.drawCircle(p, 6, Paint()..color = colors.paper);
     c.drawCircle(
       p,
       5,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = accent,
+        ..color = colors.accent,
     );
-    c.drawCircle(p, 1.7, Paint()..color = accent);
+    c.drawCircle(p, 1.7, Paint()..color = colors.accent);
   }
 
   @override

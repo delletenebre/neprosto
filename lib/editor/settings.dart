@@ -1,3 +1,7 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
+import 'desk_text_field.dart';
+
 import 'dart:math' as math;
 
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -8,49 +12,84 @@ import 'package:flutter/foundation.dart'
 import 'controller.dart';
 import 'controls.dart';
 import 'desktop.dart';
-import 'drawing.dart';
 import 'hotkeys.dart';
-import 'model.dart';
+import 'platform_ui.dart';
+
+import 'package:material_ui/material_ui.dart' as m;
+
+import 'grid_controls.dart';
+import 'grid_visibility.dart';
 import 'step.dart';
 
 enum SettingsPage {
-  editing('Редактирование', CupertinoIcons.slider_horizontal_3),
-  drawing('Чертёж', CupertinoIcons.square_on_square),
-  workspace('Пространство', CupertinoIcons.cube_box),
-  keyboard('Горячие клавиши', CupertinoIcons.keyboard);
+  editing(CupertinoIcons.slider_horizontal_3),
+  appearance(CupertinoIcons.paintbrush),
+  drawing(CupertinoIcons.square_on_square),
+  saving(CupertinoIcons.square_arrow_down),
+  keyboard(CupertinoIcons.keyboard);
 
-  const SettingsPage(this.title, this.icon);
-  final String title;
+  const SettingsPage(this.icon);
+
   final IconData icon;
+  String get title => switch (this) {
+    SettingsPage.editing => editorStrings.editing,
+    SettingsPage.appearance => editorStrings.appearance,
+    SettingsPage.drawing => editorStrings.drawing,
+    SettingsPage.saving => editorStrings.saving,
+    SettingsPage.keyboard => editorStrings.keyboardShortcuts,
+  };
 }
 
 typedef SettingsResult = ({
+  EditorPalette? palette,
+  Locale locale,
   EditStep step,
   bool snap,
   bool dimensions,
+  bool showHiddenOutlines,
   EditorHotkeys hotkeys,
-  Vector3? workspace,
+  GridVisibility grid,
+  bool autosave,
+  int autosaveMinutes,
 });
 
 class EditorSettings extends StatefulWidget {
-  const EditorSettings(this.editor, this.initial, {super.key});
+  const EditorSettings(
+    this.editor, {
+    this.palette,
+    this.locale = const Locale('ru'),
+    required this.onPreview,
+    required this.autosave,
+    required this.autosaveMinutes,
+    super.key,
+  });
   final Editor editor;
-  final SettingsPage initial;
+  final EditorPalette? palette;
+  final Locale locale;
+  final void Function(EditorPalette?, Locale) onPreview;
+  final bool autosave;
+  final int autosaveMinutes;
   @override
   State<EditorSettings> createState() => _EditorSettingsState();
 }
 
 class _EditorSettingsState extends State<EditorSettings> {
-  late SettingsPage page = widget.initial;
+  late EditorPalette? palette = widget.palette;
+  late Locale locale = widget.locale;
+  SettingsPage page = SettingsPage.editing;
   late final unit = widget.editor.project.unit;
   late bool snap = widget.editor.snapByDefault,
       show = widget.editor.dimensionsByDefault;
   late bool stepped = widget.editor.step.enabled;
   late double increment = widget.editor.step.millimeters(unit);
+  late GridVisibility grid = widget.editor.gridVisibility;
+  late bool showHiddenOutlines = widget.editor.showHiddenOutlines;
   late EditorHotkeys keys = widget.editor.hotkeys;
-  late bool bounded = widget.editor.project.workspaceSize != null;
-  late final room =
-      widget.editor.project.workspaceSize?.clone() ?? Vector3(3000, 3000, 2500);
+  late bool autosave = widget.autosave;
+  late final minutes = TextEditingController(
+    text: widget.autosaveMinutes.toString(),
+  );
+  int? get interval => int.tryParse(minutes.text);
   final invalid = <String>{};
   Command? _recording;
   Command? get recording => _recording;
@@ -85,6 +124,7 @@ class _EditorSettingsState extends State<EditorSettings> {
     FocusManager.instance.removeEarlyKeyEventHandler(capture);
     recording = null;
     scroll.dispose();
+    minutes.dispose();
     super.dispose();
   }
 
@@ -115,10 +155,7 @@ class _EditorSettingsState extends State<EditorSettings> {
       }.contains(
         LogicalKeyboardKey.collapseSynonyms({event.logicalKey}).first,
       )) {
-        setState(
-          () => error =
-              'Выберите букву, цифру, стрелку или функциональную клавишу',
-        );
+        setState(() => error = context.strings.shortcutKeyHint);
       }
     }
     return KeyEventResult.handled;
@@ -137,16 +174,16 @@ class _EditorSettingsState extends State<EditorSettings> {
 
   Widget caption(String text) => Text(
     text,
-    style: const TextStyle(color: muted, fontSize: 12, height: 1.35),
+    style: TextStyle(color: context.colors.muted, fontSize: 12, height: 1.35),
   );
   Widget heading(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: ink,
+        color: context.colors.ink,
       ),
     ),
   );
@@ -154,8 +191,8 @@ class _EditorSettingsState extends State<EditorSettings> {
   Widget card(List<Widget> children) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
     decoration: BoxDecoration(
-      color: CupertinoColors.white,
-      border: Border.all(color: line, width: .7),
+      color: context.colors.field,
+      border: Border.all(color: context.colors.line, width: .7),
       borderRadius: BorderRadius.circular(9),
     ),
     child: Column(
@@ -185,27 +222,27 @@ class _EditorSettingsState extends State<EditorSettings> {
   );
 
   List<Widget> editing() => [
-    heading('Перемещение и линейка'),
+    heading(context.strings.movementAndRuler),
     card([
-      const Text('Режим без нажатых клавиш'),
+      Text(context.strings.modeWithoutModifierKeys),
       const SizedBox(height: 9),
-      DeskSegments(snap, const {
-        false: 'Свободно',
-        true: 'С привязкой',
+      DeskSegments(snap, {
+        false: context.strings.free,
+        true: context.strings.snapping,
       }, (v) => setState(() => snap = v)),
       const SizedBox(height: 7),
       caption(
         snap
-            ? 'Удерживайте Ctrl или ⌘ для свободного движения.'
-            : 'Удерживайте Ctrl или ⌘ для привязки.',
+            ? context.strings.freeMovementHint(primaryModifierLabel)
+            : context.strings.holdToSnap(primaryModifierLabel),
       ),
     ]),
     const SizedBox(height: 18),
-    heading('Перемещение и растягивание'),
+    heading(context.strings.movementAndResizing),
     card([
       Row(
         children: [
-          const Expanded(child: Text('Двигать и растягивать с шагом')),
+          Expanded(child: Text(context.strings.moveAndResizeInIncrements)),
           if (stepped) ...[
             field(
               'input-step',
@@ -224,74 +261,86 @@ class _EditorSettingsState extends State<EditorSettings> {
           ),
         ],
       ),
-      const SizedBox(height: 8),
-      caption(
-        stepped
-            ? 'Стрелка сдвигает деталь на ${unit.format(increment)} ${unit.symbol}. При растягивании длина меняется шагами, например ${[20, 21, 22].map((n) => unit.format(increment * n)).join(' → ')} ${unit.symbol}.'
-            : 'При перетаскивании положение и длина меняются плавно.',
-      ),
     ]),
   ];
 
   List<Widget> drawing() {
     final held = keys[Command.dimensions].label;
     return [
-      heading('Размеры на чертеже'),
+      heading(context.strings.dimensionsOnDrawing),
       card([
         DeskSegments(show, {
-          true: 'Всегда видны',
-          false: 'Только с $held',
+          true: context.strings.alwaysVisible,
+          false: context.strings.onlyWith(held),
         }, (v) => setState(() => show = v)),
         const SizedBox(height: 9),
         caption(
-          'Удерживайте $held, чтобы ${show ? 'скрыть' : 'показать'} размеры.',
+          context.strings.holdDimensionModifier(
+            held,
+            show ? context.strings.hide : context.strings.show,
+          ),
         ),
       ]),
+      const SizedBox(height: 16),
+      heading(context.strings.hiddenParts),
+      card([
+        DeskSegments(showHiddenOutlines, {
+          false: context.strings.hideCompletely,
+          true: context.strings.showOutlines,
+        }, (v) => setState(() => showHiddenOutlines = v)),
+      ]),
+      const SizedBox(height: 16),
+      heading(context.strings.gridVisibility),
+      card([GridControls(grid, (next) => setState(() => grid = next))]),
     ];
   }
 
-  List<Widget> workspace() => [
-    heading('Рабочее пространство проекта'),
+  List<Widget> saving() => [
+    heading(context.strings.autosave),
     card([
       Row(
         children: [
-          const Expanded(child: Text('Задать границы')),
+          Expanded(child: Text(context.strings.saveProjectsAutomatically)),
           DeskSwitch(
-            value: bounded,
-            onChanged: (v) => setState(() {
-              bounded = v;
-              invalid.removeWhere((id) => id.startsWith('workspace-'));
-            }),
+            value: autosave,
+            onChanged: (value) => setState(() => autosave = value),
           ),
         ],
       ),
-      if (bounded)
-        for (var i = 0; i < 3; i++)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(['Ширина · X', 'Глубина · Y', 'Высота · Z'][i]),
-                ),
-                field(
-                  'workspace-$i',
-                  room[i],
-                  (n) => setState(() => room[i] = n),
-                  100,
-                ),
-              ],
+      if (autosave) ...[
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: Text(context.strings.intervalMin)),
+            SizedBox(
+              width: 70,
+              child: DeskTextField(
+                controller: minutes,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) => setState(() {}),
+              ),
             ),
-          ),
+          ],
+        ),
+        if ((interval ?? 0) < 1) ...[
+          const SizedBox(height: controlGap),
+          caption(context.strings.positiveIntegerHint),
+        ],
+      ],
     ]),
-    const SizedBox(height: 8),
-    caption(
-      'Границы отсчитываются от начала координат. Размеры и положение деталей сохраняются.',
-    ),
+    if (autosave) ...[
+      const SizedBox(height: 8),
+      caption(
+        kIsWeb
+            ? context.strings.browserDraftsHint
+            : context.strings.autosaveFilesHint,
+      ),
+    ],
   ];
 
   List<Widget> keyboard() => [
-    caption('Нажмите на сочетание и введите новое. Esc отменяет ввод.'),
+    caption(context.strings.recordShortcutHint),
     for (final group in Command.values.map((c) => c.category).toSet()) ...[
       const SizedBox(height: 14),
       heading(group),
@@ -302,10 +351,11 @@ class _EditorSettingsState extends State<EditorSettings> {
             child: Column(
               children: [
                 Row(
+                  spacing: controlGap,
                   children: [
                     Expanded(child: Text(command.label)),
                     Semantics(
-                      label: 'Сменить сочетание для «${command.label}»',
+                      label: context.strings.changeShortcutFor(command.label),
                       child: DeskButton(
                         key: ValueKey('shortcut-${command.name}'),
                         active: recording == command,
@@ -317,8 +367,10 @@ class _EditorSettingsState extends State<EditorSettings> {
                           constraints: const BoxConstraints(minWidth: 42),
                           child: Text(
                             recording == command
-                                ? 'Нажмите клавиши…'
-                                : keys[command].label,
+                                ? context.strings.pressKeys
+                                : keys.commandFor(keys[command]) == command
+                                ? keys[command].label
+                                : context.strings.assign,
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -327,13 +379,16 @@ class _EditorSettingsState extends State<EditorSettings> {
                   ],
                 ),
                 if (recording == command && error != null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      error!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: CupertinoColors.systemRed,
+                  Padding(
+                    padding: const EdgeInsets.only(top: controlGap),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.colors.danger,
+                        ),
                       ),
                     ),
                   ),
@@ -344,13 +399,27 @@ class _EditorSettingsState extends State<EditorSettings> {
     ],
   ];
 
+  void preview(EditorPalette? nextPalette, Locale nextLocale) {
+    setState(() {
+      palette = nextPalette;
+      locale = nextLocale;
+    });
+    widget.onPreview(nextPalette, nextLocale);
+  }
+
   void apply() {
     final result = (
       step: widget.editor.step.change(unit, increment / unit.factor, stepped),
       snap: snap,
       dimensions: show,
+      showHiddenOutlines: showHiddenOutlines,
+      palette:
+          palette ?? (page == SettingsPage.appearance ? context.colors : null),
+      locale: locale,
       hotkeys: keys,
-      workspace: bounded ? room : null,
+      grid: grid,
+      autosave: autosave,
+      autosaveMinutes: (interval ?? 0) > 0 ? interval! : widget.autosaveMinutes,
     );
     Navigator.pop(context, result);
   }
@@ -358,7 +427,7 @@ class _EditorSettingsState extends State<EditorSettings> {
   @override
   Widget build(BuildContext context) => DeskDialog(
     maxWidth: 650,
-    title: const Text('Настройки'),
+    title: Text(context.strings.settings),
     content: SizedBox(
       height: math.min(
         355,
@@ -383,7 +452,9 @@ class _EditorSettingsState extends State<EditorSettings> {
                         children: [
                           Icon(
                             tab.icon,
-                            color: page == tab ? accent : muted,
+                            color: page == tab
+                                ? context.colors.accent
+                                : context.colors.muted,
                             size: 17,
                           ),
                           const SizedBox(width: 8),
@@ -397,20 +468,34 @@ class _EditorSettingsState extends State<EditorSettings> {
           ),
           Container(
             width: .7,
-            color: line,
+            color: context.colors.line,
             margin: const EdgeInsets.symmetric(horizontal: 12),
           ),
           Expanded(
-            child: CupertinoScrollbar(
+            child: m.Scrollbar(
               controller: scroll,
               child: ListView(
                 controller: scroll,
                 padding: const EdgeInsets.only(right: 6),
                 children: switch (page) {
+                  SettingsPage.appearance => [
+                    heading(context.strings.theme),
+                    DeskSegments(palette ?? context.colors, {
+                      EditorPalette.light: context.strings.light,
+                      EditorPalette.dark: context.strings.dark,
+                    }, (v) => preview(v, locale)),
+                    const SizedBox(height: 18),
+                    heading(context.strings.language),
+                    DeskSegments(locale, {
+                      const Locale('ru'): 'Русский',
+                      const Locale('en'): 'English',
+                      const Locale('ky'): 'Кыргызча',
+                    }, (v) => preview(palette, v)),
+                  ],
                   SettingsPage.editing => editing(),
                   SettingsPage.drawing => drawing(),
+                  SettingsPage.saving => saving(),
                   SettingsPage.keyboard => keyboard(),
-                  SettingsPage.workspace => workspace(),
                 },
               ),
             ),
@@ -429,17 +514,22 @@ class _EditorSettingsState extends State<EditorSettings> {
                   error = null;
                 })
               : null,
-          child: const Text('Сбросить сочетания'),
+          child: Text(context.strings.resetShortcuts),
         ),
       DeskButton(
         plain: true,
         onPressed: () => Navigator.pop(context),
-        child: const Text('Отмена'),
+        child: Text(context.strings.cancel),
       ),
       DeskButton(
         primary: true,
-        onPressed: recording == null && invalid.isEmpty ? apply : null,
-        child: const Text('Готово'),
+        onPressed:
+            recording == null &&
+                invalid.isEmpty &&
+                (!autosave || (interval ?? 0) > 0)
+            ? apply
+            : null,
+        child: Text(context.strings.done),
       ),
     ],
   );

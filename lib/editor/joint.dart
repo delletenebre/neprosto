@@ -1,3 +1,5 @@
+import '../l10n/strings.dart';
+
 import 'dart:math' as math;
 
 import 'model.dart';
@@ -7,6 +9,27 @@ class JointPreview {
   final double inside;
   JointPreview(this.fixed, this.moving, this.inside);
   double get saw => (180 - inside) / 2;
+}
+
+/// Signed angle of a line marked on a face, measured from a square crosscut.
+double markingAngle(double offset, double span) =>
+    math.atan2(offset, span) * 180 / math.pi;
+
+double? markingOffset(double degrees, double span) {
+  if (!degrees.isFinite || degrees.abs() >= 90) return null;
+  final offset = math.tan(degrees * math.pi / 180) * span;
+  return offset.abs() <= Beam.maxCutOffset ? offset : null;
+}
+
+/// Workpiece lying flat with its length running from left to right. The
+/// bevel is measured in a plane perpendicular to the rotated blade trace.
+({double miter, double bevel}) sawAngles(Beam b, bool end) {
+  final cut = end ? b.endCut : b.startCut;
+  final slope = cut.y / b.size.y;
+  return (
+    miter: markingAngle(cut.y, b.size.y),
+    bevel: markingAngle(cut.z / b.size.z, math.sqrt(1 + slope * slope)),
+  );
 }
 
 double endAngle(Beam b, bool end) {
@@ -36,13 +59,11 @@ JointPreview makeJoint(
   required bool flip,
 }) {
   if (inside <= 0 || inside >= 180 || !inside.isFinite) {
-    throw const FormatException('Введите внутренний угол между 0° и 180°');
+    throw FormatException(editorStrings.invalidInsideAngle);
   }
   if ((a.size.y - b.size.y).abs() > .001 ||
       (a.size.z - b.size.z).abs() > .001) {
-    throw const FormatException(
-      'Для симметричного стыка выберите одинаковые сечения',
-    );
+    throw FormatException(editorStrings.matchingSectionsRequired);
   }
   final radians = inside * math.pi / 180;
   final inward = a.along * (firstEnd ? -1.0 : 1.0);
@@ -70,9 +91,7 @@ JointPreview makeJoint(
       endCut: end ? slope : null,
     );
     if (result.size.x < result.minimumLength) {
-      throw const FormatException(
-        'Заготовка слишком короткая для этого запила',
-      );
+      throw FormatException(editorStrings.stockTooShort);
     }
     return result;
   }

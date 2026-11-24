@@ -1,3 +1,6 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
+
 import 'dart:math' as math;
 import 'dart:async';
 
@@ -8,31 +11,36 @@ import 'package:material_ui/material_ui.dart';
 import 'contact.dart';
 import 'controller.dart';
 import 'drawing.dart';
+import 'grid_painter.dart';
 import 'model.dart';
 import 'move_snap.dart';
 import 'part_menu.dart';
+import 'platform_ui.dart';
 import 'scene.dart';
 import 'stock_sketch.dart';
 import 'size_dialog.dart';
 import 'stock_axis.dart';
+import 'view_cube.dart';
 
 class DrawingViewport extends StatefulWidget {
   const DrawingViewport(this.editor, {super.key});
   final Editor editor;
   @override
-  State<DrawingViewport> createState() => _DrawingViewportState();
+  State<DrawingViewport> createState() => DrawingViewportState();
 }
 
-class _DrawingViewportState extends State<DrawingViewport> {
+class DrawingViewportState extends State<DrawingViewport> {
   Editor get e => widget.editor;
   Scene? cached;
   Object? signature;
   Scene get scene => cached!;
   Size size = Size.zero;
   Offset? down, last;
+  Vector3? orbitPivot;
   Offset? hoverPosition;
   Offset? doubleClickPosition;
   DrawingPainter? painted;
+  RulerTarget? rulerTarget;
   MapEntry<StockAxis, Rect>? sizeLabel(Offset pos) => painted
       ?.stockLabels
       .entries
@@ -45,6 +53,12 @@ class _DrawingViewportState extends State<DrawingViewport> {
   MoveSnap? moveSnap;
   List<MoveGuide> moveGuides = [];
   int? modifierClick;
+  bool get raising =>
+      e.tool == Tool.beam &&
+      e.first != null &&
+      (HardwareKeyboard.instance.isMetaPressed ||
+          HardwareKeyboard.instance.isControlPressed);
+
   bool get sticky =>
       e.snapByDefault !=
       (HardwareKeyboard.instance.isControlPressed ||
@@ -56,13 +70,42 @@ class _DrawingViewportState extends State<DrawingViewport> {
   }
 
   bool modifierChanged(KeyEvent ev) {
-    if (![
+    final key = ev.logicalKey;
+    final command = {
       LogicalKeyboardKey.controlLeft,
       LogicalKeyboardKey.controlRight,
       LogicalKeyboardKey.metaLeft,
       LogicalKeyboardKey.metaRight,
-    ].contains(ev.logicalKey)) {
+    }.contains(key);
+    final shift =
+        key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight;
+    if ((command || shift) &&
+        e.tool == Tool.beam &&
+        e.first != null &&
+        hoverPosition != null &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      hover(hoverPosition!);
       return false;
+    }
+    if ((shift ||
+            key == LogicalKeyboardKey.altLeft ||
+            key == LogicalKeyboardKey.altRight ||
+            key == LogicalKeyboardKey.space) &&
+        e.tool == Tool.select &&
+        down == null &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      e.refresh();
+    }
+    if (!command) return false;
+    final kb = HardwareKeyboard.instance;
+    final held = appleControls ? kb.isMetaPressed : kb.isControlPressed;
+    final wasPicking = e.pickingAlignmentSupport;
+    if (!held || (down == null && ModalRoute.of(context)?.isCurrent == true)) {
+      e.holdReferencePick(held);
+    }
+    if (wasPicking != e.pickingAlignmentSupport && hoverPosition != null) {
+      hover(hoverPosition!);
     }
     if (moveSnap != null && dragged && last != null && e.tool == Tool.select) {
       translate(last!);
@@ -73,95 +116,220 @@ class _DrawingViewportState extends State<DrawingViewport> {
     return false;
   }
 
-  bool? end;
+  ResizeEdge? resizeEdge;
+  WorkPlane? dragPlane;
   Contact? stop;
-  EndMagnet magnet = EndMagnet();
-  List<EndAlignment> alignmentTargets = [];
-  final clock = Stopwatch()..start();
-  Timer? pending;
+
+  bool get shiftResize =>
+      HardwareKeyboard.instance.isShiftPressed &&
+      !HardwareKeyboard.instance.isSpacePressed &&
+      !HardwareKeyboard.instance.isAltPressed;
+
+  bool canResizePart(Beam part) => e.selection.contains(part.id)
+      ? e.selection.length == 1
+      : part.group == null;
+
+  bool canResizeEdge(ResizeEdge edge) =>
+      canResizePart(edge.face.beam) && edge.canResize(e.camera);
+
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(modifierChanged);
-    pending?.cancel();
     super.dispose();
   }
 
-  void stretch(Beam b, double travel, double pixelsPerMm) {
-    pending?.cancel();
-    e.guide = null;
-    final hit = e.magneticResize
-        ? magnet.update(
-            travel,
-            alignmentTargets,
-            7 / pixelsPerMm,
-            clock.elapsed,
-          )
-        : null;
-    if (hit == null && e.magneticResize && magnet.candidate != null) {
-      final remaining =
-          const Duration(milliseconds: 180) - (clock.elapsed - magnet.since!);
-      pending = Timer(remaining.isNegative ? Duration.zero : remaining, () {
-        if (mounted && before != null && end != null && e.tool == Tool.select) {
-          stretch(b, travel, pixelsPerMm);
-          e.refresh();
-        }
-      });
-    }
-    e.project = before!.edit(
-      moving,
-      (b) => resizeEnd(
-        b,
-        e.resizeAxis,
-        end!,
-        hit?.travel ??
-            e.step.round(b.size[e.resizeAxis] + travel, e.project.unit) -
-                b.size[e.resizeAxis],
-        stop: stop,
-      ),
+  MouseCursor resizeCursor(ResizeEdge edge) {
+    final origin = edge.face.world[edge.index];
+    final line =
+        e.camera.project(origin + edge.direction, size) -
+        e.camera.project(origin, size);
+    return switch ((line.direction / (math.pi / 4)).round() % 4) {
+      0 => SystemMouseCursors.resizeLeftRight,
+      1 => SystemMouseCursors.resizeUpLeftDownRight,
+      2 => SystemMouseCursors.resizeUpDown,
+      _ => SystemMouseCursors.resizeUpRightDownLeft,
+    };
+  }
+
+  ({Set<int> move, int? resize, ResizeEdge? edge, MouseCursor cursor})
+  selectionFeedback() {
+    const idle = (
+      move: <int>{},
+      resize: null,
+      edge: null,
+      cursor: SystemMouseCursors.basic,
     );
-    final part = e.project.byId[b.id]!;
-    if (hit != null) {
-      e.guide = (faceCenter(part, e.resizeAxis, end!), hit.target);
-      e.message = 'Выровнено · ${before!.byId[hit.id]!.name}';
-    } else {
-      e.message = stop != null && travel >= stop!.travel
-          ? 'Упор · ${before!.byId[stop!.obstacle]!.name}'
-          : 'Размер · ${e.project.unit.format(part.size[e.resizeAxis])} ${e.project.unit.symbol}';
+    if (e.tool != Tool.select) {
+      if (e.tool == Tool.ruler) {
+        final pos = hoverPosition;
+        if (pos == null || painted?.dimensionAt(pos) == null) return idle;
+        return (
+          move: const {},
+          resize: null,
+          edge: null,
+          cursor: SystemMouseCursors.click,
+        );
+      }
+      return (
+        move: const {},
+        resize: null,
+        edge: null,
+        cursor: SystemMouseCursors.precise,
+      );
     }
+    if (down != null) {
+      final edge = resizeEdge;
+      if (edge != null && scene.project.byId.containsKey(edge.face.beam.id)) {
+        return (
+          move: const {},
+          resize: edge.face.beam.id,
+          edge: edge,
+          cursor: resizeCursor(edge),
+        );
+      }
+      if (source == null) return idle;
+      return (
+        move: moving,
+        resize: null,
+        edge: null,
+        cursor: SystemMouseCursors.move,
+      );
+    }
+    final pos = hoverPosition;
+    final surface = pos == null ? null : scene.hit(pos);
+    final edge = pos != null && (shiftResize || surface == null)
+        ? scene.edgeAt(pos, surface: surface)
+        : null;
+    final part = surface?.beam ?? edge?.face.beam;
+    if (!shiftResize) {
+      if (part == null) return idle;
+      final ids = e.selection.contains(part.id)
+          ? e.selection
+          : scene.project.assembly(part.id);
+      return (
+        move: ids,
+        resize: null,
+        edge: null,
+        cursor: SystemMouseCursors.move,
+      );
+    }
+    final marked = part ?? e.single;
+    if (marked == null || !canResizePart(marked)) return idle;
+    final active = edge != null && edge.canResize(e.camera) ? edge : null;
+    return (
+      move: const {},
+      resize: marked.id,
+      edge: active,
+      cursor: active == null ? SystemMouseCursors.basic : resizeCursor(active),
+    );
+  }
+
+  void stretch(ResizeEdge edge, Offset pos) {
+    final plane = dragPlane!;
+    final point = e.camera.onPlane(pos, size, plane);
+    if (point == null) return;
+    final initial = before!, part = edge.face.beam;
+    final dim = edge.axis, travel = (point - plane.origin).dot(plane.u);
+    final target = e.step.round(part.size[dim] + travel, initial.unit);
+    final resized = resizeEnd(
+      part,
+      dim,
+      edge.positive,
+      target - part.size[dim],
+      stop: stop,
+    );
+    e.project = resized.size[dim] == part.size[dim]
+        ? initial
+        : initial.edit({part.id}, (_) => resized);
+    e.message = stop != null && travel >= stop!.travel
+        ? context.strings.stop(initial.byId[stop!.obstacle]!.name)
+        : '';
   }
 
   bool dragged = false;
   double pinchScale = 1;
 
-  Anchor? pick(
-    Offset at, {
-    Set<int> exclude = const {},
-    Set<int>? only,
-    WorkPlane? plane,
-    bool free = true,
-  }) {
+  Anchor? pick(Offset at) {
     if (e.snap) {
-      final a = scene.snap(at, exclude: exclude, only: only, mode: e.snapMode);
+      final a = scene.snap(at, mode: e.snapMode);
       if (a != null) return a;
     }
-    if (!free) return null;
-    final work = plane ?? e.plane;
-    final p = e.camera.onPlane(at, size, work);
-    return p == null
+    final point = pointOnWorkPlane(at);
+    return point == null ? null : Anchor(point);
+  }
+
+  Anchor? facePoint(Offset at, SceneFace face) {
+    final point = e.camera.onPlane(at, size, face.plane);
+    return point == null
         ? null
         : Anchor(
-            e.step.enabled
-                ? work.quantize(p, e.step.millimeters(e.project.unit))
-                : p,
+            point,
+            face.beam.id,
+            0,
+            face.beam.localAt(point),
+            'Грань',
+            face.face,
           );
   }
 
+  Anchor? partPoint(Offset at, {Set<int>? only, Set<int> exclude = const {}}) {
+    if (e.snap) {
+      final hit = scene.snap(
+        at,
+        only: only,
+        exclude: exclude,
+        mode: e.snapMode,
+      );
+      if (hit != null || e.snapMode == SnapMode.surface) return hit;
+    }
+    if (!e.snap || e.snapMode == SnapMode.auto) {
+      final face = scene.hit(at, exclude: exclude);
+      if (face != null && (only == null || only.contains(face.beam.id))) {
+        return facePoint(at, face);
+      }
+    }
+    return null;
+  }
+
+  Anchor? movePoint(Offset at) {
+    final first = e.first;
+    if (e.tool == Tool.align) {
+      if (e.pickingAlignmentSupport ||
+          (first != null && e.selection.contains(first.beam))) {
+        return partPoint(at, exclude: e.selection);
+      }
+      return partPoint(at, only: first == null ? null : e.selection);
+    }
+    final hit = partPoint(
+      at,
+      only: first == null && e.selection.isNotEmpty ? e.selection : null,
+      exclude: first == null ? const {} : e.selection,
+    );
+    if (hit != null ||
+        first == null ||
+        (e.snap && e.snapMode == SnapMode.surface)) {
+      return hit;
+    }
+    final point = pointOnWorkPlane(at);
+    return point == null ? null : Anchor(point);
+  }
+
+  (Anchor, Anchor) moveEndpoints(Anchor first, Anchor second) =>
+      e.selection.contains(first.beam) ? (first, second) : (second, first);
+
   void hover(Offset pos) {
     hoverPosition = pos;
-    if (e.tool == Tool.align) {
-      final hit = e.referenceId == null ? scene.hit(pos) : null;
-      e.faceHover = hit?.beam.id == e.single?.id ? null : hit;
-      e.hover = null;
+    if (e.partToPlace != null) {
+      e.refresh();
+      return;
+    }
+    if (e.pickingAlignmentSupport) {
+      e.hover = movePoint(pos);
+      final hit = scene.hit(pos, exclude: e.selection);
+      e.faceHover = e.hover == null || hit?.beam.id == e.hover?.beam
+          ? hit
+          : null;
+      e.preview = null;
       e.refresh();
       return;
     }
@@ -176,26 +344,21 @@ class _DrawingViewportState extends State<DrawingViewport> {
       return;
     }
     final stage = e.first != null;
-    final isMove = e.tool == Tool.move;
+    final isMove = e.tool == Tool.move || e.tool == Tool.align;
     e.faceHover = e.tool == Tool.face || (e.tool == Tool.beam && !stage)
         ? scene.hit(pos)
         : null;
-    final constrained = isMove && !stage && e.selection.isNotEmpty;
     e.hover = switch (e.tool) {
-      Tool.face || Tool.rotate || Tool.align => null,
-      Tool.select => e.snap ? scene.snap(pos, mode: e.snapMode) : null,
+      Tool.face || Tool.rotate || Tool.gap => null,
+      Tool.select || Tool.ruler => null,
       Tool.measure => measurePoint(pos),
       Tool.beam => beamPoint(pos),
-      _ => pick(
-        pos,
-        only: constrained ? e.selection : null,
-        exclude: isMove && stage ? e.selection : {},
-        free: !isMove || (stage && e.snapMode != SnapMode.surface),
-      ),
+      Tool.move || Tool.align => movePoint(pos),
     };
     if (e.tool == Tool.beam &&
         e.first != null &&
         e.hover != null &&
+        !raising &&
         HardwareKeyboard.instance.isShiftPressed) {
       final delta = e.hover!.point - e.first!.point;
       final plane = e.sketch!.plane;
@@ -222,14 +385,15 @@ class _DrawingViewportState extends State<DrawingViewport> {
       final start = e.first!.resolve(e.project),
           finish = e.hover!.resolve(e.project);
       if (e.tool == Tool.beam && start.distanceTo(finish) >= 1) {
-        e.preview = e.sketch!.make(e.project.nextId, start, finish);
+        e.preview = e.sketch!.make(
+          e.project.nextId,
+          start,
+          finish,
+          raised: raising,
+        );
       } else if (isMove && e.selection.isNotEmpty) {
-        e.preview = mate(
-          e.project,
-          e.selection,
-          e.first!,
-          e.hover!,
-        ).byId[e.first!.beam];
+        final (from, to) = moveEndpoints(e.first!, e.hover!);
+        e.preview = mate(e.project, e.selection, from, to).byId[from.beam];
       }
     }
     e.refresh();
@@ -238,6 +402,16 @@ class _DrawingViewportState extends State<DrawingViewport> {
   Anchor? beamPoint(Offset pos) {
     final sketch = e.sketch;
     final hit = e.snap ? scene.snap(pos, mode: e.snapMode) : null;
+    if (raising && sketch != null) {
+      return sketch.raisedEnd(
+        e.camera,
+        size,
+        pos,
+        e.first!.resolve(e.project),
+        hit,
+        verticalOnly: HardwareKeyboard.instance.isShiftPressed,
+      );
+    }
     final plane = sketch?.plane ?? e.plane;
     if (hit != null &&
         (sketch?.reference == null ||
@@ -246,17 +420,8 @@ class _DrawingViewportState extends State<DrawingViewport> {
     }
     final face = e.faceHover;
     if (sketch == null && face != null) {
-      final point = e.camera.onPlane(pos, size, face.plane);
-      if (point != null) {
-        return Anchor(
-          point,
-          face.beam.id,
-          0,
-          face.beam.localAt(point),
-          'Грань',
-          face.face,
-        );
-      }
+      final anchor = facePoint(pos, face);
+      if (anchor != null) return anchor;
     }
     final point = e.camera.onPlane(pos, size, plane);
     if (point == null) return null;
@@ -270,9 +435,7 @@ class _DrawingViewportState extends State<DrawingViewport> {
   StockSketch beginSketch(Anchor start) {
     final ref = e.project.byId[start.beam];
     var plane = e.plane.through(start.point);
-    if (ref != null &&
-        (e.activeView == ViewAngle.iso ||
-            e.activeView == ViewAngle.perspective)) {
+    if (ref != null && e.activeView?.projectionPlane == null) {
       final visible = scene.faces.reversed.where(
         (f) =>
             f.beam.id == ref.id &&
@@ -292,48 +455,59 @@ class _DrawingViewportState extends State<DrawingViewport> {
   }
 
   Anchor? measurePoint(Offset pos) {
-    if (sticky) {
-      final hit = scene.snap(pos, mode: e.snapMode);
-      if (hit != null) return hit;
-    }
-    final surface = scene.hit(pos)?.plane;
-    final plane =
-        surface ??
-        (e.first == null ? e.plane : e.plane.through(e.first!.point));
+    rulerTarget = scene.rulerTarget(pos, sticky: sticky, mode: e.snapMode);
+    if (rulerTarget case final target?) return target.anchor;
+    final first = e.first;
+    final plane = first == null
+        ? e.plane
+        : e.plane.through(first.resolve(e.project));
     final point = e.camera.onPlane(pos, size, plane);
     return point == null ? null : Anchor(point);
   }
 
   void clickTool(Offset pos) {
+    if (e.tool == Tool.ruler) {
+      e.selectDimension(painted?.dimensionAt(pos));
+      return;
+    }
+    if (e.partToPlace case final part?) {
+      final anchor = pick(pos);
+      if (anchor != null) {
+        insertPart(part.copy(id: e.project.nextId, origin: anchor.point));
+      }
+      return;
+    }
     if (e.tool == Tool.gap) {
       hover(pos);
       final target = e.faceHover?.beam;
       if (target == null) return;
       if (e.firstShelf == null) {
         e.firstShelf = target.id;
-        e.message = 'Выберите вторую полку';
+        e.message = context.strings.selectTheSecondShelf;
         e.refresh();
         return;
       }
       if (e.gapPreview == null) {
-        e.message =
-            'Выберите другую полку с общей проекцией и параллельной гранью';
+        e.message = context.strings.chooseParallelShelf;
         e.refresh();
         return;
       }
       final gap = e.gapPreview!;
-      e.resetTransient();
-      e.message =
-          'Просвет · ${e.project.unit.format(gap.length(e.project))} ${e.project.unit.symbol}';
-      e.commit(e.project.copy(dimensions: [...e.project.dimensions, gap]));
+      e.addDimension(gap);
       return;
     }
-    if (e.tool == Tool.align) {
-      final target = scene.hit(pos)?.beam;
-      if (e.referenceId == null &&
-          target != null &&
-          target.id != e.single?.id) {
-        e.chooseSupport(target.id);
+    if (e.pickingAlignmentSupport) {
+      hover(pos);
+      final anchor = e.hover;
+      final target = anchor?.beam ?? e.faceHover?.beam.id;
+      if (target != null) {
+        e.chooseSupport(target);
+        if (e.pickingAlignmentSupport) {
+          hover(pos);
+        } else {
+          e.first = anchor;
+          e.refresh();
+        }
       }
       return;
     }
@@ -345,11 +519,19 @@ class _DrawingViewportState extends State<DrawingViewport> {
     }
     final a = e.hover;
     if (a == null) {
-      e.message = 'Выберите опору на детали';
+      e.message = e.tool == Tool.move || e.tool == Tool.align
+          ? ''
+          : context.strings.selectAnAnchorOnThePart;
       e.refresh();
       return;
     }
     if (e.first == null) {
+      if (e.tool == Tool.align) {
+        if (!e.selection.contains(a.beam)) e.chooseSupport(a.beam!);
+        e.hasPlacementChoice = false;
+        e.hoverAlignment = null;
+        e.hover = null;
+      }
       if (e.tool == Tool.move) {
         if (a.beam == null) return;
         if (!e.selection.contains(a.beam)) e.select(a.beam);
@@ -360,8 +542,12 @@ class _DrawingViewportState extends State<DrawingViewport> {
         e.sketch = beginSketch(a);
         if (e.sketch!.reference case final part?) {
           final units = e.project.unit;
-          e.message =
-              '${part.name} · ${units.format(part.size.y)} × ${units.format(part.size.z)} ${units.symbol} · укажите конец';
+          e.message = context.strings.sketchEndHint(
+            part.name,
+            units.format(part.size.y),
+            units.format(part.size.z),
+            units.symbol,
+          );
         }
       }
       e.refresh();
@@ -370,26 +556,24 @@ class _DrawingViewportState extends State<DrawingViewport> {
     final start = e.first!,
         from = start.resolve(e.project),
         to = a.resolve(e.project);
-    if (from.distanceTo(to) < .001 && e.tool != Tool.move) return;
+    if (from.distanceTo(to) < .001 &&
+        e.tool != Tool.move &&
+        e.tool != Tool.align) {
+      return;
+    }
     switch (e.tool) {
-      case Tool.move:
-        final next = mate(e.project, e.selection, start, a);
+      case Tool.move || Tool.align:
+        final (source, target) = moveEndpoints(start, a);
+        final next = mate(e.project, e.selection, source, target);
         e.setTool(Tool.select);
         e.commit(next);
       case Tool.beam:
         if (from.distanceTo(to) < 1) return;
         final beam = e.preview;
         if (beam == null) return;
-        e.setTool(Tool.select);
-        e.selection = {beam.id};
-        e.commit(e.project.copy(beams: [...e.project.beams, beam]));
+        insertPart(beam);
       case Tool.measure:
-        e.resetTransient();
-        e.commit(
-          e.project.copy(
-            dimensions: [...e.project.dimensions, Dimension(start, a)],
-          ),
-        );
+        e.addDimension(Dimension(start, a));
       default:
         break;
     }
@@ -408,8 +592,13 @@ class _DrawingViewportState extends State<DrawingViewport> {
     if (kb.isControlPressed || kb.isMetaPressed) {
       final label = sizeLabel(at), part = e.single;
       if (label == null || part == null) return;
-      final box = context.findRenderObject()! as RenderBox;
       final index = label.key.index;
+      if (part.locked(index)) {
+        e.message = context.strings.dimensionLocked;
+        e.refresh();
+        return;
+      }
+      final box = context.findRenderObject()! as RenderBox;
       final value = await editDimensionLabel(
         context,
         part,
@@ -435,14 +624,9 @@ class _DrawingViewportState extends State<DrawingViewport> {
     await showPartProperties(context, e, partAtPointer, box.localToGlobal(at));
   }
 
-  void addPartAt(Offset at) {
-    final p = e.camera.onPlane(at, size, e.plane);
-    if (p == null) return;
-    final origin = e.step.enabled
-        ? e.plane.quantize(p, e.step.millimeters(e.project.unit))
-        : p;
+  Beam newPart(Vector3 origin) {
     final id = e.project.nextId;
-    final part = Beam(
+    return Beam(
       id,
       Beam.defaultName(id),
       origin,
@@ -450,22 +634,70 @@ class _DrawingViewportState extends State<DrawingViewport> {
       e.plane.u,
       e.plane.v,
     );
+  }
+
+  Vector3? pointOnWorkPlane(Offset at) {
+    final point = e.camera.onPlane(at, size, e.plane);
+    return point != null && e.step.enabled
+        ? e.plane.quantize(point, e.step.millimeters(e.project.unit))
+        : point;
+  }
+
+  void insertPart(Beam part) {
+    e.tool = Tool.select;
     e.resetTransient();
-    e.selection = {id};
+    e.selection = {part.id};
     e.commit(e.project.copy(beams: [...e.project.beams, part]));
+  }
+
+  void addPartAt(Offset at) {
+    final origin = pointOnWorkPlane(at);
+    if (origin != null) insertPart(newPart(origin));
+  }
+
+  Future<void> addWithDimensions() async {
+    if (down != null) return;
+    final document = e.project;
+    final at = hoverPosition ?? size.center(Offset.zero);
+    final sketch = e.tool == Tool.beam ? e.sketch : null;
+    final start = sketch == null ? null : e.first?.resolve(document);
+    final draft =
+        e.partToPlace ??
+        (sketch != null && start != null
+            ? e.preview ??
+                  sketch.make(
+                    document.nextId,
+                    start,
+                    start + sketch.plane.u * 300,
+                  )
+            : newPart(e.plane.origin));
+    final box = context.findRenderObject()! as RenderBox;
+    final part = await editPartSize(
+      context,
+      e,
+      draft,
+      box.localToGlobal(at),
+      creating: true,
+    );
+    if (!mounted || !identical(document, e.project)) return;
+    e.hoveredSize = e.focusedSize = null;
+    if (part != null) {
+      e.beginPlacing(part);
+    } else {
+      e.refresh();
+    }
   }
 
   void start(PointerDownEvent ev) {
     FocusManager.instance.primaryFocus?.unfocus();
     FocusManager.instance.applyFocusChangesIfNeeded();
-    pending?.cancel();
-    e.guide = null;
-    down = last = ev.localPosition;
+    down = last = hoverPosition = ev.localPosition;
+    orbitPivot = null;
     buttons = ev.buttons;
     dragged = false;
     before = null;
     moving = {};
-    end = null;
+    resizeEdge = null;
     source = null;
     moveSnap = null;
     moveGuides = [];
@@ -478,58 +710,62 @@ class _DrawingViewportState extends State<DrawingViewport> {
         sizeLabel(down!) != null) {
       return;
     }
-    if (part != null && !part.locked(e.resizeAxis)) {
-      for (final positive in [false, true]) {
-        if ((e.camera.project(faceCenter(part, e.resizeAxis, positive), size) -
-                    down!)
-                .distance <
-            8) {
-          end = positive;
-          before = e.project;
-          moving = {part.id};
-          stop = firstContact(part, e.resizeAxis, positive, e.project.beams);
-          magnet = EndMagnet();
-          alignmentTargets =
-              alignedEnds(
-                    part,
-                    e.resizeAxis,
-                    positive,
-                    e.project.beams,
-                    80 / e.camera.scale,
-                  )
-                  .where(
-                    (t) => stop == null || t.travel <= stop!.travel + .00001,
-                  )
-                  .toList();
-          return;
-        }
+    final face = scene.hit(down!);
+    final edge = shiftResize || face == null
+        ? scene.edgeAt(down!, surface: face)
+        : null;
+    if (shiftResize && edge != null && canResizeEdge(edge)) {
+      final anchor = e.camera.onPlane(down!, size, edge.face.plane);
+      if (anchor != null) {
+        resizeEdge = edge;
+        before = e.project;
+        modifierClick = edge.face.beam.id;
+        final direction = edge.direction;
+        dragPlane = WorkPlane(
+          '',
+          anchor,
+          direction,
+          e.camera.towardEye(anchor).cross(direction).normalized(),
+        );
+        stop = firstContact(
+          edge.face.beam,
+          edge.axis,
+          edge.positive,
+          scene.project.beams,
+        );
+        e.refresh();
+        return;
       }
     }
     final alt = HardwareKeyboard.instance.isAltPressed;
-    final hits = <int>{
-      for (final f in scene.faces.reversed)
-        if (f.path.contains(down!)) f.beam.id,
-    }.toList();
     final snapped = e.snap ? scene.snap(down!, mode: e.snapMode) : null;
-    final id = alt && hits.isNotEmpty
-        ? hits[(hits.indexOf(e.single?.id ?? -1) + 1) % hits.length]
-        : hits.firstOrNull ?? snapped?.beam;
+    int? id = face?.beam.id ?? edge?.face.beam.id ?? snapped?.beam;
+    if (alt && face != null) {
+      final hits = <int>{
+        for (final f in scene.faces.reversed)
+          if (f.path.contains(down!)) f.beam.id,
+      }.toList();
+      id = hits[(hits.indexOf(e.single?.id ?? -1) + 1) % hits.length];
+    }
     final multi = HardwareKeyboard.instance.isShiftPressed;
-    if (!multi &&
-        id != null &&
-        (HardwareKeyboard.instance.isControlPressed ||
+    if (multi && alt) {
+      e.select(id, multi: true, individual: true);
+      return;
+    }
+    if (id != null &&
+        (multi ||
+            HardwareKeyboard.instance.isControlPressed ||
             HardwareKeyboard.instance.isMetaPressed)) {
       modifierClick = id;
-    } else if (multi || id == null || !e.selection.contains(id) || alt) {
-      e.select(id, multi: multi, individual: alt);
+    } else if (id == null || !e.selection.contains(id) || alt) {
+      e.select(id, individual: alt);
     }
     if (id == null || multi) return;
     before = e.project;
     moving = e.selection.contains(id)
         ? {...e.selection}
-        : e.project.assembly(id);
+        : e.project.visibleGeometry.assembly(id);
     source = snapped != null && moving.contains(snapped.beam) ? snapped : null;
-    final face = scene.hit(down!);
     final hitPoint = face == null
         ? null
         : e.camera.onPlane(down!, size, face.plane);
@@ -567,10 +803,12 @@ class _DrawingViewportState extends State<DrawingViewport> {
       }
       final gap = moveGuides.map((g) => g.gap).nonNulls.firstOrNull;
       if (gap != null) {
-        e.message =
-            'Равные зазоры · ${initial.unit.format(gap)} ${initial.unit.symbol}';
+        e.message = context.strings.equalGapValue(
+          initial.unit.format(gap),
+          initial.unit.symbol,
+        );
       } else if (moveGuides.isNotEmpty) {
-        e.message = 'По краю';
+        e.message = context.strings.edgeAligned;
       }
     } else {
       moveSnap!.release();
@@ -578,20 +816,31 @@ class _DrawingViewportState extends State<DrawingViewport> {
     e.project = delta.length2 < 1e-14 ? initial : initial.move(moving, delta);
   }
 
+  Vector3 pivotAt(Offset position) {
+    final face = scene.hit(position);
+    if (face != null) {
+      final point = e.camera.onPlane(position, size, face.plane);
+      if (point != null) return point;
+    }
+    if (e.selection.isEmpty) {
+      return e.framedProject.partBounds?.center ?? e.camera.target.clone();
+    }
+    return Bounds3.points(e.selected.expand((b) => b.corners)).center;
+  }
+
   void move(PointerMoveEvent ev) {
     if (down == null) return;
     final pos = ev.localPosition, delta = pos - last!;
     last = pos;
+    hoverPosition = (Offset.zero & size).contains(pos) ? pos : null;
     if (!dragged &&
         (pos - down!).distance < (buttons == kSecondaryMouseButton ? 5 : 3)) {
       return;
     }
     dragged = true;
     if (buttons == kSecondaryMouseButton) {
-      e.camera.yaw -= delta.dx * .009;
-      e.camera.pitch = (e.camera.pitch + delta.dy * .008).clamp(-1.54, 1.54);
-      e.view = null;
-      e.hover = null;
+      orbitPivot ??= pivotAt(down!);
+      e.orbit(delta, orbitPivot!);
       e.refresh();
       return;
     }
@@ -602,31 +851,23 @@ class _DrawingViewportState extends State<DrawingViewport> {
       e.refresh();
       return;
     }
+    if (e.partToPlace != null) {
+      e.refresh();
+      return;
+    }
     if (e.tool != Tool.select || before == null) return;
-    if (end != null) {
-      final b = before!.byId[moving.single]!;
-      final anchor = faceCenter(b, e.resizeAxis, end!);
-      final direction =
-          [b.along, b.across, b.up][e.resizeAxis] * (end! ? 1.0 : -1.0);
-      final projected =
-          e.camera.project(anchor + direction, size) -
-          e.camera.project(anchor, size);
-      if (projected.distanceSquared < 1e-6) {
-        e.message = 'Поверните вид, чтобы видеть направление торца';
-        e.refresh();
-        return;
+    if (resizeEdge case final edge?) {
+      if (modifierClick != null && e.single?.id != edge.face.beam.id) {
+        e.select(edge.face.beam.id);
       }
-      final offset = pos - down!;
-      final travel =
-          (offset.dx * projected.dx + offset.dy * projected.dy) /
-          projected.distanceSquared;
-      stretch(b, travel, projected.distance);
+      modifierClick = null;
+      stretch(edge, pos);
     } else if (source != null) {
       if (modifierClick != null && !e.selection.contains(modifierClick)) {
         e.select(modifierClick);
       }
       modifierClick = null;
-      moveSnap ??= MoveSnap(before!, moving, e.plane);
+      moveSnap ??= MoveSnap(before!.visibleGeometry, moving, e.plane);
       translate(pos);
     }
     e.refresh();
@@ -635,12 +876,18 @@ class _DrawingViewportState extends State<DrawingViewport> {
   void finish(PointerUpEvent ev) {
     if (down != null && !dragged && buttons == kSecondaryMouseButton) {
       final at = ev.localPosition;
+      final hit = scene.hit(at);
       unawaited(
         showDrawingMenu(
           context,
           e,
           ev.position,
-          partId: scene.hit(at)?.beam.id,
+          partId: hit?.beam.id,
+          end: switch (hit?.face) {
+            0 => false,
+            1 => true,
+            _ => null,
+          },
           addHere: () => addPartAt(at),
         ),
       );
@@ -667,11 +914,13 @@ class _DrawingViewportState extends State<DrawingViewport> {
     } else if (dragged && before != null && !identical(e.project, before)) {
       e.commit(e.project, before: before);
     }
-    pending?.cancel();
-    e.guide = null;
+    if (before != null && dragged) {
+      e.hover = null;
+      e.message = '';
+    }
     down = null;
     before = null;
-    end = null;
+    resizeEdge = null;
     moveSnap = null;
     moveGuides = [];
     modifierClick = null;
@@ -681,11 +930,28 @@ class _DrawingViewportState extends State<DrawingViewport> {
 
   @override
   Widget build(BuildContext context) {
+    if (e.tool != Tool.rotate || e.selection.isEmpty) return _viewport(0);
+    if (MediaQuery.disableAnimationsOf(context)) return _viewport(e.angle);
+    return TweenAnimationBuilder<double>(
+      key: ValueKey((
+        e.project,
+        e.rotationAxis,
+        e.localRotation,
+        Object.hashAllUnordered(e.selection),
+      )),
+      tween: Tween(begin: e.rotationDegrees, end: e.rotationDegrees),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOut,
+      builder: (_, degrees, _) => _viewport(degrees),
+    );
+  }
+
+  Widget _viewport(double previewAngle) {
     return LayoutBuilder(
       builder: (context, box) {
         size = box.biggest;
         if (e.fitRequested) {
-          e.camera.fit(e.project, size);
+          e.camera.fit(e.framedProject, size);
           e.fitRequested = false;
         }
         final c = e.camera;
@@ -698,7 +964,7 @@ class _DrawingViewportState extends State<DrawingViewport> {
           e.manualOffset,
           e.rotationAxis,
           e.localRotation,
-          e.angle,
+          previewAngle,
           e.tool == Tool.rotate ? Object.hashAll(e.selection) : 0,
           c.yaw,
           c.perspective,
@@ -711,19 +977,34 @@ class _DrawingViewportState extends State<DrawingViewport> {
           c.target.z,
           size,
         );
-        if (signature != sig) {
+        final sceneChanged = signature != sig;
+        if (sceneChanged) {
           cached = Scene(
-            e.tool == Tool.align ? e.project : e.displayed,
+            e.tool == Tool.rotate ? e.rotationPreview(previewAngle) : e.project,
             c,
             size,
           );
           signature = sig;
         }
+        if (sceneChanged && e.tool == Tool.measure && hoverPosition != null) {
+          e.hover = measurePoint(hoverPosition!);
+        }
         final placement = e.previewPlacement, option = e.visibleAlignment;
-        return MouseRegion(
-          cursor: e.tool == Tool.select
-              ? SystemMouseCursors.basic
-              : SystemMouseCursors.precise,
+        final partToPlace = e.partToPlace;
+        final anchor = partToPlace != null && hoverPosition != null
+            ? pick(hoverPosition!)
+            : null;
+        final feedback = selectionFeedback();
+        final drawing = MouseRegion(
+          cursor: feedback.cursor,
+          onEnter: (ev) {
+            hoverPosition = ev.localPosition;
+            if (e.tool == Tool.measure) {
+              hover(ev.localPosition);
+            } else if (e.tool == Tool.select || e.partToPlace != null) {
+              e.refresh();
+            }
+          },
           onHover: (ev) => hover(ev.localPosition),
           onExit: (_) {
             hoverPosition = null;
@@ -738,11 +1019,10 @@ class _DrawingViewportState extends State<DrawingViewport> {
             onPointerMove: move,
             onPointerUp: finish,
             onPointerCancel: (_) {
-              pending?.cancel();
+              resizeEdge = null;
               moveSnap = null;
               moveGuides = [];
               modifierClick = null;
-              e.guide = null;
               e.hover = null;
               e.message = '';
               if (before != null) {
@@ -768,6 +1048,7 @@ class _DrawingViewportState extends State<DrawingViewport> {
               }
             },
             onPointerPanZoomStart: (_) {
+              orbitPivot = null;
               pinchScale = 1;
             },
             onPointerPanZoomUpdate: (ev) {
@@ -779,12 +1060,8 @@ class _DrawingViewportState extends State<DrawingViewport> {
                   size,
                 );
               } else if (HardwareKeyboard.instance.isAltPressed) {
-                e.camera.yaw -= ev.panDelta.dx * .009;
-                e.camera.pitch = (e.camera.pitch + ev.panDelta.dy * .008).clamp(
-                  -1.54,
-                  1.54,
-                );
-                e.view = null;
+                orbitPivot ??= pivotAt(ev.localPosition);
+                e.orbit(ev.panDelta, orbitPivot!);
               } else {
                 e.camera.pan += ev.panDelta;
               }
@@ -797,53 +1074,86 @@ class _DrawingViewportState extends State<DrawingViewport> {
                   ? (details) => doubleClickPosition = details.localPosition
                   : null,
               onDoubleTap: e.tool == Tool.select ? doubleClick : null,
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  key: const Key('drawing'),
-                  size: size,
-                  painter: painted = DrawingPainter(
-                    scene: scene,
-                    selection: e.selection,
-                    referenceId: e.firstShelf,
-                    alignmentSupport: e.alignmentSupport,
-                    gapPreview: e.gapPreview,
-                    plane: e.plane,
-                    first: e.first,
-                    hover: e.hover,
-                    preview: placement != null && option != null
-                        ? placement.placed(option, e.manualOffset)
-                        : e.preview,
-                    previewColor: alignmentColors[option] ?? accent,
-                    activeFace: e.faceHover,
-                    grid: true,
-                    dimensionsVisible: e.dimensionsVisible,
-                    dimensions:
-                        (e.tool != Tool.rotate || e.highlightedSize != null) &&
-                        moveGuides.isEmpty,
-                    gridStep: 50,
-                    overlaps: e.tool == Tool.rotate || e.tool == Tool.align
-                        ? scene.project.overlaps
-                        : e.overlaps,
-                    handleAxis:
-                        e.tool == Tool.select &&
-                            (e.highlightedSize == null ||
-                                e.highlightedSize == e.resizeAxis) &&
-                            e.single?.locked(e.resizeAxis) == false
-                        ? e.resizeAxis
-                        : null,
-                    original: e.tool == Tool.rotate ? e.project : null,
-                    rotationAxis: e.rotationAxis,
-                    rotationBasis: e.rotationBasis,
-                    localRotation: e.localRotation && e.single != null,
-                    highlightedSize: e.highlightedSize,
-                    guide: e.guide,
-                    moveGuides: moveGuides,
-                    angle: e.angle,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: GridPainter(
+                        camera: c,
+                        plane: e.plane,
+                        visibility: e.gridVisibility,
+                        paper: context.colors.paper,
+                      ),
+                    ),
                   ),
-                ),
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      key: const Key('drawing'),
+                      size: size,
+                      painter: painted = DrawingPainter(
+                        colors: context.colors,
+                        scene: scene,
+                        hiddenOutlines: e.showHiddenOutlines
+                            ? e.project.beams.where((b) => b.hidden)
+                            : const [],
+                        selection: e.selection,
+                        selectedDimension: e.selectedDimension,
+                        referenceId: e.firstShelf,
+                        alignmentSupport: e.alignmentSupport,
+                        gapPreview: e.gapPreview,
+                        first: e.first,
+                        hover: anchor ?? e.hover,
+                        preview: anchor != null
+                            ? partToPlace!.copy(origin: anchor.point)
+                            : placement != null && option != null
+                            ? placement.placed(option, e.manualOffset)
+                            : e.preview,
+                        previewColor: option == null
+                            ? context.colors.accent
+                            : context.colors.diagramColor(
+                                alignmentColors[option]!,
+                              ),
+                        activeFace: e.faceHover,
+                        rulerTarget:
+                            e.tool == Tool.measure &&
+                                e.hover == rulerTarget?.anchor
+                            ? rulerTarget
+                            : null,
+                        showRise: raising,
+                        dimensionsVisible: e.dimensionsVisible,
+                        showAllStockSizes: e.rulerActive,
+                        dimensions:
+                            e.rulerActive ||
+                            (e.tool != Tool.rotate ||
+                                    e.highlightedSize != null) &&
+                                moveGuides.isEmpty,
+                        overlaps: e.tool == Tool.rotate || e.tool == Tool.align
+                            ? scene.project.overlaps
+                            : e.overlaps,
+                        moveHighlight: feedback.move,
+                        resizePart: feedback.resize,
+                        activeEdge: feedback.edge,
+                        edgePointer: hoverPosition,
+                        original: e.tool == Tool.rotate ? e.project : null,
+                        rotationAxis: e.rotationAxis,
+                        rotationBasis: e.rotationBasis,
+                        localRotation: e.localRotation && e.single != null,
+                        highlightedSize: e.highlightedSize,
+                        positionGuide: e.positionGuide,
+                        moveGuides: moveGuides,
+                        angle: previewAngle,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        );
+        return Stack(
+          fit: StackFit.expand,
+          children: [drawing, ViewCube(scene, e.setView)],
         );
       },
     );

@@ -1,3 +1,7 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
+import 'desk_text_field.dart';
+
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart' show Divider;
@@ -29,13 +33,14 @@ class _PartsListState extends State<PartsList> {
       exportMessage = null;
       exporting = true;
     });
+    final strings = context.strings;
     String? message;
     try {
       if (await savePartsWorkbook(project, entries)) {
-        message = kIsWeb ? 'Скачивание началось' : 'Файл Excel сохранён';
+        message = kIsWeb ? strings.downloadStarted : strings.excelFileSaved;
       }
     } catch (_) {
-      message = 'Не удалось сохранить файл Excel. Попробуйте ещё раз.';
+      message = strings.workbookSaveError;
     } finally {
       if (mounted) {
         setState(() {
@@ -47,7 +52,7 @@ class _PartsListState extends State<PartsList> {
   }
 
   List<StockRow> rows(Project p) {
-    final groups = <(int, int, int, int, int, int, int), List<Beam>>{};
+    final groups = <Record, List<Beam>>{};
     int key(double n) => (n * 1e6).round();
     for (final b in p.beams) {
       if (!b.name.toLowerCase().contains(query.trim().toLowerCase())) continue;
@@ -59,6 +64,13 @@ class _PartsListState extends State<PartsList> {
         key(b.startCut.z),
         key(b.endCut.y),
         key(b.endCut.z),
+        b.bore,
+        (
+          b.rabbets[RabbetEdge.topLeft],
+          b.rabbets[RabbetEdge.topRight],
+          b.rabbets[RabbetEdge.bottomLeft],
+          b.rabbets[RabbetEdge.bottomRight],
+        ),
       );
       (groups[shape] ??= []).add(b);
     }
@@ -88,11 +100,14 @@ class _PartsListState extends State<PartsList> {
       final p = widget.editor.project, unit = p.unit;
       final entries = rows(p), cuts = p.beams.any((b) => b.bevelled);
       final count = query.trim().isEmpty
-          ? '${p.beams.length} шт.'
-          : 'Найдено ${entries.fold<int>(0, (n, row) => n + row.parts.length)} из ${p.beams.length}';
+          ? context.strings.pieceCount(p.beams.length)
+          : context.strings.searchMatches(
+              entries.fold<int>(0, (n, row) => n + row.parts.length),
+              p.beams.length,
+            );
       return DeskDialog(
         maxWidth: 880,
-        title: const Text('Список деталей'),
+        title: Text(context.strings.partsList),
         content: SizedBox(
           width: 800,
           height: (MediaQuery.sizeOf(context).height * .52).clamp(190.0, 480.0),
@@ -100,17 +115,21 @@ class _PartsListState extends State<PartsList> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                spacing: controlGap,
                 children: [
                   Expanded(
                     child: Text(
                       '${p.name} · $count · ${unit.title.toLowerCase()}',
-                      style: const TextStyle(fontSize: 12, color: muted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.colors.muted,
+                      ),
                     ),
                   ),
                   SizedBox(
                     width: 174,
-                    child: CupertinoSearchTextField(
-                      placeholder: 'Найти деталь',
+                    child: DeskSearchField(
+                      placeholder: context.strings.findAPart,
                       onChanged: (v) => setState(() => query = v),
                     ),
                   ),
@@ -120,11 +139,11 @@ class _PartsListState extends State<PartsList> {
               Row(
                 children: [
                   for (final (i, title) in [
-                    'Деталь',
-                    'Длина заготовки',
-                    'Ширина',
-                    'Толщина',
-                    'Кол-во',
+                    context.strings.part,
+                    context.strings.stockLength,
+                    context.strings.width,
+                    context.strings.thickness,
+                    context.strings.qty,
                   ].indexed)
                     cell(
                       i,
@@ -146,8 +165,8 @@ class _PartsListState extends State<PartsList> {
                   if (cuts)
                     cell(
                       5,
-                      const Text(
-                        'Торцы',
+                      Text(
+                        context.strings.ends,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -162,8 +181,8 @@ class _PartsListState extends State<PartsList> {
                     ? Center(
                         child: Text(
                           p.beams.isEmpty
-                              ? 'В проекте пока нет деталей'
-                              : 'Детали не найдены',
+                              ? context.strings.thisProjectHasNoPartsYet
+                              : context.strings.noMatchingParts,
                         ),
                       )
                     : ListView.builder(
@@ -175,8 +194,10 @@ class _PartsListState extends State<PartsList> {
                               expanded = opened.contains(b.id);
                           return Column(
                             children: [
-                              SizedBox(
-                                height: 35,
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 35,
+                                ),
                                 child: Row(
                                   children: [
                                     cell(
@@ -228,17 +249,36 @@ class _PartsListState extends State<PartsList> {
                                         Text(
                                           b.bevelled
                                               ? '${stockCut(b, false)} / ${stockCut(b, true)}'
-                                              : 'Прямые',
+                                              : context.strings.square,
                                           style: mono,
                                         ),
                                       ),
                                   ],
                                 ),
                               ),
+                              if (b.rabbets.isNotEmpty)
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 12,
+                                      bottom: 4,
+                                    ),
+                                    child: Text(
+                                      '${context.strings.rabbetTitle} · ${stockRabbets(b, unit)}',
+                                      style: mono,
+                                    ),
+                                  ),
+                                ),
                               if (multiple && expanded)
                                 for (final item in r.parts)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 22),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      22,
+                                      2,
+                                      0,
+                                      2,
+                                    ),
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       child: DeskButton(
@@ -265,18 +305,19 @@ class _PartsListState extends State<PartsList> {
           if (exportMessage != null)
             Text(
               exportMessage!,
-              style: const TextStyle(color: muted, fontSize: 12),
+              style: TextStyle(color: context.colors.muted, fontSize: 12),
             ),
           DeskButton(
             onPressed: entries.isEmpty || exporting
                 ? null
                 : () => exportWorkbook(p, entries),
             icon: const Icon(CupertinoIcons.square_arrow_up, size: 15),
-            label: const Text('Экспорт в Excel'),
+            label: Text(context.strings.exportToExcel),
           ),
           DeskButton(
+            primary: true,
             onPressed: () => Navigator.pop(context),
-            child: const Text('Готово'),
+            child: Text(context.strings.close),
           ),
         ],
       );

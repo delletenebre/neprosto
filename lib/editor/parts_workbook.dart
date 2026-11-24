@@ -1,3 +1,5 @@
+import '../l10n/strings.dart';
+
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
@@ -35,21 +37,31 @@ double blankLength(Beam b) {
 }
 
 String stockCut(Beam b, bool end) {
-  final slope = end ? b.endCut : b.startCut;
-  final angle = endAngle(b, end);
-  if (angle < 1e-6) return '0°';
-  final dirs = [
-    if (slope.y.abs() > .000001) slope.y > 0 ? '+Ш' : '−Ш',
-    if (slope.z.abs() > .000001) slope.z > 0 ? '+Т' : '−Т',
-  ].join();
-  return '${mm(angle)}° $dirs';
+  final cut = end ? b.endCut : b.startCut;
+  final width = markingAngle(cut.y, b.size.y);
+  final thickness = markingAngle(cut.z, b.size.z);
+  final marks = [
+    if (width.abs() >= 1e-6)
+      '${mm(width.abs())}° ${width > 0 ? editorStrings.positiveWidth : editorStrings.negativeWidth}',
+    if (thickness.abs() >= 1e-6)
+      '${mm(thickness.abs())}° ${thickness > 0 ? editorStrings.positiveThickness : editorStrings.negativeThickness}',
+  ];
+  return marks.isEmpty ? '0°' : marks.join(' · ');
 }
+
+String stockRabbets(Beam part, LengthUnit unit) => [
+  for (final edge in RabbetEdge.values)
+    if (part.rabbets[edge] case final cut?)
+      '${edge.label} · ${unit.format(cut.width)} × ${unit.format(cut.depth)} ${unit.symbol}',
+].join('\n');
 
 Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
   final book = Excel.createExcel();
-  book.rename(book.getDefaultSheet()!, 'Заготовки');
-  final summary = book['Заготовки'], details = book['Детали'];
+  book.rename(book.getDefaultSheet()!, editorStrings.stock);
+  final summary = book[editorStrings.stock],
+      details = book[editorStrings.partsLabel];
   final hasCuts = rows.any((r) => r.sample.bevelled);
+  final hasRabbets = rows.any((r) => r.sample.rabbets.isNotEmpty);
   final headerStyle = CellStyle(
     bold: true,
     fontColorHex: ExcelColor.white,
@@ -59,12 +71,19 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
 
   for (final sheet in [summary, details]) {
     final columns = [
-      (sheet == summary ? 'Заготовка' : 'Название детали', 40.0),
-      ('Длина заготовки, ${unit.symbol}', 25.0),
-      ('Ширина, ${unit.symbol}', 18.0),
-      ('Толщина, ${unit.symbol}', 18.0),
-      if (sheet == summary) ('Количество, шт.', 18.0),
-      if (hasCuts) ...[('Начальный торец', 22.0), ('Конечный торец', 22.0)],
+      (
+        sheet == summary ? editorStrings.stockPiece : editorStrings.partName,
+        40.0,
+      ),
+      (editorStrings.stockLengthInUnits(unit.symbol), 25.0),
+      (editorStrings.widthLabel(unit.symbol), 18.0),
+      (editorStrings.thicknessLabel(unit.symbol), 18.0),
+      if (sheet == summary) (editorStrings.quantityPcs, 18.0),
+      if (hasCuts) ...[
+        (editorStrings.startCut, 30.0),
+        (editorStrings.endCut, 30.0),
+      ],
+      if (hasRabbets) (editorStrings.rabbetTitle, 46.0),
     ];
     sheet.appendRow([for (final c in columns) TextCellValue(c.$1)]);
     sheet.setRowHeight(0, 24);
@@ -76,18 +95,49 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
           headerStyle;
     }
   }
+  final wholeSizeStyle = CellStyle(numberFormat: NumFormat.defaultNumeric);
+  final fractionalSizeStyle = CellStyle(
+    numberFormat: const CustomNumericNumFormat(formatCode: '0.0#'),
+  );
+  final profileStyle = CellStyle(textWrapping: TextWrapping.WrapText);
   void writePart(Sheet sheet, Beam part, String name, {int? count}) {
+    final sizes = [
+      blankLength(part) / unit.factor,
+      part.size.y / unit.factor,
+      part.size.z / unit.factor,
+    ];
+    final rowIndex = sheet.maxRows;
     sheet.appendRow([
       TextCellValue(name),
-      DoubleCellValue(blankLength(part) / unit.factor),
-      DoubleCellValue(part.size.y / unit.factor),
-      DoubleCellValue(part.size.z / unit.factor),
+      for (final size in sizes) DoubleCellValue(size),
       if (count != null) IntCellValue(count),
       if (hasCuts) ...[
         TextCellValue(stockCut(part, false)),
         TextCellValue(stockCut(part, true)),
       ],
+      if (hasRabbets) TextCellValue(stockRabbets(part, unit)),
     ]);
+    if (part.rabbets.length > 1) {
+      sheet.setRowHeight(rowIndex, 16.0 * part.rabbets.length);
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: sheet.maxColumns - 1,
+                  rowIndex: rowIndex,
+                ),
+              )
+              .cellStyle =
+          profileStyle;
+    }
+    for (final (i, size) in sizes.indexed) {
+      final cell = CellIndex.indexByColumnRow(
+        columnIndex: i + 1,
+        rowIndex: rowIndex,
+      );
+      sheet.cell(cell).cellStyle = (size * 100).round() % 100 == 0
+          ? wholeSizeStyle
+          : fractionalSizeStyle;
+    }
   }
 
   for (final row in rows) {

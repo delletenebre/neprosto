@@ -1,101 +1,124 @@
+import '../l10n/strings.dart';
+
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'platform_ui.dart';
+
 import 'package:flutter/services.dart';
 
 enum Command {
-  add(
-    'Новая деталь',
-    'Инструменты',
-    LogicalKeyboardKey.keyQ,
-    alias: LogicalKeyboardKey.keyB,
-  ),
-  select('Выбор деталей', 'Инструменты', LogicalKeyboardKey.keyV),
-  move('Переместить по опорам', 'Инструменты', LogicalKeyboardKey.keyM),
-  rotate('Повернуть деталь', 'Инструменты', LogicalKeyboardKey.keyR),
-  measure('Измерить расстояние', 'Инструменты', LogicalKeyboardKey.keyD),
-  fit('Вписать в окно', 'Вид', LogicalKeyboardKey.keyF),
-  dimensions('Показать / скрыть размеры', 'Вид', LogicalKeyboardKey.tab),
-  undo(
-    'Отменить действие',
-    'Редактирование',
-    LogicalKeyboardKey.keyZ,
-    primary: true,
-  ),
-  redo(
-    'Повторить действие',
-    'Редактирование',
-    LogicalKeyboardKey.keyZ,
-    primary: true,
-    shift: true,
-  ),
-  selectAll(
-    'Выбрать все детали',
-    'Редактирование',
-    LogicalKeyboardKey.keyA,
-    primary: true,
-  ),
-  duplicate(
-    'Дублировать',
-    'Редактирование',
-    LogicalKeyboardKey.keyD,
-    primary: true,
-  ),
-  delete(
-    'Удалить',
-    'Редактирование',
-    LogicalKeyboardKey.backspace,
-    alias: LogicalKeyboardKey.delete,
-  ),
-  group(
-    'Сгруппировать',
-    'Редактирование',
-    LogicalKeyboardKey.keyG,
-    primary: true,
-  ),
-  ungroup(
-    'Разгруппировать',
-    'Редактирование',
-    LogicalKeyboardKey.keyG,
-    primary: true,
-    shift: true,
-  ),
-  left('Влево', 'Сдвиг', LogicalKeyboardKey.arrowLeft),
-  right('Вправо', 'Сдвиг', LogicalKeyboardKey.arrowRight),
-  up('Вверх', 'Сдвиг', LogicalKeyboardKey.arrowUp),
-  down('Вниз', 'Сдвиг', LogicalKeyboardKey.arrowDown),
-  stopLeft(
-    'До упора влево',
-    'Сдвиг',
-    LogicalKeyboardKey.arrowLeft,
-    shift: true,
-  ),
-  stopRight(
-    'До упора вправо',
-    'Сдвиг',
-    LogicalKeyboardKey.arrowRight,
-    shift: true,
-  ),
-  stopUp('До упора вверх', 'Сдвиг', LogicalKeyboardKey.arrowUp, shift: true),
-  stopDown('До упора вниз', 'Сдвиг', LogicalKeyboardKey.arrowDown, shift: true),
-  newProject('Новый проект', 'Проект', LogicalKeyboardKey.keyN, primary: true),
-  open('Открыть проект', 'Проект', LogicalKeyboardKey.keyO, primary: true),
-  save('Сохранить проект', 'Проект', LogicalKeyboardKey.keyS, primary: true),
-  settings('Настройки', 'Проект', LogicalKeyboardKey.comma, primary: true);
+  add(LogicalKeyboardKey.keyW, alias: LogicalKeyboardKey.keyB),
+  addWithDimensions(LogicalKeyboardKey.keyW, shift: true),
+  select(LogicalKeyboardKey.keyV),
+  move(LogicalKeyboardKey.keyM),
+  rotate(LogicalKeyboardKey.keyR),
+  measure(LogicalKeyboardKey.keyD),
+  fit(LogicalKeyboardKey.keyF),
+  dimensions(LogicalKeyboardKey.tab),
+  undo(LogicalKeyboardKey.keyZ, primary: true),
+  redo(LogicalKeyboardKey.keyZ, primary: true, shift: true),
+  selectAll(LogicalKeyboardKey.keyA, primary: true),
+  hideSelected(LogicalKeyboardKey.keyH),
+  duplicate(LogicalKeyboardKey.keyD, primary: true),
+  stretchWidth(LogicalKeyboardKey.keyQ),
+  stretchHeight(LogicalKeyboardKey.keyQ, primary: true),
+  delete(LogicalKeyboardKey.backspace, alias: LogicalKeyboardKey.delete),
+  group(LogicalKeyboardKey.keyG, primary: true),
+  ungroup(LogicalKeyboardKey.keyG, primary: true, shift: true),
+  left(LogicalKeyboardKey.arrowLeft),
+  right(LogicalKeyboardKey.arrowRight),
+  up(LogicalKeyboardKey.arrowUp),
+  down(LogicalKeyboardKey.arrowDown),
+  stopLeft(LogicalKeyboardKey.arrowLeft, shift: true),
+  stopRight(LogicalKeyboardKey.arrowRight, shift: true),
+  stopUp(LogicalKeyboardKey.arrowUp, shift: true),
+  stopDown(LogicalKeyboardKey.arrowDown, shift: true),
+  newProject(LogicalKeyboardKey.keyN, primary: true),
+  open(LogicalKeyboardKey.keyO, primary: true),
+  closeTab(LogicalKeyboardKey.keyW, primary: true),
+  save(LogicalKeyboardKey.keyS, primary: true),
+  saveAs(LogicalKeyboardKey.keyS, primary: true, shift: true),
+  settings(LogicalKeyboardKey.comma, primary: true);
 
   const Command(
-    this.label,
-    this.category,
     this.key, {
     this.primary = false,
     this.shift = false,
     this.alias,
   });
-  final String label, category;
+
   final LogicalKeyboardKey key;
   final LogicalKeyboardKey? alias;
   final bool primary, shift;
   Chord get standard => (key: key, primary: primary, shift: shift, alt: false);
+  String get label => switch (this) {
+    Command.add => editorStrings.newPart,
+    Command.addWithDimensions => editorStrings.newPartWithDimensions,
+    Command.select => editorStrings.selectParts,
+    Command.move => editorStrings.placeAgainstReference,
+    Command.rotate => editorStrings.rotatePart,
+    Command.measure => editorStrings.measureDistance,
+    Command.fit => editorStrings.fitToWindow,
+    Command.dimensions => editorStrings.showHideDimensions,
+    Command.undo => editorStrings.undoAction,
+    Command.redo => editorStrings.redoAction,
+    Command.selectAll => editorStrings.selectAllParts,
+    Command.hideSelected => editorStrings.hideSelectedParts,
+    Command.duplicate => editorStrings.duplicate,
+    Command.stretchWidth => editorStrings.stretchToWidth,
+    Command.stretchHeight => editorStrings.stretchToHeight,
+    Command.delete => editorStrings.delete,
+    Command.group => editorStrings.groupLabel,
+    Command.ungroup => editorStrings.ungroup,
+    Command.left => editorStrings.left,
+    Command.right => editorStrings.right,
+    Command.up => editorStrings.up,
+    Command.down => editorStrings.down,
+    Command.stopLeft => editorStrings.leftToNextStop,
+    Command.stopRight => editorStrings.rightToNextStop,
+    Command.stopUp => editorStrings.upToNextStop,
+    Command.stopDown => editorStrings.downToNextStop,
+    Command.newProject => editorStrings.newProject,
+    Command.open => editorStrings.openProject,
+    Command.closeTab => editorStrings.closeTab,
+    Command.save => editorStrings.saveProject,
+    Command.saveAs => editorStrings.saveAs,
+    Command.settings => editorStrings.settings,
+  };
+
+  String get category => switch (this) {
+    Command.add ||
+    Command.addWithDimensions ||
+    Command.select ||
+    Command.move ||
+    Command.rotate ||
+    Command.measure => editorStrings.tools,
+    Command.fit || Command.dimensions => editorStrings.view,
+    Command.undo ||
+    Command.redo ||
+    Command.selectAll ||
+    Command.hideSelected ||
+    Command.duplicate ||
+    Command.stretchWidth ||
+    Command.stretchHeight ||
+    Command.delete ||
+    Command.group ||
+    Command.ungroup => editorStrings.editing,
+    Command.left ||
+    Command.right ||
+    Command.up ||
+    Command.down ||
+    Command.stopLeft ||
+    Command.stopRight ||
+    Command.stopUp ||
+    Command.stopDown => editorStrings.nudge,
+    Command.newProject ||
+    Command.open ||
+    Command.closeTab ||
+    Command.save ||
+    Command.saveAs ||
+    Command.settings => editorStrings.project,
+  };
 }
 
 typedef Chord = ({LogicalKeyboardKey key, bool primary, bool shift, bool alt});
@@ -135,20 +158,23 @@ Chord? chordFor(KeyEvent event) {
 
 extension ChordLabel on Chord {
   String get label {
-    final mac = defaultTargetPlatform == TargetPlatform.macOS;
+    final mac = appleControls;
     return [
       if (shift) mac ? '⇧' : 'Shift',
       if (alt) mac ? '⌥' : 'Alt',
-      if (primary) mac ? '⌘' : 'Ctrl',
-      _special[key] ?? key.keyLabel.toUpperCase(),
+      if (primary) primaryModifierLabel,
+      if (!mac && key == LogicalKeyboardKey.backspace)
+        'Backspace'
+      else
+        _special[key] ?? key.keyLabel.toUpperCase(),
     ].join(mac ? '' : '+');
   }
 
   bool get reserved =>
       primary &&
+      this != Command.stretchHeight.standard &&
       {
         LogicalKeyboardKey.keyQ,
-        LogicalKeyboardKey.keyW,
         LogicalKeyboardKey.keyH,
         LogicalKeyboardKey.keyM,
         LogicalKeyboardKey.keyX,
@@ -168,10 +194,13 @@ class EditorHotkeys {
   Chord operator [](Command command) => _changes[command] ?? command.standard;
 
   Command? commandFor(Chord chord) {
+    for (final entry in _changes.entries) {
+      if (entry.value == chord) return entry.key;
+    }
     for (final command in Command.values) {
-      if (this[command] == chord ||
-          (!_changes.containsKey(command) &&
-              command.alias == chord.key &&
+      if (_changes.containsKey(command)) continue;
+      if (command.standard == chord ||
+          (command.alias == chord.key &&
               !chord.primary &&
               !chord.alt &&
               !chord.shift)) {
@@ -188,7 +217,7 @@ class EditorHotkeys {
   }
 
   String? conflict(Command command, Chord chord) {
-    if (chord.reserved) return 'Это системное сочетание. Выберите другое.';
+    if (chord.reserved) return editorStrings.reservedShortcut;
     final keys = [
       chord,
       if (chord == command.standard && command.alias != null)
@@ -197,7 +226,7 @@ class EditorHotkeys {
     for (final key in keys) {
       final other = commandFor(key);
       if (other != null && other != command) {
-        return 'Уже назначено для «${other.label}»';
+        return editorStrings.alreadyAssignedTo(other.label);
       }
     }
     return null;
@@ -239,6 +268,10 @@ class EditorHotkeys {
       }
       final result = EditorHotkeys(map);
       for (final command in Command.values) {
+        // A saved shortcut can predate a newly introduced default.
+        if (!map.containsKey(command) && map.containsValue(command.standard)) {
+          continue;
+        }
         if (result.commandFor(result[command]) != command ||
             result.conflict(command, result[command]) != null) {
           return EditorHotkeys();

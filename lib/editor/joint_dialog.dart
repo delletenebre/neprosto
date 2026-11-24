@@ -1,3 +1,5 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
 import 'desktop.dart';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
@@ -14,7 +16,7 @@ import 'scene.dart';
 Future<void> showPartJoint(BuildContext context, Editor editor) async {
   if (editor.selection.length != 2) return;
   final pair = editor.selection.map((id) => editor.project.byId[id]!).toList();
-  final result = await cu.showCupertinoDialog<JointPreview>(
+  final result = await showDeskDialog<JointPreview>(
     context: context,
     builder: (_) => JointDialog(pair[0], pair[1]),
   );
@@ -65,8 +67,12 @@ class _JointDialogState extends State<JointDialog> {
     children: [
       Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis)),
       MenuChoice<bool>(
-        label: value ? 'Конец' : 'Начало',
-        items: const [(false, 'Начало'), (true, 'Конец')],
+        selected: value,
+        label: value ? context.strings.endPoint : context.strings.start,
+        items: [
+          (false, context.strings.start),
+          (true, context.strings.endPoint),
+        ],
         change: change,
       ),
     ],
@@ -90,27 +96,28 @@ class _JointDialogState extends State<JointDialog> {
     }
     final j = result;
     return DeskDialog(
-      title: const Text('Угловой стык'),
+      title: Text(context.strings.miterJoint),
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: controlGap,
             children: [
               end(
-                'Опора · ${widget.a.name}',
+                context.strings.anchorLabel(widget.a.name),
                 endA,
                 (v) => setState(() => endA = v),
               ),
               end(
-                'Переместить · ${widget.b.name}',
+                context.strings.moveShortcut(widget.b.name),
                 endB,
                 (v) => setState(() => endB = v),
               ),
               Row(
                 children: [
-                  const Expanded(child: Text('Внутренний угол')),
+                  Expanded(child: Text(context.strings.insideAngle)),
                   SizedBox(
                     width: 94,
                     child: ValueBox(
@@ -125,23 +132,26 @@ class _JointDialogState extends State<JointDialog> {
               Row(
                 children: [
                   MenuChoice<bool>(
-                    label: width ? 'В плоскости ширины' : 'В плоскости толщины',
-                    items: const [
-                      (true, 'В плоскости ширины'),
-                      (false, 'В плоскости толщины'),
+                    selected: width,
+                    label: width
+                        ? context.strings.inTheWidthPlane
+                        : context.strings.inTheThicknessPlane,
+                    items: [
+                      (true, context.strings.inTheWidthPlane),
+                      (false, context.strings.inTheThicknessPlane),
                     ],
                     change: (v) => setState(() => width = v),
                   ),
                   const Spacer(),
                   iconAction(
                     cu.CupertinoIcons.arrow_left_right,
-                    'Обратить направление',
+                    context.strings.reverseDirection,
                     () => setState(() => flip = !flip),
                   ),
                 ],
               ),
               if (error != null)
-                Text(error, style: const TextStyle(color: Color(0xffa34e37))),
+                Text(error, style: TextStyle(color: context.colors.danger)),
               if (j != null) ...[
                 SizedBox(
                   height: 164,
@@ -158,29 +168,35 @@ class _JointDialogState extends State<JointDialog> {
                         ..facePlane(plane)
                         ..fit(p, box.biggest);
                       final scene = Scene(p, camera, box.biggest);
-                      return CustomPaint(
-                        painter: DrawingPainter(
-                          scene: scene,
-                          selection: {},
-                          plane: plane,
-                          grid: false,
-                          dimensions: false,
-                          gridStep: 50,
+                      return ColoredBox(
+                        color: context.colors.paper,
+                        child: CustomPaint(
+                          painter: DrawingPainter(
+                            colors: context.colors,
+                            scene: scene,
+                            selection: {},
+                            dimensions: false,
+                          ),
+                          foregroundPainter: EndFaceOutline(
+                            j.fixed,
+                            endA,
+                            camera,
+                            context.colors.danger,
+                          ),
                         ),
-                        foregroundPainter: _CutLine(j.fixed, endA, camera),
                       );
                     },
                   ),
                 ),
-                const SizedBox(height: 10),
                 Text(
-                  'Запил каждого торца · ${mm(j.saw)}° от прямого',
+                  context.strings.miterEndAngle(mm(j.saw)),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 5),
                 Text(
-                  'Длины короткой и длинной кромок, ${Units.of(context).symbol}',
-                  style: TextStyle(fontSize: 12, color: muted),
+                  context.strings.shortAndLongEdgeLengths(
+                    Units.of(context).symbol,
+                  ),
+                  style: TextStyle(fontSize: 12, color: context.colors.muted),
                 ),
                 for (final b in [j.fixed, j.moving])
                   Builder(
@@ -206,38 +222,14 @@ class _JointDialogState extends State<JointDialog> {
         DeskButton(
           plain: true,
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: Text(context.strings.cancel),
         ),
         DeskButton(
           primary: true,
           onPressed: j == null ? null : () => Navigator.pop(context, j),
-          child: const Text('Соединить'),
+          child: Text(context.strings.join),
         ),
       ],
     );
   }
-}
-
-class _CutLine extends CustomPainter {
-  final Beam beam;
-  final bool end;
-  final Camera camera;
-  _CutLine(this.beam, this.end, this.camera);
-  @override
-  void paint(Canvas c, Size s) {
-    final points = [
-      for (final i in faceCorners[end ? 1 : 0])
-        camera.project(beam.corner(i), s),
-    ];
-    c.drawPath(
-      Path()..addPolygon(points, true),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..color = const Color(0xffad593d),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CutLine old) => true;
 }

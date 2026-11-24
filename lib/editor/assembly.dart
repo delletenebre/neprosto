@@ -1,3 +1,5 @@
+import '../l10n/strings.dart';
+
 import 'dart:math' as math;
 
 import 'model.dart';
@@ -49,15 +51,15 @@ AssemblyResize resizeAssembly(
   final free = end - start - fixed;
   if ((target - (end - start)).abs() < 1e-7) return AssemblyResize(project);
   if (free < 1e-6) {
-    return AssemblyResize(
-      project,
-      'Весь габарит занят фиксированными размерами',
-    );
+    return AssemblyResize(project, editorStrings.fixedDimensionsFillSpan);
   }
   if (target <= fixed) {
     return AssemblyResize(
       project,
-      'Габарит должен быть больше ${project.unit.format(fixed)} ${project.unit.symbol}',
+      editorStrings.overallSizeMustExceed(
+        project.unit.format(fixed),
+        project.unit.symbol,
+      ),
     );
   }
   final factor = (target - fixed) / free;
@@ -76,7 +78,10 @@ AssemblyResize resizeAssembly(
     if (s.dim >= 0 && !b.bevelled && !b.locked(s.dim)) {
       size[s.dim] = map(s.hi) - map(s.lo);
       if (size[s.dim] < .001) {
-        return AssemblyResize(project, 'Слишком маленький размер детали');
+        return AssemblyResize(project, editorStrings.partDimensionIsTooSmall);
+      }
+      if (size[s.dim] < b.minimumSize(s.dim)) {
+        return AssemblyResize(project, editorStrings.invalidRabbet);
       }
     }
     updates[b.id] = b.copy(

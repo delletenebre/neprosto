@@ -3,9 +3,9 @@
     "short_name": "neprosto",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#316046",
-    "theme_color": "#316046",
-    "description": "Редактор деревянных конструкций",
+    "background_color": "#252f4f",
+    "theme_color": "#252f4f",
+    "description": "Редактор мебели и деревянных конструкций",
     "prefer_related_applications": false,
     "icons": [
         {

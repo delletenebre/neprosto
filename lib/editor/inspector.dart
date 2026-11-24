@@ -1,4 +1,7 @@
+import '../l10n/strings.dart';
+import 'palette.dart';
 import 'desktop.dart';
+import 'platform_ui.dart';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
 import 'package:material_ui/material_ui.dart';
@@ -7,10 +10,14 @@ import 'assembly.dart';
 import 'joint.dart';
 import 'alignment_panel.dart';
 import 'joint_dialog.dart';
+import 'end_cut_dialog.dart';
+import 'rabbet_dialog.dart';
+import 'parts_workbook.dart' show stockCut;
 import 'controller.dart';
 import 'hotkeys.dart';
 import 'controls.dart';
 import 'drawing.dart';
+import 'finish_picker.dart';
 import 'model.dart';
 import 'stock_axis.dart';
 
@@ -18,178 +25,236 @@ class Inspector extends StatelessWidget {
   final Editor e;
   final VoidCallback rename;
   const Inspector(this.e, {required this.rename, super.key});
-  static const dimensions = ['Длина', 'Ширина', 'Толщина'];
-  Widget block(String title, List<Widget> children) => Container(
+  List<String> get dimensions => [
+    for (final axis in StockAxis.values) axis.label,
+  ];
+  Widget block(
+    BuildContext context,
+    String title,
+    List<Widget> children, {
+    double spacing = 0,
+  }) => Container(
     padding: const EdgeInsets.fromLTRB(15, 14, 15, 13),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: line)),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: context.colors.line)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [sectionTitle(title), const SizedBox(height: 10), ...children],
+      children: [
+        sectionTitle(title),
+        const SizedBox(height: 10),
+        Column(
+          spacing: spacing,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ],
     ),
   );
-  Widget row(String name, Widget field, {Widget? trailing}) => Padding(
+  Widget row(
+    BuildContext context,
+    String name,
+    Widget field, {
+    Widget? trailing,
+  }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
     child: Row(
       children: [
         Expanded(
-          child: Text(name, style: const TextStyle(fontSize: 12, color: muted)),
+          child: Text(
+            name,
+            style: TextStyle(fontSize: 12, color: context.colors.muted),
+          ),
         ),
-        SizedBox(width: 92, child: field),
+        SizedBox(width: inspectorFieldWidth, child: field),
         ?trailing,
       ],
     ),
   );
   Widget lock(int i, Iterable<Beam> beams) {
     final locked = beams.every((b) => b.locked(i));
-    return iconAction(
-      locked ? cu.CupertinoIcons.lock : cu.CupertinoIcons.lock_open,
-      '${locked ? 'Разблокировать' : 'Блокировать'} растягивание · ${dimensions[i]}',
-      () {
-        final ids = beams.map((b) => b.id).toSet();
-        e.commit(
-          e.project.edit(
-            ids,
-            (b) => b.copy(
-              locks: locked ? b.locks & ~(1 << i) : b.locks | (1 << i),
+    return sizeLockButton(StockAxis.values[i], locked, () {
+      final ids = beams.map((b) => b.id).toSet();
+      e.commit(e.project.edit(ids, (b) => b.withSizeLock(i, !locked)));
+    });
+  }
+
+  Widget shortcutLabel(BuildContext context, String label, String shortcut) =>
+      Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: controlGap,
+        children: [
+          Text(label),
+          Text(
+            shortcut,
+            style: mono.copyWith(fontSize: 11, color: context.colors.muted),
+          ),
+        ],
+      );
+
+  Widget placementPanel(BuildContext context) => ColoredBox(
+    color: context.colors.panel,
+    child: ListView(
+      key: const ValueKey(Tool.move),
+      primary: false,
+      padding: const EdgeInsets.all(15),
+      children: [
+        Row(
+          spacing: controlGap,
+          children: [
+            Icon(
+              cu.CupertinoIcons.move,
+              size: 18,
+              color: context.colors.accent,
+            ),
+            Expanded(
+              child: Text(
+                context.strings.placeAgainstReference,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (e.selection.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            e.single?.name ?? context.strings.selectedParts(e.selection.length),
+            style: TextStyle(fontSize: 13, color: context.colors.muted),
+          ),
+        ],
+        const SizedBox(height: 14),
+        Semantics(
+          liveRegion: true,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.selectionFill,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              e.first == null
+                  ? context.strings.setTheSourceAnchorOnThePart
+                  : context.strings.setTheDestinationAnchor,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: context.colors.ink,
+              ),
             ),
           ),
-        );
-      },
-      active: locked,
-      size: 15,
-    );
-  }
+        ),
+        const SizedBox(height: 12),
+        DeskButton(
+          onPressed: () => e.setTool(Tool.select),
+          child: shortcutLabel(context, context.strings.cancel, 'Esc'),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
+    if (e.tool == Tool.move) return placementPanel(context);
     final part = e.single, selected = e.selected;
+    if (e.tool == Tool.align && part != null) {
+      return AlignmentPanel(e, key: ValueKey(part.id));
+    }
     final rotatedPart = e.tool == Tool.rotate && part != null
         ? e.displayed.byId[part.id]
         : null;
-    final parts = selected.isEmpty ? e.project.beams : selected;
-    final bounds = parts.isEmpty
+    final bounds = selected.isEmpty
         ? null
-        : Bounds3.points(parts.expand((b) => b.corners));
-    final ids = parts.map((b) => b.id).toSet();
-    final alignable =
-        part != null &&
-        e.project.beams.length > 1 &&
-        (e.tool == Tool.select || e.tool == Tool.align);
-    final title =
-        part?.name ??
-        (selected.isEmpty
-            ? e.project.name
-            : 'Выбрано деталей · ${selected.length}');
+        : Bounds3.points(selected.expand((b) => b.corners));
+    final title = part?.name ?? context.strings.selectedParts(selected.length);
     return ColoredBox(
-      color: Colors.white,
+      color: context.colors.panel,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(15, 15, 12, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  alignable ? 'Перемещаемая деталь' : 'Свойства',
-                  style: const TextStyle(fontSize: 12, color: muted),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: alignable
-                          ? DeskMenu<int>(
-                              title: 'Выбрать перемещаемую деталь',
-                              items: [
-                                for (final b in e.project.beams) (b.id, b.name),
-                              ],
-                              change: (id) {
-                                if (e.single?.id == id) return;
-                                e.setTool(Tool.select);
-                                e.select(id, individual: true);
-                              },
-                              child: Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: -.5,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    cu.CupertinoIcons.chevron_down,
-                                    size: 13,
-                                    color: muted,
-                                  ),
-                                ],
-                              ),
-                            )
-                          : Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -.5,
-                              ),
-                            ),
-                    ),
-                    if (part != null)
-                      iconAction(
-                        cu.CupertinoIcons.pencil,
-                        'Переименовать деталь',
-                        rename,
-                        size: 15,
+          if (selected.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 15, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.strings.properties,
+                    style: TextStyle(fontSize: 12, color: context.colors.muted),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    spacing: toolbarGap,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -.5,
+                          ),
+                        ),
                       ),
-                  ],
-                ),
-              ],
+                      if (part != null)
+                        iconAction(
+                          cu.CupertinoIcons.pencil,
+                          context.strings.renamePart,
+                          rename,
+                          size: 15,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          if (e.tool == Tool.measure || e.tool == Tool.gap)
-            block('Линейка', [
-              DeskSegments(e.tool, const {
-                Tool.measure: 'Две точки',
-                Tool.gap: 'Просвет',
-              }, e.setTool),
-            ]),
+            if (e.tool == Tool.select &&
+                part != null &&
+                e.project.visibleGeometry.beams.length > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(15, 0, 15, 12),
+                child: DeskButton(
+                  onPressed: e.beginAlignment,
+                  icon: const Icon(cu.CupertinoIcons.scope),
+                  label: Text(context.strings.alignToReference),
+                ),
+              ),
+            const Divider(height: 1),
+          ],
           if (selected.length == 2 && e.tool != Tool.rotate)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
               child: DeskButton(
                 icon: const Icon(cu.CupertinoIcons.triangle, size: 16),
-                label: const Text('Угловой стык…'),
+                label: Text(context.strings.miterJointMenu),
                 onPressed: () => showPartJoint(context, e),
               ),
             ),
           if (part != null && part.bevelled)
-            block('Разметка торцов', [
+            block(context, context.strings.endMarkings, [
               for (final end in [false, true])
                 Text(
-                  '${end ? 'Конец' : 'Начало'} · ${mm(endAngle(part, end))}° от прямого',
+                  '${end ? context.strings.endPoint : context.strings.start} · ${stockCut(part, end)}',
                   style: const TextStyle(fontSize: 12),
                 ),
               const SizedBox(height: 5),
               Text(
-                'Кромки · ${(edgeLengths(part).map(e.project.unit.format).toSet().toList()).join(' / ')} ${e.project.unit.symbol}',
+                context.strings.edges(
+                  (edgeLengths(
+                    part,
+                  ).map(e.project.unit.format).toSet().toList()).join(' / '),
+                  e.project.unit.symbol,
+                ),
                 style: mono,
               ),
             ]),
-          if (alignable) AlignmentPanel(e, key: ValueKey(part.id)),
           if (e.tool == Tool.rotate) ...[
-            block('Поворот', [
+            block(context, context.strings.rotation, [
               if (rotatedPart != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -219,7 +284,9 @@ class Inspector extends StatelessWidget {
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: axis.color,
+                                      color: context.colors.diagramColor(
+                                        axis.color,
+                                      ),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -233,145 +300,143 @@ class Inspector extends StatelessWidget {
                 ),
               if (part != null)
                 MenuChoice<bool>(
-                  label: e.localRotation ? 'Оси детали' : 'Оси проекта',
-                  items: const [(false, 'Оси проекта'), (true, 'Оси детали')],
+                  selected: e.localRotation,
+                  label: e.localRotation
+                      ? context.strings.partAxes
+                      : context.strings.projectAxes,
+                  items: [
+                    (false, context.strings.projectAxes),
+                    (true, context.strings.partAxes),
+                  ],
                   change: (v) {
                     e.localRotation = v;
                     e.chooseRotationAxis(e.rotationAxis);
                   },
                 ),
-              const SizedBox(height: 7),
               DeskSegments(
                 e.rotationAxis,
                 e.localRotation && part != null
-                    ? const {0: 'Длина', 1: 'Ширина', 2: 'Толщина'}
+                    ? {
+                        0: context.strings.length,
+                        1: context.strings.width,
+                        2: context.strings.thickness,
+                      }
                     : const {2: 'XY', 1: 'XZ', 0: 'YZ'},
                 e.chooseRotationAxis,
               ),
-              const SizedBox(height: 6),
-              row(
-                'Угол',
-                ValueBox(
-                  e.angle,
-                  (v) {
-                    e.setAngle(v);
-                  },
-                  key: const Key('angle'),
-                  unit: '°',
-                  signed: true,
-                  live: true,
-                ),
-              ),
               Row(
+                spacing: controlGap,
                 children: [
-                  Expanded(
-                    child: DeskButton(
-                      plain: true,
-                      onPressed: () {
-                        e.setAngle(e.angle - 90);
-                      },
-                      child: const Text('−90°'),
-                    ),
+                  Text(
+                    context.strings.corner,
+                    style: TextStyle(fontSize: 12, color: context.colors.muted),
                   ),
                   Expanded(
-                    child: DeskButton(
-                      plain: true,
-                      onPressed: () {
-                        e.setAngle(e.angle + 90);
-                      },
-                      child: const Text('+90°'),
+                    flex: 3,
+                    child: ValueBox(
+                      e.angle,
+                      e.setAngle,
+                      key: const Key('angle'),
+                      unit: '°',
+                      signed: true,
+                      live: true,
+                      onSubmitted: e.applyRotation,
                     ),
                   ),
+                  for (final (delta, label) in const [
+                    (-90, '−90°'),
+                    (90, '+90°'),
+                  ])
+                    Expanded(
+                      flex: 2,
+                      child: DeskButton(
+                        plain: true,
+                        onPressed: () => e.setAngle(e.angle + delta),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(label),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               DeskButton(
                 primary: true,
-                onPressed: e.angle == 0 ? null : e.applyRotation,
-                child: const Text('Применить'),
+                onPressed: e.canApplyRotation ? e.applyRotation : null,
+                child: Text(context.strings.apply),
               ),
               DeskButton(
                 plain: true,
                 onPressed: () => e.setTool(Tool.select),
-                child: const Text('Отмена'),
+                child: Text(context.strings.cancel),
               ),
-            ]),
-          ] else if (part != null && e.tool != Tool.align) ...[
-            block('Размеры детали', [
+            ], spacing: controlGap),
+          ] else if (part != null) ...[
+            block(context, context.strings.partDimensions, [
               for (var i = 0; i < 3; i++)
                 StockSizeRow(
                   e,
                   StockAxis.values[i],
-                  ValueBox(part.size[i], (v) {
-                    if (i == 0 && v < part.minimumLength) {
-                      e.message = 'Длина меньше перепада запилов';
-                      e.refresh();
-                      return;
-                    }
-                    e.commit(
-                      e.project.edit({
-                        part.id,
-                      }, (b) => b.copy(size: b.size.clone()..[i] = v)),
-                    );
-                  }, key: ValueKey('size-${part.id}-$i')),
+                  ValueBox(
+                    part.size[i],
+                    (v) {
+                      if (v < part.minimumSize(i)) {
+                        e.message = i == 0
+                            ? context.strings.lengthTooShortForCuts
+                            : context.strings.invalidRabbet;
+                        e.refresh();
+                        return;
+                      }
+                      e.commit(
+                        e.project.edit({
+                          part.id,
+                        }, (b) => b.copy(size: b.size.clone()..[i] = v)),
+                      );
+                    },
+                    key: ValueKey('size-${part.id}-$i'),
+                    enabled: !part.locked(i),
+                  ),
                   trailing: lock(i, [part]),
                 ),
-            ]),
-            block('Растянуть до упора', [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Магнит торцов',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  DeskSwitch(
-                    value: e.magneticResize,
-                    onChanged: (v) {
-                      e.magneticResize = v;
-                      e.refresh();
-                    },
-                  ),
-                ],
+              const SizedBox(height: 5),
+              DeskButton(
+                icon: const Icon(cu.CupertinoIcons.triangle, size: 15),
+                label: Text(context.strings.endCutsTitle),
+                onPressed: () => showEndCuts(context, e, part),
               ),
-              MenuChoice<int>(
-                label: dimensions[e.resizeAxis],
-                icon: Icons.straighten,
-                items: [for (var i = 0; i < 3; i++) (i, dimensions[i])],
-                change: (i) {
-                  e.resizeAxis = i;
-                  e.refresh();
-                },
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: DeskButton(
-                      onPressed: part.locked(e.resizeAxis)
-                          ? null
-                          : () => e.extend(false),
-                      child: const Text('← Начало'),
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: DeskButton(
-                      onPressed: part.locked(e.resizeAxis)
-                          ? null
-                          : () => e.extend(true),
-                      child: const Text('Конец →'),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 5),
+              DeskButton(
+                icon: const Icon(cu.CupertinoIcons.crop, size: 15),
+                label: Text(context.strings.rabbetTitle),
+                onPressed: () => showRabbets(context, e, part),
               ),
             ]),
-          ] else if (bounds != null && e.tool != Tool.align) ...[
-            block(selected.isEmpty ? 'Габариты изделия' : 'Габариты сборки', [
+            block(context, context.strings.partFinish, [
+              PartFinishButton(part.finish, (finish) {
+                if (e.project.byId[part.id] == part) {
+                  e.commit(
+                    e.project.edit({part.id}, (b) => b.copy(finish: finish)),
+                  );
+                }
+              }, key: ValueKey(part.id)),
+            ]),
+          ] else if (bounds != null) ...[
+            block(context, context.strings.assemblyDimensions, [
               for (var i = 0; i < 3; i++)
                 row(
-                  ['X · ширина', 'Y · глубина', 'Z · высота'][i],
+                  context,
+                  [
+                    context.strings.xWidth,
+                    context.strings.yDepth,
+                    context.strings.zHeight,
+                  ][i],
                   ValueBox(bounds.high[i] - bounds.low[i], (v) {
-                    final result = resizeAssembly(e.project, ids, axis(i), v);
+                    final result = resizeAssembly(
+                      e.project,
+                      e.selection,
+                      axis(i),
+                      v,
+                    );
                     e.message = result.error ?? '';
                     if (result.error != null) {
                       e.refresh();
@@ -381,75 +446,96 @@ class Inspector extends StatelessWidget {
                   }, key: ValueKey('extent-$i')),
                 ),
             ]),
-            if (selected.length > 1)
-              block('Блокировки деталей', [
-                for (var i = 0; i < 3; i++)
-                  Row(
-                    children: [
-                      Expanded(child: Text(dimensions[i])),
-                      lock(i, selected),
-                    ],
-                  ),
-              ]),
-          ],
-          if (e.tool != Tool.rotate &&
-              e.tool != Tool.align &&
-              selected.isNotEmpty &&
-              bounds != null) ...[
-            block('Положение', [
+            block(context, context.strings.partLocks, [
               for (var i = 0; i < 3; i++)
-                row(
-                  'XYZ'[i],
-                  ValueBox(
-                    (part?.origin ?? bounds.low)[i],
-                    (v) {
-                      e.commit(
-                        e.project.move(
-                          e.selection,
-                          axis(i) * (v - (part?.origin ?? bounds.low)[i]),
-                        ),
-                      );
-                    },
-                    signed: true,
-                    key: ValueKey('position-$i'),
+                Row(
+                  children: [
+                    Expanded(child: Text(dimensions[i])),
+                    lock(i, selected),
+                  ],
+                ),
+            ], spacing: controlGap),
+          ],
+          if (e.tool != Tool.rotate && bounds != null) ...[
+            FocusTraversalGroup(
+              policy: WidgetOrderTraversalPolicy(),
+              child: block(context, context.strings.position, [
+                for (var i = 0; i < 3; i++)
+                  row(
+                    context,
+                    'XYZ'[i],
+                    ValueBox(
+                      (part?.origin ?? bounds.low)[i],
+                      (v) {
+                        e.commit(
+                          e.project.move(
+                            e.selection,
+                            axis(i) * (v - (part?.origin ?? bounds.low)[i]),
+                          ),
+                        );
+                      },
+                      signed: true,
+                      onFocusChanged: (focused) =>
+                          e.focusPositionAxis(i, focused),
+                      key: ValueKey('position-$i'),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                DeskButton(
+                  onPressed: () => e.setTool(Tool.move),
+                  icon: const Icon(cu.CupertinoIcons.move, size: 15),
+                  label: shortcutLabel(
+                    context,
+                    context.strings.placeAgainstReference,
+                    e.hotkeys[Command.move].label,
                   ),
                 ),
-              const SizedBox(height: 6),
-              DeskButton(
-                onPressed: () => e.setTool(Tool.move),
-                icon: const Icon(cu.CupertinoIcons.move, size: 15),
-                label: const Text('Поставить по опоре'),
-              ),
-              const SizedBox(height: 5),
-              DeskButton(
-                onPressed: () => e.setTool(Tool.rotate),
-                icon: const Icon(cu.CupertinoIcons.arrow_clockwise, size: 17),
-                label: const Text('Повернуть'),
-              ),
-            ]),
+                const SizedBox(height: 5),
+                DeskButton(
+                  onPressed: () => e.setTool(Tool.rotate),
+                  icon: const Icon(cu.CupertinoIcons.arrow_clockwise, size: 17),
+                  label: Text(context.strings.rotate),
+                ),
+              ]),
+            ),
           ],
           if (e.tool != Tool.rotate && selected.isEmpty)
-            block('Работа с чертежом', [
+            block(context, context.strings.drawingControls, [
               for (final (icon, label, shortcut) in [
-                (cu.CupertinoIcons.list_bullet, 'Меню действий', 'ПКМ'),
+                (
+                  cu.CupertinoIcons.list_bullet,
+                  context.strings.actionsMenu,
+                  context.strings.rightClick,
+                ),
                 (
                   cu.CupertinoIcons.arrow_clockwise,
-                  'Повернуть вид',
-                  'Тянуть ПКМ',
+                  context.strings.orbitView,
+                  context.strings.dragWithRightButton,
                 ),
-                (cu.CupertinoIcons.hand_raised, 'Сдвинуть вид', 'Пробел + ЛКМ'),
-                (cu.CupertinoIcons.zoom_in, 'Масштаб', 'Ctrl/⌘ + скролл'),
                 (
-                  cu.CupertinoIcons.resize,
-                  e.dimensionsByDefault ? 'Скрыть размеры' : 'Показать размеры',
-                  'Удерживать ${e.hotkeys[Command.dimensions].label}',
+                  cu.CupertinoIcons.hand_raised,
+                  context.strings.panView,
+                  context.strings.spaceLeftClick,
                 ),
+                (
+                  cu.CupertinoIcons.zoom_in,
+                  context.strings.zoom,
+                  context.strings.scrollGesture(primaryModifierLabel),
+                ),
+                if (!e.rulerActive)
+                  (
+                    cu.CupertinoIcons.resize,
+                    e.dimensionsByDefault
+                        ? context.strings.hideDimensions
+                        : context.strings.showDimensions,
+                    context.strings.hold(e.hotkeys[Command.dimensions].label),
+                  ),
               ])
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
                     children: [
-                      Icon(icon, size: 15, color: muted),
+                      Icon(icon, size: 15, color: context.colors.muted),
                       const SizedBox(width: 7),
                       Expanded(
                         child: Text(
@@ -457,16 +543,23 @@ class Inspector extends StatelessWidget {
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
-                      Text(
-                        shortcut,
-                        style: mono.copyWith(fontSize: 10, color: muted),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          shortcut,
+                          textAlign: TextAlign.end,
+                          style: mono.copyWith(
+                            fontSize: 10,
+                            color: context.colors.muted,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
             ]),
           if (e.overlaps.isNotEmpty)
-            block('Пересечения', [
+            block(context, context.strings.intersections, [
               for (final b in e.project.beams.where(
                 (b) => e.overlaps.contains(b.id),
               ))
@@ -478,7 +571,7 @@ class Inspector extends StatelessWidget {
                     child: Text(b.name),
                   ),
                 ),
-            ]),
+            ], spacing: toolbarGap),
         ],
       ),
     );

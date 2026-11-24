@@ -10,8 +10,40 @@ part of 'model.dart';
 ) {
   final n = a.faceNormal(fa);
   if (n.dot(b.faceNormal(fb)) > -1 + 1e-7) return null;
-  final face = faceCorners[fa].map(a.corner).toList(),
-      other = faceCorners[fb].map(b.corner).toList();
+  if (a.rabbets.isEmpty && b.rabbets.isEmpty) {
+    return _polygonGap(
+      faceCorners[fa].map(a.corner).toList(),
+      faceCorners[fb].map(b.corner).toList(),
+      n,
+    );
+  }
+  // Slice perpendicular to the measured face so only exposed surfaces are used.
+  final targets = [
+    for (final strip in b.solidStrips(vertical: fb ~/ 2 == 2))
+      faceCorners[fb].map(strip.corner).toList(),
+  ];
+  ({Vector3 from, Vector3 to, Vector3 direction})? best;
+  var nearest = double.infinity;
+  for (final strip in a.solidStrips(vertical: fa ~/ 2 == 2)) {
+    final face = faceCorners[fa].map(strip.corner).toList();
+    for (final other in targets) {
+      final gap = _polygonGap(face, other, n);
+      if (gap == null) continue;
+      final distance = gap.to.distanceToSquared(gap.from);
+      if (distance < nearest) {
+        nearest = distance;
+        best = gap;
+      }
+    }
+  }
+  return best;
+}
+
+({Vector3 from, Vector3 to, Vector3 direction})? _polygonGap(
+  List<Vector3> face,
+  List<Vector3> other,
+  Vector3 n,
+) {
   final distance = (other.first - face.first).dot(n);
   if (distance < -.00001) return null;
   var polygon = other.map((p) => p - n * distance).toList();

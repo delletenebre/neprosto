@@ -1,15 +1,21 @@
+import '../l10n/strings.dart';
+
 import 'dart:math' as math;
 
 import 'model.dart';
 
 enum StockAlignment {
-  front('Передний край'),
-  middle('Середина'),
-  back('Задний край'),
-  offset('Отступ');
+  front,
+  middle,
+  back,
+  offset;
 
-  final String label;
-  const StockAlignment(this.label);
+  String get label => switch (this) {
+    StockAlignment.front => editorStrings.frontEdge,
+    StockAlignment.middle => editorStrings.center,
+    StockAlignment.back => editorStrings.backEdge,
+    StockAlignment.offset => editorStrings.offset,
+  };
 }
 
 ({double lo, double hi}) span(Beam b, Vector3 n) {

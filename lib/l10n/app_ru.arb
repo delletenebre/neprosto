@@ -1,0 +1,1087 @@
+{
+  "@@locale": "ru",
+  "partFinish": "Материал",
+  "finishPresets": "Готовые образцы",
+  "finishTexture": "Текстура",
+  "finishColor": "Цвет",
+  "metal": "Металл",
+  "solidColor": "Однотонный",
+  "naturalWood": "Дерево",
+  "whiteBoard": "ЛДСП · белая",
+  "oakBoard": "ЛДСП · дуб",
+  "aluminumProfile": "Алюминиевый профиль",
+  "steelProfile": "Стальной профиль · графит",
+  "invalidPartFinish": "Некорректный материал детали",
+  "invalidHexColor": "Введите цвет в формате #RRGGBB",
+  "positiveThickness": "+Т",
+  "positiveWidth": "+Ш",
+  "flushOffsetHint": "0 — заподлицо, минус — выступ",
+  "xWidth": "X · ширина",
+  "xyTop": "XY · сверху",
+  "xzFront": "XZ · спереди",
+  "yDepth": "Y · глубина",
+  "yzSide": "YZ · сбоку",
+  "zHeight": "Z · высота",
+  "edgeCaption": "{side}\nкрай",
+  "@edgeCaption": {
+    "placeholders": {
+      "side": {
+        "type": "Object"
+      }
+    }
+  },
+  "scrollGesture": "{modifier} + скролл",
+  "@scrollGesture": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "sketchEndHint": "{part} · {width} × {thickness} {unit} · укажите конец",
+  "@sketchEndHint": {
+    "placeholders": {
+      "part": {
+        "type": "Object"
+      },
+      "width": {
+        "type": "Object"
+      },
+      "thickness": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "liftHint": "{instruction} · {modifier} — вверх · с Shift — строго по Z",
+  "@liftHint": {
+    "placeholders": {
+      "instruction": {
+        "type": "Object"
+      },
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "endAngleValue": "{end} · {angle}° от прямого",
+  "@endAngleValue": {
+    "placeholders": {
+      "end": {
+        "type": "Object"
+      },
+      "angle": {
+        "type": "Object"
+      }
+    }
+  },
+  "unsavedTab": "{name} · Есть изменения",
+  "@unsavedTab": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "depthDirection": "{axis} · в глубину",
+  "@depthDirection": {
+    "placeholders": {
+      "axis": {
+        "type": "Object"
+      }
+    }
+  },
+  "heightGesture": "{mode} · ведите курсор вверх, чтобы задать высоту",
+  "@heightGesture": {
+    "placeholders": {
+      "mode": {
+        "type": "Object"
+      }
+    }
+  },
+  "placeEndHint": "{mode} · щёлкните, чтобы поставить конец детали",
+  "@placeEndHint": {
+    "placeholders": {
+      "mode": {
+        "type": "Object"
+      }
+    }
+  },
+  "resizeLockHint": "{action} размер · {dimension}",
+  "@resizeLockHint": {
+    "placeholders": {
+      "action": {
+        "type": "Object"
+      },
+      "dimension": {
+        "type": "Object"
+      }
+    }
+  },
+  "pieceCount": "{count} шт.",
+  "@pieceCount": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "partsFilename": "{name} — список деталей",
+  "@partsFilename": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "automatic": "Авто",
+  "autosave": "Автосохранение",
+  "axonometric": "Аксонометрия",
+  "untitled": "Без названия",
+  "numberedUntitled": "Без названия {number}",
+  "@numberedUntitled": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "lock": "Блокировать",
+  "partLocks": "Блокировки деталей",
+  "side": "Боковая",
+  "inTheThicknessPlane": "В плоскости толщины",
+  "inTheWidthPlane": "В плоскости ширины",
+  "thisProjectHasNoPartsYet": "В проекте пока нет деталей",
+  "noStopInThisDirection": "В этом направлении нет упора",
+  "invalidInsideAngle": "Введите внутренний угол между 0° и 180°",
+  "positiveIntegerHint": "Введите целое число от 1.",
+  "up": "Вверх",
+  "vertical": "Вертикаль",
+  "cubeTop": "Верх",
+  "upper": "Верхний",
+  "fixedDimensionsFillSpan": "Весь габарит занят фиксированными размерами",
+  "view": "Вид",
+  "gridVisibility": "Видимость сетки",
+  "left": "Влево",
+  "down": "Вниз",
+  "insideAngle": "Внутренний угол",
+  "fitToWindow": "Вписать в окно",
+  "fitShortcut": "Вписать в окно · {shortcut}",
+  "@fitShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "right": "Вправо",
+  "alwaysVisible": "Всегда видны",
+  "shortcutKeyHint": "Выберите букву, цифру, стрелку или функциональную клавишу",
+  "selectTheSecondShelf": "Выберите вторую полку",
+  "selectWorkPlaneFace": "Выберите грань для рабочей плоскости",
+  "chooseParallelShelf": "Выберите другую полку с общей проекцией и параллельной гранью",
+  "chooseAlignmentHint": "Укажите точки на двух деталях или задайте выравнивание в панели",
+  "chooseMovingAnchor": "2 из 2. Укажите точку на перемещаемой детали.",
+  "selectAnAnchorOnThePart": "Выберите опору на детали",
+  "chooseAReference": "Выберите опору…",
+  "selectTheFirstShelf": "Выберите первую полку",
+  "selectParts": "Выбор деталей",
+  "selectedParts": "Выбрано деталей · {count}",
+  "@selectedParts": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "selectShortcut": "Выбрать · {shortcut}",
+  "@selectShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "selectAllParts": "Выбрать все детали",
+  "selectFace": "Выбрать грань…",
+  "chooseReferenceFromList": "Выбрать опорную деталь из списка",
+  "chooseThePartToMove": "Выбрать перемещаемую деталь",
+  "alignment": "Выравнивание",
+  "alignToReference": "Выровнять по опоре…",
+  "overallSizeMustExceed": "Габарит должен быть больше {size} {unit}",
+  "@overallSizeMustExceed": {
+    "placeholders": {
+      "size": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "projectBounds": "Габариты проекта",
+  "assemblyDimensions": "Габариты сборки",
+  "keyboardShortcuts": "Горячие клавиши",
+  "done": "Готово",
+  "resizeProducts": "Изменить размеры изделий",
+  "face": "Грань",
+  "shelfFace": "Грань полки",
+  "numberedGroup": "Группа {number}",
+  "@numberedGroup": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "lengthInitial": "Д",
+  "twoPoints": "Две точки",
+  "moveAndResizeInIncrements": "Двигать и растягивать с шагом",
+  "partsTree": "Дерево деталей",
+  "partCount": "Деталей · {count}",
+  "@partCount": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "partsLabel": "Детали",
+  "partsTabCount": "Детали  {count}",
+  "@partsTabCount": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "assemblyParts": "Детали изделия",
+  "noMatchingParts": "Детали не найдены",
+  "part": "Деталь",
+  "numberedPart": "Деталь {id}",
+  "@numberedPart": {
+    "placeholders": {
+      "id": {
+        "type": "Object"
+      }
+    }
+  },
+  "thePartIntersectsItsReference": "Деталь пересекает опору",
+  "alreadyTouchesReferences": "Деталь уже касается обеих опор",
+  "length": "Длина",
+  "stockLength": "Длина заготовки",
+  "stockLengthInUnits": "Длина заготовки, {unit}",
+  "@stockLengthInUnits": {
+    "placeholders": {
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "lengthTooShortForCuts": "Длина меньше перепада запилов",
+  "shortAndLongEdgeLengths": "Длины короткой и длинной кромок, {unit}",
+  "@shortAndLongEdgeLengths": {
+    "placeholders": {
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "matchingSectionsRequired": "Для симметричного стыка выберите одинаковые сечения",
+  "bothStops": "До упора · {first} и {second}",
+  "@bothStops": {
+    "placeholders": {
+      "first": {
+        "type": "Object"
+      },
+      "second": {
+        "type": "Object"
+      }
+    }
+  },
+  "upToNextStop": "До упора вверх",
+  "leftToNextStop": "До упора влево",
+  "downToNextStop": "До упора вниз",
+  "rightToNextStop": "До упора вправо",
+  "addASecondPartToAlignThem": "Добавьте вторую деталь для выравнивания",
+  "duplicate": "Дублировать",
+  "inches": "Дюймы",
+  "discardChangesWarning": "Если закрыть проект «{name}», последние правки будут потеряны.",
+  "@discardChangesWarning": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "stockPiece": "Заготовка",
+  "stockTooShort": "Заготовка слишком короткая для этого запила",
+  "stock": "Заготовки",
+  "cubeBack": "Зад",
+  "rear": "Задний",
+  "backEdge": "Задний край",
+  "gap": "Зазор {distance} {unit}",
+  "@gap": {
+    "placeholders": {
+      "distance": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "closeTab": "Закрыть вкладку",
+  "closeProjectTab": "Закрыть вкладку «{name}»",
+  "@closeProjectTab": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "closeGridSettings": "Закрыть настройки сетки",
+  "closePartDimensions": "Закрыть размеры детали",
+  "miterEndAngle": "Запил каждого торца · {angle}° от прямого",
+  "@miterEndAngle": {
+    "placeholders": {
+      "angle": {
+        "type": "Object"
+      }
+    }
+  },
+  "autosaveFilesHint": "Изменения записываются в файлы открытых проектов. Новые проекты хранятся как локальные черновики.",
+  "measureShortcut": "Измерить · {shortcut}",
+  "@measureShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "measureDistance": "Измерить расстояние",
+  "tools": "Инструменты",
+  "intervalMin": "Интервал, мин",
+  "excelWorkbook": "Книга Excel",
+  "qty": "Кол-во",
+  "quantityPcs": "Количество, шт.",
+  "endPoint": "Конец",
+  "endCut": "Конечный торец",
+  "edges": "Кромки · {lengths} {unit}",
+  "@edges": {
+    "placeholders": {
+      "lengths": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "cubeLeft": "Лево",
+  "leftHand": "Левый",
+  "ruler": "Линейка",
+  "zoom": "Масштаб",
+  "actionsMenu": "Меню действий",
+  "millimeters": "Миллиметры",
+  "onDrawing": "На чертеже",
+  "pressKeys": "Нажмите клавиши…",
+  "recordShortcutHint": "Нажмите на сочетание и введите новое. Esc отменяет ввод.",
+  "rotationInputHint": "Нажмите стрелку для поворота на 90° или введите угол",
+  "partName": "Название детали",
+  "nameAndDimensions": "Название и размеры…",
+  "projectName": "Название проекта",
+  "assign": "Назначить",
+  "searchMatches": "Найдено {found} из {total}",
+  "@searchMatches": {
+    "placeholders": {
+      "found": {
+        "type": "Object"
+      },
+      "total": {
+        "type": "Object"
+      }
+    }
+  },
+  "findAPart": "Найти деталь",
+  "tiltInAVerticalPlane": "Наклон в вертикальной плоскости",
+  "direction": "Направление",
+  "settings": "Настройки",
+  "projectSettings": "Настройки проекта",
+  "projectSettingsMenu": "Настройки проекта…",
+  "start": "Начало",
+  "startCut": "Начальный торец",
+  "discardChanges": "Не сохранять",
+  "draftSaveError": "Не удалось записать черновик",
+  "updateProjectError": "Не удалось обновить файл. Используйте «Сохранить как…».",
+  "draftOpenError": "Не удалось открыть локальный черновик",
+  "openProjectError": "Не удалось открыть файл проекта",
+  "gridSaveError": "Не удалось сохранить видимость сетки",
+  "settingsSaveError": "Не удалось сохранить настройки",
+  "saveProjectError": "Не удалось сохранить проект. Используйте «Сохранить как…».",
+  "snapSaveError": "Не удалось сохранить режим привязки",
+  "workbookSaveError": "Не удалось сохранить файл Excel. Попробуйте ещё раз.",
+  "unknownProjectFormat": "Неизвестный формат проекта",
+  "invalidPartGeometry": "Некорректная геометрия детали",
+  "invalidFace": "Некорректная грань",
+  "invalidVector": "Некорректный вектор",
+  "invalidWorkspaceDimensions": "Некорректный размер рабочего пространства",
+  "invalidEndCut": "Некорректный торец",
+  "invalidCorner": "Некорректный угол",
+  "noOverlappingProjection": "Нет общей проекции",
+  "noOpenProjects": "Нет открытых проектов",
+  "lower": "Нижний",
+  "cubeBottom": "Низ",
+  "newPart": "Новая деталь",
+  "newDimension": "Новый размер",
+  "centerCamera": "Центрировать",
+  "renameDimension": "Переименовать размер",
+  "selectDimensionHint": "Выберите размер на чертеже или нажмите {shortcut}, чтобы добавить новый",
+  "@selectDimensionHint": {
+    "placeholders": {
+      "shortcut": { "type": "String" }
+    }
+  },
+  "newPartWithDimensions": "Новая деталь по размерам",
+  "choosePartPosition": "Выбрать место",
+  "placePartHint": "Щёлкните, чтобы поставить деталь. Esc — отменить.",
+  "hiddenParts": "Скрытые детали",
+  "hideCompletely": "Полностью скрывать",
+  "showOutlines": "Показать контуры",
+  "hidePart": "Скрыть деталь",
+  "hideGroupParts": "Скрыть все детали группы",
+  "showGroupParts": "Показать все детали группы",
+  "hideSelectedParts": "Скрыть выбранные детали",
+  "showPart": "Показать деталь",
+  "showAllParts": "Показать все скрытые детали",
+  "newPartShortcut": "Новая деталь · {shortcut}",
+  "@newPartShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "newPartHere": "Новая деталь здесь",
+  "newProject": "Новый проект",
+  "leg": "Ножка {number}",
+  "@leg": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "referencesAreNeededOnBothSides": "Нужны опоры с обеих сторон",
+  "reverseDirection": "Обратить направление",
+  "anchor": "Опора",
+  "anchorLabel": "Опора · {mode}",
+  "@anchorLabel": {
+    "placeholders": {
+      "mode": {
+        "type": "Object"
+      }
+    }
+  },
+  "referencePart": "Опорная деталь",
+  "partAxes": "Оси детали",
+  "projectAxes": "Оси проекта",
+  "axis": "Ось {axis}",
+  "@axis": {
+    "placeholders": {
+      "axis": {
+        "type": "Object"
+      }
+    }
+  },
+  "zoomOut": "Отдалить",
+  "open": "Открыть",
+  "openBenchExample": "Открыть пример скамьи",
+  "openProject": "Открыть проект",
+  "openProjectMenu": "Открыть проект…",
+  "cancel": "Отмена",
+  "undo": "Отменить",
+  "undoAction": "Отменить действие",
+  "offset": "Отступ",
+  "referenceEdgeOffset": "Отступ от {edge} опоры",
+  "@referenceEdgeOffset": {
+    "placeholders": {
+      "edge": {
+        "type": "Object"
+      }
+    }
+  },
+  "clearSearch": "Очистить поиск",
+  "rightClick": "ПКМ",
+  "moveResizeHint": "Перетащите деталь, чтобы переместить её. Shift + перетаскивание края меняет размер.",
+  "cubeFront": "Перед",
+  "frontFacing": "Передний",
+  "frontEdge": "Передний край",
+  "renamePart": "Переименовать деталь",
+  "renameGroup": "Переименовать группу",
+  "rename": "Переименовать…",
+  "moveShortcut": "Переместить · {shortcut}",
+  "@moveShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "anchorShortcut": "Поставить по опоре · {shortcut}",
+  "@anchorShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "movingPart": "Перемещаемая деталь",
+  "movementAndRuler": "Перемещение и линейка",
+  "movementAndResizing": "Перемещение и растягивание",
+  "intersection": "Пересечение",
+  "intersections": "Пересечения",
+  "intersectionsLabel": "Пересечения · {count}",
+  "@intersectionsLabel": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "perspective": "Перспектива",
+  "seatSlat": "Планка сиденья {number}",
+  "@seatSlat": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "plane": "Плоскость",
+  "planeFromFace": "Плоскость по грани",
+  "edgeAligned": "По краю",
+  "byAxes": "По осям",
+  "alongThickness": "По толщине",
+  "alongWidth": "По ширине",
+  "rotate": "Повернуть",
+  "orbitView": "Повернуть вид",
+  "rotatePart": "Повернуть деталь",
+  "rotateMenu": "Повернуть…",
+  "rotation": "Поворот",
+  "rotateShortcut": "Поворот · {shortcut}",
+  "@rotateShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "brokenPartReferences": "Повреждённые ссылки на детали",
+  "redo": "Повторить",
+  "redoAction": "Повторить действие",
+  "showHideDimensions": "Показать / скрыть размеры",
+  "showDimensions": "Показать размеры",
+  "floor": "Пол",
+  "position": "Положение",
+  "crossRail": "Поперечная царга {number}",
+  "@crossRail": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "placeAgainstReference": "Поставить по опоре",
+  "cubeRight": "Право",
+  "rightHand": "Правый",
+  "multiSelectionMenuHint": "Правый щелчок по выделению — действия со всеми выбранными деталями",
+  "continuousDragHint": "При перетаскивании положение и длина меняются плавно.",
+  "zoomIn": "Приблизить",
+  "rulerSnapModifier": "Привязка линейки без {modifier}",
+  "@rulerSnapModifier": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "snapToAnchors": "Привязка по опорам",
+  "apply": "Применить",
+  "spaceLeftClick": "Пробел + ЛКМ",
+  "checkTheExpression": "Проверьте выражение",
+  "sideRail": "Продольная царга {number}",
+  "@sideRail": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "project": "Проект",
+  "neprostoProject": "Проект neprosto",
+  "projectSaved": "Проект сохранён",
+  "clearance": "Просвет",
+  "clearanceLabel": "Просвет · {distance} {unit}",
+  "@clearanceLabel": {
+    "placeholders": {
+      "distance": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "square": "Прямые",
+  "drawingControls": "Работа с чертежом",
+  "workPlane": "Рабочая плоскость",
+  "workPlaneLabel": "Рабочая плоскость · {plane}",
+  "@workPlaneLabel": {
+    "placeholders": {
+      "plane": {
+        "type": "Object"
+      }
+    }
+  },
+  "equalGapValue": "Равные зазоры · {distance} {unit}",
+  "@equalGapValue": {
+    "placeholders": {
+      "distance": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "unlock": "Разблокировать",
+  "ungroup": "Разгруппировать",
+  "dimension": "Размер",
+  "dimensionLocked": "Размер заблокирован",
+  "dimensionTabCount": "Размеры  {count}",
+  "@dimensionTabCount": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "partDimensions": "Размеры детали",
+  "dimensionsOnDrawing": "Размеры на чертеже",
+  "endMarkings": "Разметка торцов",
+  "stretchToHeight": "Растянуть по высоте",
+  "stretchToWidth": "Растянуть по ширине",
+  "editing": "Редактирование",
+  "modeWithoutModifierKeys": "Режим без нажатых клавиш",
+  "snapping": "С привязкой",
+  "centimeters": "Сантиметры",
+  "resetShortcuts": "Сбросить сочетания",
+  "viewTop": "Сверху",
+  "free": "Свободно",
+  "freeView": "Свободный вид",
+  "properties": "Свойства",
+  "groupLabel": "Сгруппировать",
+  "nudge": "Сдвиг",
+  "nudgeDistance": "Сдвиг · {distance} {unit}",
+  "@nudgeDistance": {
+    "placeholders": {
+      "distance": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "panView": "Сдвинуть вид",
+  "center": "Середина",
+  "edgeMidpoint": "Середина ребра",
+  "rulerEdge": "Ребро",
+  "rulerUpperEdge": "Верхнее ребро",
+  "rulerLowerEdge": "Нижнее ребро",
+  "rulerCenterline": "Средняя линия грани",
+  "viewBack": "Сзади",
+  "bench": "Скамья",
+  "downloadStarted": "Скачивание началось",
+  "hideDimensions": "Скрыть размеры",
+  "viewLeft": "Слева",
+  "partDimensionIsTooSmall": "Слишком маленький размер детали",
+  "changeShortcutFor": "Сменить сочетание для «{command}»",
+  "@changeShortcutFor": {
+    "placeholders": {
+      "command": {
+        "type": "Object"
+      }
+    }
+  },
+  "viewBottom": "Снизу",
+  "join": "Соединить",
+  "saving": "Сохранение",
+  "save": "Сохранить",
+  "saveChanges": "Сохранить изменения?",
+  "saveAs": "Сохранить как…",
+  "saveProject": "Сохранить проект",
+  "saveProjectsAutomatically": "Сохранять проекты автоматически",
+  "viewFront": "Спереди",
+  "partsList": "Список деталей",
+  "viewRight": "Справа",
+  "stepExample": "Стрелка сдвигает деталь на {step} {unit}. При растягивании длина меняется шагами, например {examples} {exampleUnit}.",
+  "@stepExample": {
+    "placeholders": {
+      "step": {
+        "type": "Object"
+      },
+      "unit": {
+        "type": "Object"
+      },
+      "examples": {
+        "type": "Object"
+      },
+      "exampleUnit": {
+        "type": "Object"
+      }
+    }
+  },
+  "straightUpAlongZ": "Строго вверх по Z",
+  "thicknessInitial": "Т",
+  "thickness": "Толщина",
+  "thicknessLabel": "Толщина, {unit}",
+  "@thicknessLabel": {
+    "placeholders": {
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "onlyWith": "Только с {modifier}",
+  "@onlyWith": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "ends": "Торцы",
+  "dragWithRightButton": "Тянуть ПКМ",
+  "removeBounds": "Убрать границы",
+  "miterJoint": "Угловой стык",
+  "miterJointMenu": "Угловой стык…",
+  "corner": "Угол",
+  "delete": "Удалить",
+  "deleteDimension": "Удалить размер",
+  "holdToSnap": "Удерживайте {modifier} для привязки.",
+  "@holdToSnap": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "freeMovementHint": "Удерживайте {modifier}, чтобы временно отключить привязку.",
+  "@freeMovementHint": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "holdDimensionModifier": "Удерживайте {modifier}, чтобы {action} размеры.",
+  "@holdDimensionModifier": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      },
+      "action": {
+        "type": "Object"
+      }
+    }
+  },
+  "hold": "Удерживать {modifier}",
+  "@hold": {
+    "placeholders": {
+      "modifier": {
+        "type": "Object"
+      }
+    }
+  },
+  "alreadyAssignedTo": "Уже назначено для «{command}»",
+  "@alreadyAssignedTo": {
+    "placeholders": {
+      "command": {
+        "type": "Object"
+      }
+    }
+  },
+  "setTheSecondDimensionPoint": "Укажите вторую точку размера",
+  "setTheSourceAnchorOnThePart": "1 из 2. Щёлкните по исходной точке на перемещаемой детали.",
+  "setTheEndOfThePart": "Укажите конец детали",
+  "setTheStartOfThePart": "Укажите начальную точку детали",
+  "setTheDestinationAnchor": "2 из 2. Щёлкните там, куда нужно переместить эту точку.",
+  "setTheFirstDimensionPoint": "Укажите первую точку размера",
+  "pickReferenceOnDrawing": "Указать опору на чертеже",
+  "stop": "Упор · {part}",
+  "@stop": {
+    "placeholders": {
+      "part": {
+        "type": "Object"
+      }
+    }
+  },
+  "excelFileSaved": "Файл Excel сохранён",
+  "frontPlane": "Фронтальная",
+  "centerPoint": "Центр",
+  "faceCenter": "Центр грани",
+  "partCenter": "Центр детали",
+  "brusDrafts": "Черновики Брус",
+  "browserDraftsHint": "Черновики открытых вкладок сохраняются в этом браузере.",
+  "drawing": "Чертёж",
+  "addPartHint": "Чтобы добавить деталь, нажмите «Новая деталь» или {shortcut}",
+  "@addPartHint": {
+    "placeholders": {
+      "shortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "widthInitial": "Ш",
+  "step": "Шаг · {increment}",
+  "@step": {
+    "placeholders": {
+      "increment": {
+        "type": "Object"
+      }
+    }
+  },
+  "stepOff": "Шаг выкл.",
+  "width": "Ширина",
+  "widthLabel": "Ширина, {unit}",
+  "@widthLabel": {
+    "placeholders": {
+      "unit": {
+        "type": "Object"
+      }
+    }
+  },
+  "clickAReferenceInTheDrawingOr": "Щёлкните по опоре на чертеже или выберите её из списка.",
+  "clickTheReferencePart": "Щёлкните по опорной детали",
+  "exportToExcel": "Экспорт в Excel",
+  "reservedShortcut": "Это системное сочетание. Выберите другое.",
+  "fileAlreadyOpen": "Этот файл открыт в другой вкладке",
+  "off": "выкл.",
+  "leftReferenceEdge": "левого края",
+  "mm": "мм",
+  "bottomReferenceEdge": "нижнего края",
+  "frontReferenceEdge": "переднего края",
+  "show": "показать",
+  "hide": "скрыть",
+  "cm": "см",
+  "negativeThickness": "−Т",
+  "negativeWidth": "−Ш",
+  "close": "Закрыть",
+  "appearance": "Оформление",
+  "theme": "Тема",
+  "light": "Светлая",
+  "dark": "Тёмная",
+  "language": "Язык",
+  "aboutNeprosto": "О neprosto",
+  "fileMenu": "Файл",
+  "settingsMenu": "Настройки…",
+  "services": "Службы",
+  "hideNeprosto": "Скрыть neprosto",
+  "hideOthers": "Скрыть остальные",
+  "showAll": "Показать все",
+  "quitNeprosto": "Завершить neprosto",
+  "edit": "Правка",
+  "cut": "Вырезать",
+  "copy": "Копировать",
+  "paste": "Вставить",
+  "pasteAndMatchStyle": "Вставить в текущем стиле",
+  "selectAll": "Выбрать все",
+  "find": "Найти",
+  "findMenu": "Найти…",
+  "findAndReplace": "Найти и заменить…",
+  "findNext": "Найти далее",
+  "findPrevious": "Найти предыдущее",
+  "useSelectionForFind": "Искать выделенное",
+  "jumpToSelection": "Перейти к выделению",
+  "spellingAndGrammar": "Орфография и грамматика",
+  "showSpellingAndGrammar": "Показать орфографию и грамматику",
+  "checkDocumentNow": "Проверить документ",
+  "checkSpellingWhileTyping": "Проверять при вводе",
+  "checkGrammarWithSpelling": "Проверять грамматику",
+  "correctSpellingAutomatically": "Исправлять автоматически",
+  "substitutions": "Замены",
+  "showSubstitutions": "Показать замены",
+  "smartCopyPaste": "Смарт-копирование и вставка",
+  "smartQuotes": "Смарт-кавычки",
+  "smartDashes": "Смарт-тире",
+  "smartLinks": "Смарт-ссылки",
+  "dataDetectors": "Распознавать данные",
+  "textReplacement": "Замена текста",
+  "transformations": "Преобразования",
+  "makeUpperCase": "Прописные буквы",
+  "makeLowerCase": "Строчные буквы",
+  "capitalize": "С заглавных букв",
+  "speech": "Речь",
+  "startSpeaking": "Начать чтение",
+  "stopSpeaking": "Остановить чтение",
+  "enterFullScreen": "На весь экран",
+  "window": "Окно",
+  "minimize": "Свернуть",
+  "zoomLabel": "Увеличить",
+  "bringAllToFront": "Все окна на передний план",
+  "help": "Справка",
+  "blankProject": "Пустой проект",
+  "createProject": "Создать проект",
+  "plywood": "Фанера",
+  "mdf": "МДФ",
+  "stockShopping": "Материалы для покупки",
+  "stockOffcut": "Подойдёт остаток от {size}",
+  "@stockOffcut": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "stockKerf": "Пропил {size} · размеры заготовок фактические",
+  "@stockKerf": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "stockBoard": "Доска",
+  "stockBar": "Брусок",
+  "stockSheet": "Лист",
+  "shelfPart": "Полка",
+  "sidePanel": "Боковина",
+  "topPanel": "Верхняя панель",
+  "bottomPanel": "Дно",
+  "dividerPanel": "Перегородка",
+  "backPanel": "Задняя стенка",
+  "frontPanel": "Передняя стенка",
+  "doorPanel": "Дверца",
+  "tabletop": "Столешница",
+  "seatPanel": "Сиденье",
+  "tread": "Ступень",
+  "carryHandle": "Рукоятка",
+  "categoryShelving": "Полки и стеллажи",
+  "categorySeating": "Табуреты и скамьи",
+  "categoryTables": "Столы",
+  "categoryCabinets": "Тумбы и шкафы",
+  "categoryWorkshop": "Мастерская и офис",
+  "templateBookcase": "Книжный стеллаж",
+  "templateCubeShelf": "Ступенчатый стеллаж-перегородка",
+  "templateWallShelf": "Настенная полка с бортиком",
+  "templateStool": "Деревянный табурет",
+  "templateStepStool": "Двухступенчатый табурет",
+  "templateGardenBench": "Садовая скамья",
+  "templateDiningTable": "Простой обеденный стол",
+  "templateWritingDesk": "Письменный стол с боковыми полками",
+  "templateBedsideCabinet": "Тумба с дверцей и нишей",
+  "templateTvStand": "ТВ-тумба с отсеком для техники",
+  "templateWorkbench": "Столярный верстак",
+  "templateToolTote": "Переносной ящик для инструмента",
+  "cuttingLayout": "Схема раскроя",
+  "categoryGarden": "Сад и дача",
+  "templateDrawerChest": "Комод с четырьмя ящиками",
+  "drawerFront": "Фасад ящика",
+  "planterWall": "Доска борта",
+  "uprightPost": "Стойка",
+  "deckBoard": "Доска настила",
+  "frameRail": "Обвязка",
+  "trellisSlat": "Рейка шпалеры",
+  "benchBack": "Планка спинки",
+  "landingRail": "Поручень",
+  "roofBoard": "Доска крыши",
+  "rackFinger": "Держатель струбцины",
+  "templatePicnicTable": "Уличный стол для пикника с лавками",
+  "templateSawhorse": "Столярные козлы",
+  "templateClampRack": "Гребёнка для струбцин",
+  "templateRaisedBed": "Высокая клумба для грунта",
+  "templateStandingPlanter": "Цветник на ножках с нижней полкой",
+  "templateTrellisPlanter": "Кашпо со шпалерой",
+  "templatePorch": "Входное крыльцо с площадкой и перилами",
+  "templateChaise": "Реечный шезлонг",
+  "templatePottingBench": "Посадочный стол с нишей для лотка",
+  "templateLogStore": "Дровница с односкатной крышей",
+  "categoryConstruction": "Столярка и каркасы",
+  "floorJoist": "Лага пола",
+  "bridging": "Диагональная распорка",
+  "headerBeam": "Перемычка проёма",
+  "windowSill": "Подоконная доска каркаса",
+  "roofRafter": "Стропило",
+  "roofTie": "Затяжка",
+  "ridgeBeam": "Коньковая балка",
+  "doorStile": "Стойка дверного полотна",
+  "doorPanelInfill": "Доска филёнки",
+  "gatePicket": "Штакетина",
+  "framingNote": "Показаны лаги и распорки до укладки настила. Опоры, пролёт, сорт древесины, настил и крепёж рассчитывают по местным нагрузкам.",
+  "roofNote": "Эскиз для привязки к участку. Фундамент, анкеры, кровлю и соединения подбирают по грунту, снегу, ветру и сейсмике региона.",
+  "porchNote": "Привяжите отметку площадки к порогу и ходу двери. Для строительства проверьте фундамент, ступени, ограждения и крепления по местным нормам.",
+  "doorNote": "Показано дверное полотно. Монтажные зазоры, коробку и петли подбирают по проёму и массе полотна.",
+  "gateNote": "Петли слева при взгляде со стороны подкоса. Подкос опирается на нижнюю перекладину у петель и поддерживает верхний свободный угол.",
+  "templateGazebo": "Беседка с двускатной крышей",
+  "templateShedFloor": "Каркас пола бытовки с распорками «ёлочкой»",
+  "templateWindowWall": "Каркасная стена с оконным проёмом",
+  "templateCornerWalls": "Угол двух каркасных стен",
+  "templatePanelDoor": "Межкомнатная рамочная дверь",
+  "templateGardenGate": "Штакетная калитка с подкосом",
+  "wallFrameNote": "Показан каркас до обшивки. По местным нагрузкам рассчитывают стойки, перемычки, обшивку или укосины для жёсткости и анкеровку стен.",
+  "templateSignatureCabinet": "Фирменная тумба neprosto",
+  "signatureDoor": "Фасад с отверстием Ø{diameter}",
+  "@signatureDoor": {
+    "placeholders": {
+      "diameter": {
+        "type": "String"
+      }
+    }
+  },
+  "endCutsTitle": "Торцевые срезы",
+  "faceMarkAngle": "Разметка по ширине",
+  "edgeMarkAngle": "Разметка по толщине",
+  "cutDiagramKey": "Пунктир — прямой рез (0°), штриховка — отход. На обеих схемах начало детали слева.",
+  "cutOffsetReadout": "Смещение {distance}",
+  "@cutOffsetReadout": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "flatSawSettings": "Торцовочная пила · деталь плашмя, начало слева",
+  "sawSettingValues": "Поворот стола {miter}°   ·   Наклон диска {bevel}°",
+  "@sawSettingValues": {
+    "placeholders": {
+      "miter": {
+        "type": "String"
+      },
+      "bevel": {
+        "type": "String"
+      }
+    }
+  },
+  "resetEndCut": "Прямой торец",
+  "cutsIntersect": "Срезы пересекаются или оставляют слишком короткую кромку. Уменьшите угол одного из торцов.",
+  "angleToLongEdge": "К продольной кромке {angle}°",
+  "@angleToLongEdge": {
+    "placeholders": {
+      "angle": {
+        "type": "String"
+      }
+    }
+  },
+  "sawDirections": "Стрелки показывают, куда смещены линия реза у упора и верх диска.",
+  "rabbetTitle": "Фальцевые срезы",
+  "rabbetTopLeft": "Верхнее левое",
+  "rabbetTopRight": "Верхнее правое",
+  "rabbetBottomLeft": "Нижнее левое",
+  "rabbetBottomRight": "Нижнее правое",
+  "rabbetDepth": "Глубина",
+  "rabbetView": "Вид с конечного торца. Выберите продольное ребро.",
+  "rabbetRemove": "Убрать фальц",
+  "invalidRabbet": "Задайте положительные ширину и глубину. Между фальцами и до противоположной грани должен оставаться материал."
+}

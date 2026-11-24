@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256">
+  <title>neprosto — модульный стеллаж</title>
+  <defs>
+    <linearGradient id="ink" x2=".8" y2="1">
+      <stop stop-color="#303c62"/>
+      <stop offset="1" stop-color="#1c243e"/>
+    </linearGradient>
+    <linearGradient id="enamel" x2=".7" y2="1">
+      <stop stop-color="#eaf594"/>
+      <stop offset="1" stop-color="#cedf70"/>
+    </linearGradient>
+    <radialGradient id="shadow">
+      <stop stop-color="#0b1328" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#0b1328" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#ink)" d="M67 2h122c45 0 65 20 65 65v122c0 45-20 65-65 65H67c-45 0-65-20-65-65V67C2 22 22 2 67 2Z"/>
+  <ellipse cx="126" cy="194" rx="88" ry="16" fill="url(#shadow)"/>
+
+  <!-- All cabinet faces share the same shallow axonometric projection. -->
+  <g transform="matrix(1 .095 0 1 0 -13)">
+    <g fill="#82a6c9">
+      <path d="M47 176h10v17l-5 3-5-1Z"/>
+      <path d="M178 176h11v18l-5 3-6-1Z"/>
+      <path d="m197 166 7-4v16l-7 5Z"/>
+    </g>
+
+    <!-- Stepped case, its two top surfaces and the visible ends. -->
+    <path fill="#81a8d0" d="m42 80 17-13h81v48h55l17-1v62l-17 13H42Z"/>
+    <path fill="#e8f3ff" d="m42 80 17-13h81l-17 13Z"/>
+    <path fill="#779ac1" d="m123 80 17-13v48l-17 13Z"/>
+    <path fill="#e8f3ff" d="m123 128 17-13h72l-17 13Z"/>
+    <path fill="#779ac1" d="m195 128 17-13v61l-17 13Z"/>
+    <path fill="#c3dcf1" d="M42 80h81v48h72v61H42Z"/>
+
+    <!-- The recessed shelves show both the back and the return on the left. -->
+    <path fill="#42577a" d="M50 88h65v40H50zM50 136h65v45H50z"/>
+    <path fill="#5f81a5" d="m50 88 12 0v31l-12 9ZM50 136h12v36l-12 9Z"/>
+    <path fill="#91b2cf" d="m50 128 12-9h53v9ZM50 181l12-9h53v9Z"/>
+
+    <!-- Two volumes give the upper bay a readable furniture scale. -->
+    <path fill="#b4d2ed" d="M61 97h8v27h-8Z"/>
+    <path fill="#8ca8d3" d="m73 99 7-3 10 24-7 3Z"/>
+
+    <path fill="#7393a4" d="M122 135h66v47h-66z"/>
+    <path fill="url(#enamel)" d="M123 136h64v44h-64z"/>
+    <circle cx="176" cy="147" r="3.7" fill="#49534c"/>
+  </g>
+</svg>

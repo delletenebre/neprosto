@@ -1,0 +1,6 @@
+arb-dir: lib/l10n
+template-arb-file: app_ru.arb
+output-localization-file: app_localizations.dart
+nullable-getter: false
+# gen-l10n still emits the SDK forwarding delegates. The app uses the UI packages.
+header: "// ignore_for_file: deprecated_member_use"

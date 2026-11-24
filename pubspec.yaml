@@ -1,5 +1,5 @@
 name: neprosto
-description: Настольный редактор чертежей деревянных конструкций.
+description: Настольный редактор для проектирования мебели и деревянных конструкций.
 publish_to: none
 version: 0.1.0+1
 environment:
@@ -7,6 +7,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  flutter_svg: ^2.4.0
   cupertino_ui: ^1.1.7
   cupertino_icons: ^1.0.8
   material_ui: ^1.1.0
@@ -20,4 +24,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 flutter:
+  generate: true
   uses-material-design: true
+  assets:
+    - assets/mark.svg
