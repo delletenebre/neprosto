@@ -324,9 +324,11 @@ class MenuChoice<T> extends StatelessWidget {
     required this.items,
     required this.change,
     this.icon,
+    this.compactLabel,
     this.selected,
   });
   final String label;
+  final String? compactLabel;
   final List<(T, String)> items;
   final ValueChanged<T> change;
   final IconData? icon;
@@ -346,7 +348,7 @@ class MenuChoice<T> extends StatelessWidget {
           if (icon != null) Icon(icon, size: 16, color: context.colors.muted),
           Flexible(
             child: Text(
-              label,
+              compactLabel ?? label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),

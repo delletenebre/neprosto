@@ -54,12 +54,27 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
     if (widget.active != old.active) revealActive();
   }
 
-  Widget tabButton(ProjectTab tab) {
+  Widget tabButton(ProjectTab tab, {double? width}) {
     final selected = tab == widget.active;
     final name = tab.committed.name;
     final description = tab.dirty ? context.strings.unsavedTab(name) : name;
     final foreground = selected ? context.colors.ink : context.colors.muted;
     final showClose = hovered == tab;
+    final label = Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: width == null ? TextAlign.start : TextAlign.center,
+      style: TextStyle(
+        fontSize: macControls ? 12 : 13,
+        color: foreground,
+        fontWeight: selected
+            ? FontWeight.w600
+            : macControls
+            ? FontWeight.w400
+            : FontWeight.w500,
+      ),
+    );
     final content = Padding(
       padding: const EdgeInsetsDirectional.only(end: 8),
       child: Row(
@@ -79,19 +94,13 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
                     ),
                   ),
           ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                color: foreground,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ),
+          if (width == null)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: label,
+            )
+          else
+            Expanded(child: label),
           if (tab.dirty)
             Icon(
               CupertinoIcons.circle_fill,
@@ -111,18 +120,29 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
       },
       child: Container(
         key: selected ? activeKey : null,
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+        width: width,
+        padding: EdgeInsets.symmetric(
+          horizontal: 3,
+          vertical: macControls ? 0 : 2,
+        ),
         decoration: BoxDecoration(
           color: macControls
-              ? (selected ? context.colors.field : context.colors.chrome)
+              ? (selected ? context.colors.panel : context.colors.chrome)
               : (selected ? context.colors.pale : context.colors.panel),
-          border: Border.all(
-            color: !macControls && selected
-                ? context.colors.accent
-                : context.colors.line,
-            width: macControls ? .6 : 1,
-          ),
-          borderRadius: BorderRadius.circular(7),
+          border: macControls
+              ? BorderDirectional(
+                  end: BorderSide(color: context.colors.line, width: .7),
+                  bottom: BorderSide(
+                    color: selected
+                        ? EditorPalette.highlight
+                        : context.colors.line,
+                    width: selected ? 2 : .7,
+                  ),
+                )
+              : Border.all(
+                  color: selected ? context.colors.accent : context.colors.line,
+                ),
+          borderRadius: macControls ? null : BorderRadius.circular(7),
         ),
         child: Stack(
           alignment: AlignmentDirectional.centerStart,
@@ -166,28 +186,45 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
   }
 
   @override
-  Widget build(BuildContext context) => Row(
-    spacing: toolbarGap,
-    children: [
-      Flexible(
-        child: ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(
-            scrollbars: false,
-            dragDevices: {
-              ...ScrollConfiguration.of(context).dragDevices,
-              PointerDeviceKind.mouse,
-            },
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              spacing: controlGap,
-              children: [for (final tab in widget.tabs) tabButton(tab)],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final width = macControls
+          ? ((box.maxWidth - 35) / widget.tabs.length - 1).clamp(
+              140.0,
+              widget.tabs.length == 1 ? 290.0 : double.infinity,
+            )
+          : null;
+      return Row(
+        spacing: macControls ? 0 : toolbarGap,
+        children: [
+          Flexible(
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                scrollbars: false,
+                dragDevices: {
+                  ...ScrollConfiguration.of(context).dragDevices,
+                  PointerDeviceKind.mouse,
+                },
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  spacing: macControls ? 1 : controlGap,
+                  children: [
+                    for (final tab in widget.tabs) tabButton(tab, width: width),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-      DeskIcon(CupertinoIcons.plus, context.strings.newProject, widget.create),
-    ],
+          DeskIcon(
+            CupertinoIcons.plus,
+            context.strings.newProject,
+            widget.create,
+            size: macControls ? 15 : 17,
+          ),
+        ],
+      );
+    },
   );
 }

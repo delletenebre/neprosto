@@ -357,6 +357,16 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="np-sep-3"/>
+                            <menuItem title="Parts Sidebar" identifier="np.partsSidebar" id="np-mi-sidebar">
+                                <connections>
+                                    <action selector="workspaceCommand:" target="Voe-Tx-rLC" id="np-act-sidebar"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Inspector" identifier="np.inspector" id="np-mi-inspector">
+                                <connections>
+                                    <action selector="workspaceCommand:" target="Voe-Tx-rLC" id="np-act-inspector"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Parts List" identifier="np.partsList" id="np-mi-partsList">
                                 <connections>
                                     <action selector="workspaceCommand:" target="Voe-Tx-rLC" id="np-act-partsList"/>

@@ -34,6 +34,8 @@ Future<void> updateNativeAppearance(
         'np.zoomIn': strings.zoomIn,
         'np.zoomOut': strings.zoomOut,
         'np.fit': strings.fitToWindow,
+        'np.partsSidebar': strings.partsTree,
+        'np.inspector': strings.properties,
         'np.partsList': strings.partsList,
         'np.edit': strings.edit,
         'np.undo': strings.undo,

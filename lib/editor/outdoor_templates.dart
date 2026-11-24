@@ -144,46 +144,62 @@ extension _Timber on _Parts {
   }
 
   void sawhorse() {
-    final s = editorStrings, railZ = h - board;
-    flat(s.frameRail, 0, (d - stud) / 2, railZ, w, stud, board);
-    // The outside corners of the bevelled feet define the footprint.
-    final slope = ((d - stud) / 2 - board) / (railZ);
-    final halfFoot = board / 2 * math.sqrt(1 + slope * slope);
-    final inset = measure(90, 3.5);
-    for (final x in [inset, w - inset - stud]) {
-      for (final sign in [-1, 1]) {
-        final foot = d / 2 + sign * (d / 2 - halfFoot);
-        final head = foot - sign * slope * railZ;
+    final s = editorStrings, inset = board, headZ = h - skin;
+    flat(s.topPanel, 0, (d - plank) / 2, headZ, w, plank, skin);
+
+    // The outside face of each leg runs from the footprint to the cap.
+    // Leave room under the cap for the two aprons on those same faces.
+    final nearHead = (d - plank) / 2 + skin + measure(4, .125);
+    final slope = nearHead / headZ, gain = math.sqrt(1 + slope * slope);
+    final halfFoot = stud * gain / 2;
+    for (final (i, sign) in [-1.0, 1.0].indexed) {
+      final outward = Vector3(0, sign / gain, slope / gain);
+      final uphill = Vector3(0, -sign * slope / gain, 1 / gain);
+      final outsideFoot = sign < 0 ? 0.0 : d;
+      final foot = outsideFoot - sign * halfFoot;
+      final head = foot - sign * nearHead;
+      for (final (j, x) in [inset + board / 2, w - inset - board / 2].indexed) {
         member(
-          s.uprightPost,
-          Vector3(x + stud / 2, foot, 0),
-          Vector3(x + stud / 2, head, railZ),
-          axis(0),
+          s.leg(2 * j + i + 1),
+          Vector3(x, foot, 0),
+          Vector3(x, head, headZ),
+          outward,
           board,
           stud,
           startPlane: axis(2),
           endPlane: axis(2),
         );
       }
-      cross(
-        s.frameRail,
-        x == inset ? x + stud : x - stud,
-        d * .12,
-        h * .27,
-        d * .76,
-        board,
-        stud,
+      // The inner face of the apron bears against both legs; its highest
+      // edge sits below the cap. All three pieces use the same plank stock.
+      final topEdge = Vector3(
+        inset,
+        outsideFoot - sign * (nearHead - skin * gain),
+        headZ,
+      );
+      final centre = topEdge - outward * (skin / 2) - uphill * (plank / 2);
+      member(
+        s.sideRail(i + 1),
+        centre,
+        centre + axis(0) * (w - 2 * inset),
+        outward,
+        plank,
+        skin,
       );
     }
-    front(
-      s.frameRail,
-      inset + 2 * stud,
-      (d - stud) / 2,
-      h * .27,
-      w - 2 * (inset + 2 * stud),
-      stud,
-      board,
-    );
+    final tieZ = h / 3, nearTie = slope * tieZ;
+    for (final (i, x) in [inset - stud / 2, w - inset + stud / 2].indexed) {
+      member(
+        s.crossRail(i + 1),
+        Vector3(x, nearTie, tieZ),
+        Vector3(x, d - nearTie, tieZ),
+        axis(0),
+        board,
+        stud,
+        startPlane: Vector3(0, 1, -slope),
+        endPlane: Vector3(0, 1, slope),
+      );
+    }
   }
 
   void clampRack() {
@@ -201,31 +217,34 @@ extension _Timber on _Parts {
     }
   }
 
-  // Corner posts occupy the corners of the box. Each wall board ends at a post.
-  void boxWalls(double base, int courses) {
-    final s = editorStrings;
+  // The two adjacent inside wall faces meet the two outside post faces.
+  void boxWalls(double base, int courses, {double? rearHeight}) {
+    final s = editorStrings, rim = base + courses * board;
+    for (final x in [skin, w - skin - stud]) {
+      post(x, skin, 0, rim, stud);
+      post(x, d - skin - stud, 0, rearHeight ?? rim, stud);
+    }
     for (var row = 0; row < courses; row++) {
       final z = base + row * board;
       for (final y in [0.0, d - skin]) {
-        front(s.planterWall, stud, y, z, w - 2 * stud, skin, board);
+        front(s.planterWall, 0, y, z, w, skin, board);
       }
       for (final x in [0.0, w - skin]) {
-        cross(s.planterWall, x, stud, z, d - 2 * stud, board, skin);
+        cross(s.planterWall, x, skin, z, d - 2 * skin, board, skin);
       }
     }
   }
 
-  void planterBottom(double z) {
-    final s = editorStrings;
-    for (final x in [stud, w - 2 * stud]) {
-      cross(s.frameRail, x, skin, z - board, d - 2 * skin, board, stud);
+  void planterDeck(double z, String name, {int? slats}) {
+    final clear = d - 2 * skin;
+    for (final x in [skin + stud, w - skin - 2 * stud]) {
+      cross(editorStrings.frameRail, x, skin, z - board, clear, board, stud);
     }
-    final clear = d - 2 * skin, count = (clear / board + 1e-7).floor();
+    final count = slats ?? (clear / board + 1e-7).floor();
     for (var i = 0; i < count; i++) {
-      final end = i == 0 || i == count - 1;
-      final x = end ? stud : skin;
+      final x = i == 0 || i == count - 1 ? skin + stud : skin;
       flat(
-        s.bottomPanel,
+        name,
         x,
         skin + i * (clear - board) / (count - 1),
         z,
@@ -237,11 +256,6 @@ extension _Timber on _Parts {
   }
 
   void raisedBed() {
-    for (final x in [0.0, w - stud]) {
-      for (final y in [0.0, d - stud]) {
-        post(x, y, 0, h, stud);
-      }
-    }
     boxWalls(0, 6);
     for (final y in [skin, d - skin - stud]) {
       post((w - stud) / 2, y, 0, h, stud);
@@ -259,63 +273,23 @@ extension _Timber on _Parts {
 
   void standingPlanter() {
     final base = h - 3 * board;
-    for (final x in [0.0, w - stud]) {
-      for (final y in [0.0, d - stud]) {
-        post(x, y, 0, h, stud);
-      }
-    }
     boxWalls(base, 3);
-    planterBottom(base);
-    final shelfZ = measure(150, 6);
-    for (final x in [0.0, w - stud]) {
-      cross(
-        editorStrings.frameRail,
-        x,
-        stud,
-        shelfZ - board,
-        d - 2 * stud,
-        board,
-        stud,
-      );
-    }
-    final clear = d - 2 * stud;
-    for (var i = 0; i < 4; i++) {
-      flat(
-        editorStrings.shelfPart,
-        0,
-        stud + i * (clear - board) / 3,
-        shelfZ,
-        w,
-        board,
-        skin,
-      );
-    }
+    planterDeck(base, editorStrings.bottomPanel);
+    planterDeck(measure(150, 6), editorStrings.shelfPart, slats: 4);
   }
 
   void trellisPlanter() {
-    final base = measure(100, 4), lip = base + 4 * board;
-    for (final x in [0.0, w - stud]) {
-      post(x, 0, 0, lip, stud);
-      post(x, d - stud, 0, h, stud);
-    }
-    boxWalls(base, 4);
-    planterBottom(base);
-    front(
-      editorStrings.frameRail,
-      stud,
-      d - stud,
-      h - board,
-      w - 2 * stud,
-      stud,
-      board,
-    );
+    final s = editorStrings, base = measure(100, 4), lip = base + 4 * board;
+    boxWalls(base, 4, rearHeight: h);
+    planterDeck(base, s.bottomPanel);
+    front(s.frameRail, skin, d - skin, h - board, w - 2 * skin, skin, board);
     for (var i = 1; i <= 5; i++) {
       add(
-        editorStrings.trellisSlat,
+        s.trellisSlat,
         i * w / 6 - stud / 2,
-        d - skin,
+        d - 2 * skin,
         lip,
-        h - board - lip,
+        h - lip,
         stud,
         skin,
         2,
@@ -324,11 +298,11 @@ extension _Timber on _Parts {
     }
     for (var i = 0; i < 6; i++) {
       front(
-        editorStrings.trellisSlat,
-        stud,
-        d - 2 * skin,
+        s.trellisSlat,
+        skin,
+        d - skin,
         lip + i * (h - board - lip - stud) / 5,
-        w - 2 * stud,
+        w - 2 * skin,
         skin,
         stud,
       );

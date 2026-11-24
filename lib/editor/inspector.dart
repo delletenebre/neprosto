@@ -34,7 +34,9 @@ class Inspector extends StatelessWidget {
     List<Widget> children, {
     double spacing = 0,
   }) => Container(
-    padding: const EdgeInsets.fromLTRB(15, 14, 15, 13),
+    padding: macControls
+        ? const EdgeInsets.fromLTRB(12, 10, 12, 10)
+        : const EdgeInsets.fromLTRB(15, 14, 15, 13),
     decoration: BoxDecoration(
       border: Border(bottom: BorderSide(color: context.colors.line)),
     ),
@@ -51,6 +53,10 @@ class Inspector extends StatelessWidget {
       ],
     ),
   );
+  Widget drawingHelp(BuildContext context, List<Widget> rows) => macControls
+      ? _DrawingHelp(rows)
+      : block(context, context.strings.drawingControls, rows);
+
   Widget row(
     BuildContext context,
     String name,
@@ -500,7 +506,7 @@ class Inspector extends StatelessWidget {
             ),
           ],
           if (e.tool != Tool.rotate && selected.isEmpty)
-            block(context, context.strings.drawingControls, [
+            drawingHelp(context, [
               for (final (icon, label, shortcut) in [
                 (
                   cu.CupertinoIcons.list_bullet,
@@ -532,11 +538,13 @@ class Inspector extends StatelessWidget {
                   ),
               ])
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: EdgeInsets.symmetric(vertical: macControls ? 4 : 6),
                   child: Row(
                     children: [
-                      Icon(icon, size: 15, color: context.colors.muted),
-                      const SizedBox(width: 7),
+                      if (!macControls) ...[
+                        Icon(icon, size: 15, color: context.colors.muted),
+                        const SizedBox(width: 7),
+                      ],
                       Expanded(
                         child: Text(
                           label,
@@ -576,4 +584,74 @@ class Inspector extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DrawingHelp extends StatefulWidget {
+  const _DrawingHelp(this.rows);
+  final List<Widget> rows;
+
+  @override
+  State<_DrawingHelp> createState() => _DrawingHelpState();
+}
+
+class _DrawingHelpState extends State<_DrawingHelp> {
+  bool expanded = true;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Container(
+        height: 35,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: AlignmentDirectional.centerStart,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: context.colors.line, width: .7),
+          ),
+        ),
+        child: Text(
+          context.strings.properties,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+        child: Semantics(
+          expanded: expanded,
+          child: DeskControl(
+            onPressed: () => setState(() => expanded = !expanded),
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+            child: Row(
+              children: [
+                Icon(
+                  expanded
+                      ? cu.CupertinoIcons.chevron_down
+                      : cu.CupertinoIcons.chevron_right,
+                  size: 10,
+                  color: context.colors.muted,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.strings.drawingControls,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: context.colors.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      if (expanded)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 12, 10),
+          child: Column(children: widget.rows),
+        ),
+    ],
+  );
 }

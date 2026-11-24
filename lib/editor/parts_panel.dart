@@ -1,5 +1,6 @@
 import '../l10n/strings.dart';
 import 'palette.dart';
+import 'platform_ui.dart';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
 
@@ -119,7 +120,12 @@ class _PartsPanelState extends State<PartsPanel> {
               child: partControl(
                 b,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 6, 7, 6),
+                  padding: EdgeInsets.fromLTRB(
+                    4,
+                    macControls ? 3 : 6,
+                    7,
+                    macControls ? 3 : 6,
+                  ),
                   child: Row(
                     spacing: toolbarGap,
                     children: [
@@ -137,8 +143,10 @@ class _PartsPanelState extends State<PartsPanel> {
                                     ? context.colors.disabled
                                     : context.colors.ink,
                                 fontWeight: active
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
+                                    ? FontWeight.w600
+                                    : (macControls
+                                          ? FontWeight.w400
+                                          : FontWeight.w500),
                               ),
                             ),
                             Text(
@@ -352,35 +360,56 @@ class _PartsPanelState extends State<PartsPanel> {
     final addLabel = measures
         ? context.strings.newDimension
         : context.strings.newPart;
+    final sections = DeskSegments(
+      measures,
+      {
+        false: context.strings.partsTabCount(p.beams.length),
+        true: context.strings.dimensionTabCount(p.dimensions.length),
+      },
+      (v) {
+        if (v != measures) e.setTool(v ? Tool.ruler : Tool.select);
+      },
+    );
+    void add() => e.setTool(measures ? Tool.measure : Tool.beam);
+    final addTip = '$addLabel · ${e.hotkeys[Command.add].label}';
     return ColoredBox(
       color: context.colors.chrome,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 13, 10, 10),
-            child: DeskSegments(
-              measures,
-              {
-                false: context.strings.partsTabCount(p.beams.length),
-                true: context.strings.dimensionTabCount(p.dimensions.length),
-              },
-              (v) {
-                if (v != measures) e.setTool(v ? Tool.ruler : Tool.select);
-              },
+          if (macControls)
+            Container(
+              constraints: const BoxConstraints(minHeight: 35),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: context.colors.line, width: .7),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: sections),
+                  DeskIcon(cu.CupertinoIcons.plus, addTip, add, size: 15),
+                ],
+              ),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 13, 10, 10),
+              child: sections,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 10, 8),
-            child: Tooltip(
-              message: '$addLabel · ${e.hotkeys[Command.add].label}',
-              child: DeskButton(
-                onPressed: () => e.setTool(measures ? Tool.measure : Tool.beam),
-                icon: const Icon(cu.CupertinoIcons.plus, size: 16),
-                label: Text(addLabel),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 10, 8),
+              child: Tooltip(
+                message: addTip,
+                child: DeskButton(
+                  onPressed: add,
+                  icon: const Icon(cu.CupertinoIcons.plus, size: 16),
+                  label: Text(addLabel),
+                ),
               ),
             ),
-          ),
+          ],
           if (e.tool == Tool.measure || e.tool == Tool.gap)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 10, 8),
@@ -409,14 +438,17 @@ class _PartsPanelState extends State<PartsPanel> {
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 10, 0),
+            padding: macControls
+                ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+                : const EdgeInsets.fromLTRB(12, 8, 10, 0),
             child: DeskButton(
+              plain: macControls,
               onPressed: widget.showPartsList,
               icon: const Icon(cu.CupertinoIcons.list_bullet, size: 16),
               label: Text(context.strings.partsList),
             ),
           ),
-          if (!measures)
+          if (!measures && (!macControls || e.selection.isNotEmpty))
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
               child: Row(
@@ -593,24 +625,39 @@ class _PartVisibilityRowState extends State<_PartVisibilityRow> {
       spacing: toolbarGap,
       children: [
         ?widget.leading,
-        Visibility(
-          visible:
-              hovered || (widget.showHiddenIndicator && widget.hasHiddenParts),
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          maintainSemantics: true,
-          child: DeskIcon(
-            widget.hasHiddenParts
-                ? (hovered
-                      ? cu.CupertinoIcons.eye
-                      : PhosphorIconsRegular.eyeClosed)
-                : PhosphorIconsRegular.eyeSlash,
-            widget.tooltip,
-            widget.toggleVisibility,
-            size: 18,
-            foreground: hovered ? null : context.colors.disabled,
-          ),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            if (macControls &&
+                widget.showHiddenIndicator &&
+                !hovered &&
+                !widget.hasHiddenParts)
+              Icon(
+                cu.CupertinoIcons.cube,
+                size: 14,
+                color: context.colors.muted,
+              ),
+            Visibility(
+              visible:
+                  hovered ||
+                  (widget.showHiddenIndicator && widget.hasHiddenParts),
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              maintainSemantics: true,
+              child: DeskIcon(
+                widget.hasHiddenParts
+                    ? (hovered
+                          ? cu.CupertinoIcons.eye
+                          : PhosphorIconsRegular.eyeClosed)
+                    : PhosphorIconsRegular.eyeSlash,
+                widget.tooltip,
+                widget.toggleVisibility,
+                size: 18,
+                foreground: hovered ? null : context.colors.disabled,
+              ),
+            ),
+          ],
         ),
         widget.trailing,
         if (widget.onCenter != null)

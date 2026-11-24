@@ -51,7 +51,60 @@ class MainFlutterWindow: NSWindow {
     }
   }
 
-  var workspaceMenuEnabled = false
+  var workspaceMenuEnabled = false {
+    didSet { updateToolbarItems() }
+  }
+
+  private var toolbarLabels: [String: String] = [:]
+  private var toolbarEnabled: [String: Bool] = [:]
+  private let toolbarSymbols = [
+    "partsSidebar": "sidebar.left", "inspector": "sidebar.right",
+    "undo": "arrow.uturn.backward", "redo": "arrow.uturn.forward",
+    "save": "square.and.arrow.down", "settings": "gearshape"
+  ]
+
+  private func configureDocumentToolbar(_ args: [String: Any]) {
+    guard let name = args["title"] as? String, let edited = args["edited"] as? Bool,
+          let labels = args["labels"] as? [String: String],
+          let enabled = args["enabled"] as? [String: Bool] else { return }
+    title = name
+    isDocumentEdited = edited
+    toolbarLabels = labels
+    toolbarEnabled = enabled
+    if let panels = args["panels"] as? [String: Bool],
+       let viewMenu = NSApp.mainMenu?.items.first(where: { $0.identifier?.rawValue == "np.view" })?.submenu {
+      for item in viewMenu.items {
+        guard let id = item.identifier?.rawValue, id.hasPrefix("np."),
+              let shown = panels[String(id.dropFirst(3))] else { continue }
+        item.state = shown ? .on : .off
+      }
+    }
+    if toolbar == nil {
+      let bar = NSToolbar(identifier: "neprosto.document")
+      bar.delegate = self
+      bar.displayMode = .iconOnly
+      toolbarStyle = .unified
+      toolbar = bar
+    }
+    updateToolbarItems()
+  }
+
+  private func updateToolbarItems() {
+    for item in toolbar?.items ?? [] {
+      let id = item.itemIdentifier.rawValue
+      guard let label = toolbarLabels[id] else { continue }
+      item.label = label
+      item.toolTip = label
+      item.isEnabled = workspaceMenuEnabled && toolbarEnabled[id] != false
+    }
+  }
+
+  @objc private func toolbarAction(_ sender: NSToolbarItem) {
+    guard sender.isEnabled, workspaceMenuEnabled,
+          let controller = contentViewController as? FlutterViewController else { return }
+    FlutterMethodChannel(name: "neprosto/editor", binaryMessenger: controller.engine.binaryMessenger)
+      .invokeMethod(sender.itemIdentifier.rawValue, arguments: nil)
+  }
 
   private var suspendedKeys: [(NSMenuItem, String)] = []
 
@@ -118,6 +171,11 @@ class MainFlutterWindow: NSWindow {
 
     let popup = FlutterMethodChannel(name: "neprosto/popup", binaryMessenger: flutterViewController.engine.binaryMessenger)
     popup.setMethodCallHandler { [weak self, weak flutterViewController] call, result in
+      if call.method == "documentToolbar", let args = call.arguments as? [String: Any], let window = self {
+        window.configureDocumentToolbar(args)
+        result(true)
+        return
+      }
       if call.method == "appearance", let args = call.arguments as? [String: Any],
          let theme = args["theme"] as? String, let titles = args["menu"] as? [String: String] {
         let appearance = theme == "system" ? nil : NSAppearance(named: theme == "dark" ? .darkAqua : .aqua)
@@ -181,5 +239,31 @@ class MainFlutterWindow: NSWindow {
     }
 
     super.awakeFromNib()
+  }
+}
+
+extension MainFlutterWindow: NSToolbarDelegate {
+  func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+    return [.init("partsSidebar"), .flexibleSpace, .init("undo"), .init("redo"),
+            .init("save"), .space, .init("settings"), .init("inspector")]
+  }
+
+  func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+    return toolbarDefaultItemIdentifiers(toolbar)
+  }
+
+  func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+               willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+    let id = identifier.rawValue
+    guard let symbol = toolbarSymbols[id], let label = toolbarLabels[id] else { return nil }
+    let item = NSToolbarItem(itemIdentifier: identifier)
+    item.label = label
+    item.toolTip = label
+    item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+    item.autovalidates = false
+    item.isEnabled = workspaceMenuEnabled && toolbarEnabled[id] != false
+    item.target = self
+    item.action = #selector(toolbarAction(_:))
+    return item
   }
 }

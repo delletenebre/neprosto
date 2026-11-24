@@ -285,7 +285,9 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
   Editor get e => active.editor;
   GlobalKey<DrawingViewportState> get viewportKey =>
       GlobalObjectKey<DrawingViewportState>(e);
-  bool partsVisible = true, fileBusy = false;
+  bool partsVisible = true, inspectorVisible = true, fileBusy = false;
+  bool? hasWindowToolbar;
+  Object? lastToolbarState;
   static const menu = MethodChannel('neprosto/editor');
   Future<void> writes = Future.value();
   bool retryDraft = false;
@@ -320,6 +322,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
             await editSettings();
           case 'partsList':
             await showPartsList();
+          case 'partsSidebar':
+            toggleParts();
+          case 'inspector':
+            toggleInspector();
           case 'zoomIn':
             zoom(1.25);
           case 'zoomOut':
@@ -346,6 +352,54 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     widget.followSystemTheme ? null : widget.palette,
     editorStrings,
   );
+
+  void toggleParts() => setState(() => partsVisible = !partsVisible);
+  void toggleInspector() =>
+      setState(() => inspectorVisible = !inspectorVisible);
+
+  Future<void> syncDocumentToolbar() async {
+    if (!macControls || kIsWeb || hasWindowToolbar == false) return;
+    final state = (
+      active.committed.name,
+      active.dirty,
+      e.canUndo,
+      e.canRedo,
+      partsVisible,
+      inspectorVisible,
+      widget.locale,
+    );
+    if (lastToolbarState == state) return;
+    lastToolbarState = state;
+    final s = context.strings;
+    bool installed;
+    try {
+      installed =
+          await const MethodChannel('neprosto/popup')
+              .invokeMethod<bool>('documentToolbar', {
+                'title': active.committed.name,
+                'edited': active.dirty,
+                'labels': {
+                  'partsSidebar': s.partsTree,
+                  'inspector': s.properties,
+                  'undo': s.undo,
+                  'redo': s.redo,
+                  'save': s.save,
+                  'settings': s.settings,
+                },
+                'enabled': {'undo': e.canUndo, 'redo': e.canRedo},
+                'panels': {
+                  'partsSidebar': partsVisible,
+                  'inspector': inspectorVisible,
+                },
+              }) ==
+          true;
+    } on MissingPluginException {
+      installed = false;
+    }
+    if (mounted && installed != hasWindowToolbar) {
+      setState(() => hasWindowToolbar = installed);
+    }
+  }
 
   bool? workspaceMenuEnabled;
   @override
@@ -1047,8 +1101,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
   }
 
   Widget header() => Container(
-    height: 47,
-    padding: const EdgeInsets.symmetric(horizontal: 15),
+    height: macControls ? (hasWindowToolbar == true ? 31 : 35) : 47,
+    padding: EdgeInsets.symmetric(horizontal: macControls ? 0 : 15),
     decoration: BoxDecoration(
       color: context.colors.chrome,
       border: Border(bottom: BorderSide(color: context.colors.line)),
@@ -1070,6 +1124,12 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           const SizedBox(height: 22, child: VerticalDivider()),
           const SizedBox(width: 8),
         ],
+        if (macControls && hasWindowToolbar != true)
+          iconAction(
+            cu.CupertinoIcons.sidebar_left,
+            context.strings.partsTree,
+            toggleParts,
+          ),
         Expanded(
           child: ProjectTabBar(
             tabs: tabs.items,
@@ -1096,30 +1156,39 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 action == 'partsList' ? showPartsList() : file(action),
           ),
         ),
-        const SizedBox(width: toolbarGap),
-        iconAction(
-          cu.CupertinoIcons.arrow_uturn_left,
-          context.strings.undo,
-          e.canUndo ? e.undo : null,
-        ),
-        const SizedBox(width: toolbarGap),
-        iconAction(
-          cu.CupertinoIcons.arrow_uturn_right,
-          context.strings.redo,
-          e.canRedo ? e.redo : null,
-        ),
-        const SizedBox(width: 8),
-        DeskButton(
-          onPressed: () => file('save'),
-          icon: const Icon(cu.CupertinoIcons.square_arrow_down, size: 16),
-          label: Text(context.strings.save),
-        ),
-        const SizedBox(width: 8),
-        iconAction(
-          cu.CupertinoIcons.gear_alt,
-          context.strings.settings,
-          editSettings,
-        ),
+        if (!macControls || hasWindowToolbar != true) ...[
+          const SizedBox(width: toolbarGap),
+          iconAction(
+            cu.CupertinoIcons.arrow_uturn_left,
+            context.strings.undo,
+            e.canUndo ? e.undo : null,
+          ),
+          const SizedBox(width: toolbarGap),
+          iconAction(
+            cu.CupertinoIcons.arrow_uturn_right,
+            context.strings.redo,
+            e.canRedo ? e.redo : null,
+          ),
+          const SizedBox(width: 8),
+          DeskButton(
+            plain: macControls,
+            onPressed: () => file('save'),
+            icon: const Icon(cu.CupertinoIcons.square_arrow_down, size: 16),
+            label: Text(context.strings.save),
+          ),
+          const SizedBox(width: 8),
+          iconAction(
+            cu.CupertinoIcons.gear_alt,
+            context.strings.settings,
+            editSettings,
+          ),
+          if (macControls)
+            iconAction(
+              cu.CupertinoIcons.sidebar_right,
+              context.strings.properties,
+              toggleInspector,
+            ),
+        ],
       ],
     ),
   );
@@ -1129,160 +1198,184 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     e.refresh();
   }
 
+  List<Widget> drawingTools() => [
+    for (final (tool, icon, title) in [
+      (
+        Tool.select,
+        cu.CupertinoIcons.location_north,
+        context.strings.selectShortcut(e.hotkeys[Command.select].label),
+      ),
+      (
+        Tool.move,
+        cu.CupertinoIcons.move,
+        context.strings.anchorShortcut(e.hotkeys[Command.move].label),
+      ),
+      (
+        Tool.rotate,
+        cu.CupertinoIcons.arrow_clockwise,
+        context.strings.rotateShortcut(e.hotkeys[Command.rotate].label),
+      ),
+      (
+        Tool.ruler,
+        Icons.straighten,
+        context.strings.measureShortcut(e.hotkeys[Command.measure].label),
+      ),
+      (Tool.face, cu.CupertinoIcons.layers, context.strings.planeFromFace),
+    ])
+      iconAction(
+        icon,
+        title,
+        tool == Tool.rotate && e.selection.isEmpty
+            ? null
+            : tool == Tool.ruler
+            ? openRuler
+            : () => e.setTool(tool),
+        active: tool == Tool.ruler ? e.rulerActive : e.tool == tool,
+      ),
+    if (e.project.hasHiddenParts)
+      iconAction(
+        cu.CupertinoIcons.eye,
+        context.strings.showAllParts,
+        e.showAllHiddenParts,
+      ),
+  ];
+
   Widget viewport() => Column(
     children: [
       Container(
-        height: 44,
+        height: macControls ? 35 : 44,
         padding: const EdgeInsets.symmetric(horizontal: 7),
         decoration: BoxDecoration(
           color: context.colors.panel,
           border: Border(bottom: BorderSide(color: context.colors.line)),
         ),
-        child: Row(
-          spacing: toolbarGap,
-          children: [
-            iconAction(
-              cu.CupertinoIcons.sidebar_left,
-              context.strings.partsTree,
-              () => setState(() => partsVisible = !partsVisible),
-              size: 17,
-            ),
-            MenuChoice<String>(
-              selected: e.plane.name,
-              label: context.strings.workPlaneLabel(e.plane.displayName),
-              items: [
-                ('XY', context.strings.xyTop),
-                ('XZ', context.strings.xzFront),
-                ('YZ', context.strings.yzSide),
-                ('face', context.strings.selectFace),
-              ],
-              change: (v) {
-                if (v == 'face') {
-                  e.setTool(Tool.face);
-                } else {
-                  e.setPlane(
-                    v == 'XY'
-                        ? WorkPlane.xy()
-                        : v == 'XZ'
-                        ? WorkPlane.xz()
-                        : WorkPlane.yz(),
-                  );
-                }
-              },
-            ),
-            const Spacer(),
-            CompositedTransformTarget(
-              link: gridAnchor,
-              child: DeskIcon(
-                cu.CupertinoIcons.grid,
-                context.strings.gridVisibility,
-                showGridControls,
-                size: 18,
-                background: gridControlsOpen ? context.colors.pale : null,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final compact = macControls && box.maxWidth < 570;
+            final tools = <Widget>[
+              if (macControls) ...[
+                ...drawingTools(),
+                const SizedBox(height: 17, child: VerticalDivider(width: 12)),
+              ] else
+                iconAction(
+                  cu.CupertinoIcons.sidebar_left,
+                  context.strings.partsTree,
+                  toggleParts,
+                  size: 17,
+                ),
+              MenuChoice<String>(
+                selected: e.plane.name,
+                label: context.strings.workPlaneLabel(e.plane.displayName),
+                compactLabel: compact ? e.plane.displayName : null,
+                items: [
+                  ('XY', context.strings.xyTop),
+                  ('XZ', context.strings.xzFront),
+                  ('YZ', context.strings.yzSide),
+                  ('face', context.strings.selectFace),
+                ],
+                change: (v) {
+                  if (v == 'face') {
+                    e.setTool(Tool.face);
+                  } else {
+                    e.setPlane(
+                      v == 'XY'
+                          ? WorkPlane.xy()
+                          : v == 'XZ'
+                          ? WorkPlane.xz()
+                          : WorkPlane.yz(),
+                    );
+                  }
+                },
               ),
-            ),
-            iconAction(
-              cu.CupertinoIcons.minus,
-              context.strings.zoomOut,
-              () => zoom(.8),
-            ),
-            iconAction(
-              cu.CupertinoIcons.plus,
-              context.strings.zoomIn,
-              () => zoom(1.25),
-            ),
-            iconAction(
-              cu.CupertinoIcons.viewfinder,
-              context.strings.fitShortcut(e.hotkeys[Command.fit].label),
-              () {
-                e.fitRequested = true;
-                e.refresh();
-              },
-            ),
-          ],
+            ];
+            final zoomControls = <Widget>[
+              CompositedTransformTarget(
+                link: gridAnchor,
+                child: DeskIcon(
+                  cu.CupertinoIcons.grid,
+                  context.strings.gridVisibility,
+                  showGridControls,
+                  size: 18,
+                  background: gridControlsOpen ? context.colors.pale : null,
+                ),
+              ),
+              iconAction(
+                cu.CupertinoIcons.minus,
+                context.strings.zoomOut,
+                () => zoom(.8),
+              ),
+              iconAction(
+                cu.CupertinoIcons.plus,
+                context.strings.zoomIn,
+                () => zoom(1.25),
+              ),
+              iconAction(
+                cu.CupertinoIcons.viewfinder,
+                context.strings.fitShortcut(e.hotkeys[Command.fit].label),
+                () {
+                  e.fitRequested = true;
+                  e.refresh();
+                },
+              ),
+            ];
+            if (!macControls) {
+              return Row(
+                spacing: toolbarGap,
+                children: [...tools, const Spacer(), ...zoomControls],
+              );
+            }
+            if (box.maxWidth < 300) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  spacing: toolbarGap,
+                  children: [...tools, ...zoomControls],
+                ),
+              );
+            }
+            return Row(
+              spacing: toolbarGap,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(spacing: toolbarGap, children: tools),
+                  ),
+                ),
+                ...zoomControls,
+              ],
+            );
+          },
         ),
       ),
       Expanded(
         child: Stack(
           children: [
             Positioned.fill(child: DrawingViewport(e, key: viewportKey)),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: context.colors.panel,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: context.colors.line),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x10000000),
-                      blurRadius: 5,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  spacing: toolbarGap,
-                  children: [
-                    for (final (tool, icon, title) in [
-                      (
-                        Tool.select,
-                        cu.CupertinoIcons.location_north,
-                        context.strings.selectShortcut(
-                          e.hotkeys[Command.select].label,
-                        ),
+            if (!macControls)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: context.colors.panel,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: context.colors.line),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x10000000),
+                        blurRadius: 5,
+                        offset: Offset(0, 2),
                       ),
-                      (
-                        Tool.move,
-                        cu.CupertinoIcons.move,
-                        context.strings.anchorShortcut(
-                          e.hotkeys[Command.move].label,
-                        ),
-                      ),
-                      (
-                        Tool.rotate,
-                        cu.CupertinoIcons.arrow_clockwise,
-                        context.strings.rotateShortcut(
-                          e.hotkeys[Command.rotate].label,
-                        ),
-                      ),
-                      (
-                        Tool.ruler,
-                        Icons.straighten,
-                        context.strings.measureShortcut(
-                          e.hotkeys[Command.measure].label,
-                        ),
-                      ),
-                      (
-                        Tool.face,
-                        cu.CupertinoIcons.layers,
-                        context.strings.planeFromFace,
-                      ),
-                    ])
-                      iconAction(
-                        icon,
-                        title,
-                        tool == Tool.rotate && e.selection.isEmpty
-                            ? null
-                            : tool == Tool.ruler
-                            ? openRuler
-                            : () => e.setTool(tool),
-                        active: tool == Tool.ruler
-                            ? e.rulerActive
-                            : e.tool == tool,
-                      ),
-                    if (e.project.hasHiddenParts)
-                      iconAction(
-                        cu.CupertinoIcons.eye,
-                        context.strings.showAllParts,
-                        e.showAllHiddenParts,
-                      ),
-                  ],
+                    ],
+                  ),
+                  child: Column(
+                    spacing: toolbarGap,
+                    children: drawingTools(),
+                  ),
                 ),
               ),
-            ),
             Positioned(
               left: 14,
               bottom: 13,
@@ -1329,87 +1422,90 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           ),
         ),
       ),
-      Container(
-        height: 37,
-        decoration: BoxDecoration(
-          color: context.colors.panel,
-          border: Border(top: BorderSide(color: context.colors.line)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 9),
-        child: Row(
-          spacing: toolbarGap,
-          children: [
-            iconAction(
-              cu.CupertinoIcons.scope,
-              e.tool == Tool.measure
-                  ? context.strings.rulerSnapModifier(primaryModifierLabel)
-                  : context.strings.snapToAnchors,
-              () {
-                if (e.tool == Tool.measure) {
-                  saveSnapDefault(!e.snapByDefault);
-                } else {
-                  e.snap = !e.snap;
-                }
-                e.hover = null;
-                e.refresh();
-              },
-              active: e.tool == Tool.measure ? e.snapByDefault : e.snap,
-              size: 15,
-            ),
-            MenuChoice<SnapMode>(
-              selected: (e.tool == Tool.measure ? e.snapByDefault : e.snap)
-                  ? e.snapMode
-                  : null,
-              label: context.strings.anchorLabel(
-                (e.tool == Tool.measure ? e.snapByDefault : e.snap)
-                    ? e.snapMode.label
-                    : context.strings.off,
-              ),
-              items: [for (final m in SnapMode.values) (m, m.label)],
-              change: (m) {
-                if (e.tool == Tool.measure) {
-                  saveSnapDefault(true);
-                } else {
-                  e.snap = true;
-                }
-                e.snapMode = m;
-                e.hover = null;
-                e.refresh();
-              },
-            ),
-            const Spacer(),
-            DeskButton(
-              plain: true,
-              onPressed: editSettings,
-              child: Text(
-                e.step.enabled
-                    ? context.strings.step(
-                        e.project.unit.format(
-                          e.step.millimeters(e.project.unit),
-                        ),
-                      )
-                    : context.strings.stepOff,
-                style: const TextStyle(fontSize: 11),
-              ),
-            ),
-            MenuChoice<LengthUnit>(
-              selected: e.project.unit,
-              label: e.project.unit.symbol,
-              items: [for (final unit in LengthUnit.values) (unit, unit.title)],
-              change: (unit) {
-                FocusManager.instance.primaryFocus?.unfocus();
-                e.commit(e.project.copy(unit: unit));
-              },
-            ),
-          ],
-        ),
-      ),
+      if (!macControls) draftingControls(),
     ],
   );
+  Widget draftingControls() => Container(
+    height: macControls ? 30 : 37,
+    decoration: BoxDecoration(
+      color: macControls ? context.colors.chrome : context.colors.panel,
+      border: macControls
+          ? null
+          : Border(top: BorderSide(color: context.colors.line)),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 9),
+    child: Row(
+      spacing: toolbarGap,
+      children: [
+        iconAction(
+          cu.CupertinoIcons.scope,
+          e.tool == Tool.measure
+              ? context.strings.rulerSnapModifier(primaryModifierLabel)
+              : context.strings.snapToAnchors,
+          () {
+            if (e.tool == Tool.measure) {
+              saveSnapDefault(!e.snapByDefault);
+            } else {
+              e.snap = !e.snap;
+            }
+            e.hover = null;
+            e.refresh();
+          },
+          active: e.tool == Tool.measure ? e.snapByDefault : e.snap,
+          size: 15,
+        ),
+        MenuChoice<SnapMode>(
+          selected: (e.tool == Tool.measure ? e.snapByDefault : e.snap)
+              ? e.snapMode
+              : null,
+          label: context.strings.anchorLabel(
+            (e.tool == Tool.measure ? e.snapByDefault : e.snap)
+                ? e.snapMode.label
+                : context.strings.off,
+          ),
+          items: [for (final m in SnapMode.values) (m, m.label)],
+          change: (m) {
+            if (e.tool == Tool.measure) {
+              saveSnapDefault(true);
+            } else {
+              e.snap = true;
+            }
+            e.snapMode = m;
+            e.hover = null;
+            e.refresh();
+          },
+        ),
+        if (!macControls) const Spacer(),
+        DeskButton(
+          plain: true,
+          onPressed: editSettings,
+          child: Text(
+            e.step.enabled
+                ? context.strings.step(
+                    e.project.unit.format(e.step.millimeters(e.project.unit)),
+                  )
+                : context.strings.stepOff,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        MenuChoice<LengthUnit>(
+          selected: e.project.unit,
+          label: e.project.unit.symbol,
+          items: [for (final unit in LengthUnit.values) (unit, unit.title)],
+          change: (unit) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            e.commit(e.project.copy(unit: unit));
+          },
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: e,
     builder: (context, _) {
+      unawaited(syncDocumentToolbar());
       final workspace = Column(
         children: [
           header(),
@@ -1432,23 +1528,32 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                   key: ObjectKey(e),
                   children: [
                     if (partsVisible && box.maxWidth >= 780) ...[
-                      SizedBox(width: compact ? 173 : 214, child: parts),
+                      SizedBox(
+                        width: macControls
+                            ? (compact ? 185 : 224)
+                            : (compact ? 173 : 214),
+                        child: parts,
+                      ),
                       const VerticalDivider(width: 1),
                     ],
                     Expanded(child: viewport()),
-                    const VerticalDivider(width: 1),
-                    SizedBox(
-                      width: compact ? 210 : 247,
-                      child: box.maxWidth < 780 && e.rulerActive
-                          ? parts
-                          : Inspector(
-                              e,
-                              rename: () {
-                                final part = e.single;
-                                if (part != null) renamePart(part);
-                              },
-                            ),
-                    ),
+                    if (!macControls ||
+                        inspectorVisible ||
+                        (box.maxWidth < 780 && e.rulerActive)) ...[
+                      const VerticalDivider(width: 1),
+                      SizedBox(
+                        width: compact ? 210 : 247,
+                        child: box.maxWidth < 780 && e.rulerActive
+                            ? parts
+                            : Inspector(
+                                e,
+                                rename: () {
+                                  final part = e.single;
+                                  if (part != null) renamePart(part);
+                                },
+                              ),
+                      ),
+                    ],
                   ],
                 );
               },
@@ -1482,6 +1587,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                       color: context.colors.danger,
                     ),
                   ),
+                if (macControls) draftingControls(),
                 const SizedBox(width: 12),
                 Text(
                   context.strings.partCount(e.project.beams.length),
