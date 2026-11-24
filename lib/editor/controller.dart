@@ -403,6 +403,15 @@ class Editor extends ChangeNotifier {
   }
 
   Editor(this.project);
+  ({Beam from, Beam to})? doorSwing;
+  void toggleDoor(int id) {
+    final door = project.byId[id];
+    if (door == null || door.hinge == null || door.hidden) return;
+    final openedOrClosed = door.swingDoor(1);
+    doorSwing = (from: door, to: openedOrClosed);
+    commit(project.edit({id}, (_) => openedOrClosed));
+  }
+
   bool get canUndo => _past.isNotEmpty;
   bool get canRedo => _future.isNotEmpty;
   List<Beam> get selected =>

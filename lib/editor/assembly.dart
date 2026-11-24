@@ -81,7 +81,12 @@ AssemblyResize resizeAssembly(
         return AssemblyResize(project, editorStrings.partDimensionIsTooSmall);
       }
       if (size[s.dim] < b.minimumSize(s.dim)) {
-        return AssemblyResize(project, editorStrings.invalidRabbet);
+        return AssemblyResize(
+          project,
+          size[s.dim] < b.minimumHoleSize(s.dim)
+              ? editorStrings.invalidHole
+              : editorStrings.invalidRabbet,
+        );
       }
     }
     updates[b.id] = b.copy(

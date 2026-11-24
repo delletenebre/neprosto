@@ -15,6 +15,9 @@ class AppLocalizationsKy extends AppLocalizations {
   String get partFinish => 'Материал';
 
   @override
+  String get mixedValues => 'Ар түрдүү';
+
+  @override
   String get finishPresets => 'Даяр үлгүлөр';
 
   @override
@@ -523,6 +526,9 @@ class AppLocalizationsKy extends AppLocalizations {
   String get actionsMenu => 'Аракеттер менюсу';
 
   @override
+  String get measurementUnits => 'Өлчөө бирдиктери';
+
+  @override
   String get millimeters => 'Миллиметр';
 
   @override
@@ -846,7 +852,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get plane => 'Тегиздик';
 
   @override
-  String get planeFromFace => 'Бет боюнча тегиздик';
+  String get buildInThisPlane => 'Ушул тегиздикте куруу';
 
   @override
   String get edgeAligned => 'Кырга тегизделди';
@@ -1265,7 +1271,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String addPartHint(Object shortcut) {
-    return 'Тетик кошуу үчүн «Жаңы тетикти» же $shortcut басыңыз';
+    return 'Тетик чийүү үчүн «Жаңы тетик» баскычын же $shortcut баскычын басыңыз';
   }
 
   @override
@@ -1582,25 +1588,25 @@ class AppLocalizationsKy extends AppLocalizations {
   String get categoryWorkshop => 'Устакана жана кеңсе';
 
   @override
-  String get templateBookcase => 'Китеп текчеси';
+  String get templateBookcase => 'Төрт кабаттуу жыгач текче';
 
   @override
   String get templateCubeShelf => 'Баскычтуу бөлмө бөлгүч текче';
 
   @override
-  String get templateWallShelf => 'Жээктүү дубал текчеси';
+  String get templateWallShelf => 'Каркасы катылган текче';
 
   @override
-  String get templateStool => 'Жыгач табуретка';
+  String get templateStool => 'Гитара үчүн таянычы бар отургуч';
 
   @override
   String get templateStepStool => 'Эки баскычтуу табуретка';
 
   @override
-  String get templateGardenBench => 'Бакча отургучу';
+  String get templateGardenBench => 'Кол таянгычтуу бакча отургучу';
 
   @override
-  String get templateDiningTable => 'Жөнөкөй тамактануучу үстөл';
+  String get templateDiningTable => 'Эки таянычтуу тамактануучу үстөл';
 
   @override
   String get templateWritingDesk => 'Каптал текчелүү жазуу үстөлү';
@@ -1609,13 +1615,75 @@ class AppLocalizationsKy extends AppLocalizations {
   String get templateBedsideCabinet => 'Эшиктүү жана ачык уячалуу тумба';
 
   @override
+  String get templateBedroomWardrobe => 'Уктоочу бөлмө үчүн үч эшиктүү шкаф';
+
+  @override
+  String get openDoor => 'Эшикти ачуу';
+
+  @override
+  String get closeDoor => 'Эшикти жабуу';
+
+  @override
+  String get panelHoles => 'Тешиктер';
+
+  @override
+  String get addHole => 'Тешик кошуу';
+
+  @override
+  String get holeDiameter => 'Диаметр';
+
+  @override
+  String get throughHole => 'Өтмө';
+
+  @override
+  String get blindHole => 'Туюк';
+
+  @override
+  String get faceA => 'А жагы';
+
+  @override
+  String get faceB => 'Б жагы';
+
+  @override
+  String get cupHole => 'Илмек үчүн Ø35 мм';
+
+  @override
+  String get fromLeft => 'Сол четинен';
+
+  @override
+  String get fromRight => 'Оң четинен';
+
+  @override
+  String get fromBottom => 'Төмөнкү четинен';
+
+  @override
+  String get fromTop => 'Жогорку четинен';
+
+  @override
+  String get holeDiagramHelp =>
+      'Тешиктин борборун жайгаштыруу үчүн схеманы басыңыз.';
+
+  @override
+  String get invalidHole =>
+      'Диаметрди жана четтерге чейинки аралыкты текшериңиз. Туюк тешиктин тереңдиги тетиктин калыңдыгынан аз болушу керек.';
+
+  @override
+  String get leftHingedDoor => 'Илмеги сол жактагы эшик';
+
+  @override
+  String get rightHingedDoor => 'Илмеги оң жактагы эшик';
+
+  @override
+  String get clothesRail => 'Кийим илгич таяк';
+
+  @override
   String get templateTvStand => 'Техника үчүн уячалуу сыналгы тумбасы';
 
   @override
-  String get templateWorkbench => 'Жыгач уста үстөлү';
+  String get templateWorkbench => 'Эки бөлүктүү Рубо верстагы';
 
   @override
-  String get templateToolTote => 'Көтөрмө шайман кутусу';
+  String get templateToolTote => 'Кыйгач туткалуу аспап кутусу';
 
   @override
   String get cuttingLayout => 'Кесүү схемасы';
@@ -1657,7 +1725,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get rackFinger => 'Кыскычтын таянычы';
 
   @override
-  String get templatePicnicTable => 'Отургучтары бар пикник үстөлү';
+  String get templatePicnicTable => 'Балдар үчүн пикник үстөлү';
 
   @override
   String get templateSawhorse => 'Усталык теке таяныч';
@@ -1669,7 +1737,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get templateRaisedBed => 'Топурак үчүн бийик гүлзар';
 
   @override
-  String get templateStandingPlanter => 'Төмөнкү текчелүү буттуу гүлзар';
+  String get templateStandingPlanter => 'Буттуу гүл кутусу';
 
   @override
   String get templateTrellisPlanter => 'Тор таянычы бар гүл кутусу';
@@ -1740,7 +1808,17 @@ class AppLocalizationsKy extends AppLocalizations {
       'Кыйгач тирөөч тарабынан караганда илмектер солдо. Тирөөч жүктү жогорку бош бурчтан илмектин төмөнкү тарабына өткөрөт.';
 
   @override
-  String get templateGazebo => 'Эки жантык чатырлуу серепкана';
+  String get templateGazebo => 'Отургучтуу ачык серепкана';
+
+  @override
+  String get gazeboRingBeam => 'Үстүңкү алкак устуну';
+
+  @override
+  String get roofBatten => 'Чатырдын тор тактайы';
+
+  @override
+  String get gazeboFrameNote =>
+      'Кесүү тизмесине каркас, отургуч, чатыр устундары, туташтыргыч устундар жана тор тактайлар кирет. Чатыр жабуусун өзүнчө тандап, тор тактайлардын арасын ага ылайыктаңыз. Жыгачтын кесилишин, бирикмелерди жана анкерлерди жергиликтүү жүктөргө жана топуракка жараша текшериңиз.';
 
   @override
   String get templateShedFloor => 'Кайчылаш тирөөчтүү пол каркасы';
@@ -1840,4 +1918,115 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get invalidRabbet =>
       'Туурасы жана тереңдиги оң сан болушу керек. Оюктардын ортосунда жана карама-каршы бетке чейин материал калтырыңыз.';
+
+  @override
+  String get templateLaptopTray => 'Ноутбук үчүн үстөлчө';
+
+  @override
+  String get templateBagShelf => 'Сумка үчүн текчелүү илгич';
+
+  @override
+  String get templatePantryShelf => 'Эшик артындагы тар текче';
+
+  @override
+  String get templateConsoleTable => 'Диван артына үч бөлүктүү текче';
+
+  @override
+  String get templateBathTray => 'Ваннанын үстүнө коюлуучу текче';
+
+  @override
+  String get templateMachineStand => 'Торцовка араасы үчүн таяныч';
+
+  @override
+  String get templateTrestleBench => 'Кыйгач буттуу отургуч';
+
+  @override
+  String get templateWindowBox => 'Терезе үчүн гүл кутусу';
+
+  @override
+  String get templateBirdhouse => 'Канаттууга үч бурчтуу үйчө';
+
+  @override
+  String get templateCandleShelf => 'Үч бурчтуу шам текчеси';
+
+  @override
+  String get templateBlanketLadder => 'Жууркан үчүн тепкич-илгич';
+
+  @override
+  String get templateHeadphoneStand => 'Кулакчын үчүн таяныч';
+
+  @override
+  String get templatePlantPanel => 'Өсүмдүк үчүн дубал панели';
+
+  @override
+  String get templateToyChest => 'Оюнчуктар үчүн короо кутусу';
+
+  @override
+  String get templateShutters => 'Үч бөлүктүү бүктөмө терезе капкагы';
+
+  @override
+  String get templateLantern => 'Терраса үчүн кооз чырак';
+
+  @override
+  String get templateMirrorFrame => 'Күзгү үчүн полго коюлуучу алкак';
+
+  @override
+  String get templateHexShelf => 'Алты бурчтуу текче';
+
+  @override
+  String get templateCoffeeTable => 'Астында текчеси бар жапыз үстөл';
+
+  @override
+  String get templateShoeBench => 'Бут кийим үчүн үч уячалуу отургуч';
+
+  @override
+  String get templateTrivet => 'Ысык идиш үчүн тор таяныч';
+
+  @override
+  String get categoryHousehold => 'Үй буюмдары';
+
+  @override
+  String get planEasy => 'Оңой';
+
+  @override
+  String get planMedium => 'Орточо';
+
+  @override
+  String get planAdvanced => 'Татаал';
+
+  @override
+  String get planSource => 'Түп нускадагы сүрөт жана чийме';
+
+  @override
+  String get planDrawing => 'Түп нускадагы чийме (ZIP)';
+
+  @override
+  String get planAdaptation =>
+      'Модель редакторго ылайыкташтырылган. Кесүү тизмесине жыгач тетиктер кирет.';
+
+  @override
+  String get planHardwareHooks => 'Үч илгич жана дубалга бекиткичтер керек.';
+
+  @override
+  String get planShutterNote =>
+      'Бүктөмдөрдүн ортосунда топсо үчүн 3 мм боштук бар. Тандалган топсого жараша тактаңыз.';
+
+  @override
+  String get planLadderNote => 'Жууркан илүүгө арналган. Дубалга бекитиңиз.';
+
+  @override
+  String get planChestNote =>
+      'Капкакка топсо жана ачык кармоочу таяныч орнотуңуз.';
+
+  @override
+  String get planMirrorNote =>
+      '407 × 1525 мм күзгү, күзгү бекиткичтери жана дубал бекиткичи керек.';
+
+  @override
+  String get planRoundedNote =>
+      'Тик бурчтуу даярдамалар көрсөтүлгөн. Тийишкен кырларын жумурулаңыз.';
+
+  @override
+  String get planTrivetNote =>
+      'Craftsmanspace үлгүсү боюнча 12 × 7 мм рейкалар эки катмар болуп кайчылаш чапталат.';
 }

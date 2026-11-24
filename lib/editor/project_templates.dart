@@ -6,6 +6,11 @@ import 'part_finish.dart';
 
 part 'outdoor_templates.dart';
 part 'framing_templates.dart';
+part 'catalog_joinery.dart';
+part 'catalog_furniture.dart';
+part 'catalog_home.dart';
+
+const _sqrt3 = 1.7320508075688772;
 
 enum TemplateCategory {
   shelving,
@@ -14,7 +19,8 @@ enum TemplateCategory {
   cabinets,
   workshop,
   garden,
-  construction;
+  construction,
+  household;
 
   String get label => switch (this) {
     shelving => editorStrings.categoryShelving,
@@ -23,7 +29,20 @@ enum TemplateCategory {
     cabinets => editorStrings.categoryCabinets,
     workshop => editorStrings.categoryWorkshop,
     garden => editorStrings.categoryGarden,
+    household => editorStrings.categoryHousehold,
     construction => editorStrings.categoryConstruction,
+  };
+}
+
+enum PlanDifficulty {
+  easy,
+  medium,
+  advanced;
+
+  String get label => switch (this) {
+    easy => editorStrings.planEasy,
+    medium => editorStrings.planMedium,
+    advanced => editorStrings.planAdvanced,
   };
 }
 
@@ -34,11 +53,12 @@ enum FurnitureTemplate {
     (960, 320, 740),
     (38, 12.5, 29),
   ),
-  bookcase(
+  bookcase.plan(
     TemplateCategory.shelving,
-    FinishPreset.oakBoard,
-    (760, 300, 1440),
-    (30, 12, 56),
+    FinishPreset.wood,
+    (940, 378, 1800),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/byudzhetnyy-derevyannyy-stellazh-na-chetyre-polki/',
   ),
   cubeShelf(
     TemplateCategory.shelving,
@@ -46,17 +66,19 @@ enum FurnitureTemplate {
     (1020, 330, 1020),
     (40, 13, 40),
   ),
-  wallShelf(
+  wallShelf.plan(
     TemplateCategory.shelving,
     FinishPreset.plywood,
-    (740, 180, 160),
-    (29, 7, 6),
+    (1200, 300, 102),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/polka-so-skrytym-karkasom/',
   ),
-  stool(
+  stool.plan(
     TemplateCategory.seating,
-    FinishPreset.wood,
-    (360, 360, 450),
-    (14, 14, 18),
+    FinishPreset.plywood,
+    (568, 300, 518),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/taburet-s-podstavkoy-dlya-gitary-i-polkoy/',
   ),
   stepStool(
     TemplateCategory.seating,
@@ -64,17 +86,19 @@ enum FurnitureTemplate {
     (400, 400, 360),
     (16, 16, 14),
   ),
-  gardenBench(
+  gardenBench.plan(
     TemplateCategory.garden,
     FinishPreset.wood,
-    (1490, 460, 850),
-    (47.5, 18, 33.5),
+    (1680, 700, 940),
+    PlanDifficulty.advanced,
+    'https://pochertezhu.ru/project/sadovaya-skamya-so-spinkoy-i-podlokotnikami/',
   ),
-  diningTable(
+  diningTable.plan(
     TemplateCategory.tables,
     FinishPreset.wood,
-    (1490, 810, 750),
-    (59, 31.5, 30),
+    (1828.8, 718.82, 749.3),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/ulichnyy-stol-iz-dosok-na-derevyannyh-oporah/',
   ),
   writingDesk(
     TemplateCategory.tables,
@@ -88,6 +112,12 @@ enum FurnitureTemplate {
     (450, 400, 600),
     (18, 16, 24),
   ),
+  bedroomWardrobe(
+    TemplateCategory.cabinets,
+    FinishPreset.oakBoard,
+    (1800, 600, 2200),
+    (72, 24, 86),
+  ),
   tvStand(
     TemplateCategory.cabinets,
     FinishPreset.oakBoard,
@@ -100,23 +130,26 @@ enum FurnitureTemplate {
     (800, 430, 860),
     (32, 17, 34),
   ),
-  workbench(
+  workbench.plan(
     TemplateCategory.workshop,
     FinishPreset.wood,
-    (1490, 690, 900),
-    (59, 27, 35.5),
+    (1524, 609.6, 863.6),
+    PlanDifficulty.advanced,
+    'https://pochertezhu.ru/project/verstak-rubo-s-razdelnoy-stoleshnitsey/',
   ),
-  toolTote(
+  toolTote.plan(
     TemplateCategory.workshop,
-    FinishPreset.plywood,
-    (480, 240, 300),
-    (19, 9.5, 12),
+    FinishPreset.wood,
+    (546, 178, 267),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/derevyannyy-yashchik-dlya-instrumentov/',
   ),
-  picnicTable(
+  picnicTable.plan(
     TemplateCategory.garden,
     FinishPreset.wood,
-    (1490, 1500, 740),
-    (59, 59, 29),
+    (800, 1040, 456),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/detskiy-stol-dlya-piknika-so-skameykami/',
   ),
   sawhorse(
     TemplateCategory.workshop,
@@ -136,11 +169,12 @@ enum FurnitureTemplate {
     (1490, 740, 540),
     (59, 29, 21),
   ),
-  standingPlanter(
+  standingPlanter.plan(
     TemplateCategory.garden,
     FinishPreset.wood,
-    (990, 490, 800),
-    (39, 19.5, 32),
+    (380, 380, 380),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/derevyannoe-kashpo-na-nozhkakh/',
   ),
   trellisPlanter(
     TemplateCategory.garden,
@@ -175,8 +209,8 @@ enum FurnitureTemplate {
   gazebo(
     TemplateCategory.garden,
     FinishPreset.wood,
-    (2240, 2200, 2750),
-    (88, 86, 108),
+    (2240, 2200, 2860),
+    (88, 86, 112.5),
   ),
   shedFloor(
     TemplateCategory.construction,
@@ -207,19 +241,201 @@ enum FurnitureTemplate {
     FinishPreset.wood,
     (900, 60, 1300),
     (36, 2.25, 52),
+  ),
+  laptopTray.plan(
+    TemplateCategory.tables,
+    FinishPreset.wood,
+    (566, 286, 255),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/podnos-dlya-noutbuka/',
+  ),
+  bagShelf.plan(
+    TemplateCategory.household,
+    FinishPreset.wood,
+    (457, 64, 159),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/nastennaya-veshalka-dlya-sumok/',
+  ),
+  pantryShelf.plan(
+    TemplateCategory.shelving,
+    FinishPreset.wood,
+    (686, 102, 1778),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/uzkaya-polka-za-dveryu/',
+  ),
+  consoleTable.plan(
+    TemplateCategory.tables,
+    FinishPreset.wood,
+    (1651, 304.8, 609.6),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/konsolnyy-stol-s-polkami-za-divan/',
+  ),
+  bathTray.plan(
+    TemplateCategory.household,
+    FinishPreset.wood,
+    (965.2, 234.95, 57.15),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/derevyannyj-stolik-polka-dlya-vanny/',
+  ),
+  machineStand.plan(
+    TemplateCategory.workshop,
+    FinishPreset.wood,
+    (800, 600, 900),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/podstavka-dlya-torcovochnoj-pily-ili-rejsmusa/',
+  ),
+  trestleBench.plan(
+    TemplateCategory.seating,
+    FinishPreset.wood,
+    (1295, 235, 528),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/sadovaya-skamejka-iz-dereva/',
+  ),
+  windowBox.plan(
+    TemplateCategory.garden,
+    FinishPreset.wood,
+    (1080, 220, 140),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/podokonnyy-tsvetochnyy-yashchik-s-reechnoy-otdelkoy/',
+  ),
+  birdhouse.plan(
+    TemplateCategory.garden,
+    FinishPreset.wood,
+    (240, 147, 120 * (1 + math.sqrt2)),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/a-obraznyy-domik-dlya-ptits/',
+  ),
+  candleShelf.plan(
+    TemplateCategory.household,
+    FinishPreset.wood,
+    (140, 150, 250 + 140 * _sqrt3),
+    PlanDifficulty.advanced,
+    'https://pochertezhu.ru/project/nastennaya-polka-podsvechnik-s-treugolnym-dekorom/',
+  ),
+  blanketLadder.plan(
+    TemplateCategory.household,
+    FinishPreset.wood,
+    (530, 40, 1980),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/blanket-ladder/',
+  ),
+  headphoneStand.plan(
+    TemplateCategory.household,
+    FinishPreset.wood,
+    (140, 140, 293),
+    PlanDifficulty.easy,
+    'https://pochertezhu.ru/project/nastolnaya-podstavka-dlya-naushnikov/',
+  ),
+  plantPanel.plan(
+    TemplateCategory.garden,
+    FinishPreset.wood,
+    (1080, 90, 1096),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/nastennaya-panel-dlya-rasteniy/',
+  ),
+  toyChest.plan(
+    TemplateCategory.cabinets,
+    FinishPreset.wood,
+    (880, 570, 620),
+    PlanDifficulty.advanced,
+    'https://pochertezhu.ru/project/ulichnyy-yashchik-dlya-khraneniya-igrushek/',
+  ),
+  shutters.plan(
+    TemplateCategory.construction,
+    FinishPreset.wood,
+    (1356, 20, 1560),
+    PlanDifficulty.advanced,
+    'https://pochertezhu.ru/project/trehstvorchatye-skladnye-stavni-dlya-terrasy/',
+  ),
+  lantern.plan(
+    TemplateCategory.garden,
+    FinishPreset.wood,
+    (480, 340, 990),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/bolshoy-dekorativnyy-fonar-dlya-terrasy/',
+  ),
+  mirrorFrame.plan(
+    TemplateCategory.construction,
+    FinishPreset.wood,
+    (486, 190, 1727),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/napolnoe-zerkalo-v-derevyannoy-rame/',
+  ),
+  hexShelf.plan(
+    TemplateCategory.shelving,
+    FinishPreset.wood,
+    (2 * (178 + 76 / _sqrt3), 184, 178 * _sqrt3 + 76),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/shestiugolnye-nastennye-polki/',
+  ),
+  coffeeTable.plan(
+    TemplateCategory.tables,
+    FinishPreset.wood,
+    (1000, 400, 400),
+    PlanDifficulty.medium,
+    'https://pochertezhu.ru/project/kompaktnyy-zhurnalnyy-stolik-s-nizhney-polkoy/',
+  ),
+  shoeBench.plan(
+    TemplateCategory.seating,
+    FinishPreset.plywood,
+    (1000, 330, 465),
+    PlanDifficulty.easy,
+    'https://novamett.ru/polki/napolnaya-polka-svoimi-rukami-foto#:~:text=Полка%20скамейка%20для%20обуви',
+  ),
+  trivet.plan(
+    TemplateCategory.household,
+    FinishPreset.wood,
+    (156, 156, 14),
+    PlanDifficulty.easy,
+    'https://saw-man.ru/patterns/download/477',
   );
 
   const FurnitureTemplate(
     this.category,
     this.material,
     this.metric,
-    this.imperial,
-  );
+    this._imperial,
+  ) : source = null,
+      difficulty = null;
+
+  const FurnitureTemplate.plan(
+    this.category,
+    this.material,
+    this.metric,
+    this.difficulty,
+    this.source,
+  ) : _imperial = null;
+  final String? source;
+  final PlanDifficulty? difficulty;
   final TemplateCategory category;
   final FinishPreset material;
-  final (double, double, double) metric, imperial;
+  final (double, double, double) metric;
+  final (double, double, double)? _imperial;
+  (double, double, double) get imperial =>
+      _imperial ?? (metric.$1 / 25.4, metric.$2 / 25.4, metric.$3 / 25.4);
 
   String get title => switch (this) {
+    laptopTray => editorStrings.templateLaptopTray,
+    bagShelf => editorStrings.templateBagShelf,
+    pantryShelf => editorStrings.templatePantryShelf,
+    consoleTable => editorStrings.templateConsoleTable,
+    bathTray => editorStrings.templateBathTray,
+    machineStand => editorStrings.templateMachineStand,
+    trestleBench => editorStrings.templateTrestleBench,
+    windowBox => editorStrings.templateWindowBox,
+    birdhouse => editorStrings.templateBirdhouse,
+    candleShelf => editorStrings.templateCandleShelf,
+    blanketLadder => editorStrings.templateBlanketLadder,
+    headphoneStand => editorStrings.templateHeadphoneStand,
+    plantPanel => editorStrings.templatePlantPanel,
+    toyChest => editorStrings.templateToyChest,
+    shutters => editorStrings.templateShutters,
+    lantern => editorStrings.templateLantern,
+    mirrorFrame => editorStrings.templateMirrorFrame,
+    hexShelf => editorStrings.templateHexShelf,
+    coffeeTable => editorStrings.templateCoffeeTable,
+    shoeBench => editorStrings.templateShoeBench,
+    trivet => editorStrings.templateTrivet,
     signatureCabinet => editorStrings.templateSignatureCabinet,
     bookcase => editorStrings.templateBookcase,
     cubeShelf => editorStrings.templateCubeShelf,
@@ -230,6 +446,7 @@ enum FurnitureTemplate {
     diningTable => editorStrings.templateDiningTable,
     writingDesk => editorStrings.templateWritingDesk,
     bedsideCabinet => editorStrings.templateBedsideCabinet,
+    bedroomWardrobe => editorStrings.templateBedroomWardrobe,
     tvStand => editorStrings.templateTvStand,
     drawerChest => editorStrings.templateDrawerChest,
     workbench => editorStrings.templateWorkbench,
@@ -253,7 +470,18 @@ enum FurnitureTemplate {
   };
 
   String? get constructionNote => switch (this) {
-    gazebo || logStore => editorStrings.roofNote,
+    bagShelf => editorStrings.planHardwareHooks,
+    shutters => editorStrings.planShutterNote,
+    blanketLadder => editorStrings.planLadderNote,
+    mirrorFrame => editorStrings.planMirrorNote,
+    toyChest => editorStrings.planChestNote,
+    trivet => editorStrings.planTrivetNote,
+    headphoneStand ||
+    lantern ||
+    toolTote ||
+    shoeBench => editorStrings.planRoundedNote,
+    gazebo => editorStrings.gazeboFrameNote,
+    logStore => editorStrings.roofNote,
     porch => editorStrings.porchNote,
     shedFloor => editorStrings.framingNote,
     windowWall || cornerWalls => editorStrings.wallFrameNote,
@@ -269,11 +497,52 @@ enum FurnitureTemplate {
     final q = parts.measure;
     final flat = parts.flat, side = parts.side, front = parts.front;
     switch (this) {
+      case laptopTray:
+        parts.laptopTrayPlan();
+      case bagShelf:
+        parts.bagShelfPlan();
+      case pantryShelf:
+        parts.pantryShelfPlan();
+      case consoleTable:
+        parts.consoleTablePlan();
+      case bathTray:
+        parts.bathTrayPlan();
+      case machineStand:
+        parts.machineStandPlan();
+      case trestleBench:
+        parts.trestleBenchPlan();
+      case windowBox:
+        parts.windowBoxPlan();
+      case birdhouse:
+        parts.birdhousePlan();
+      case candleShelf:
+        parts.candleShelfPlan();
+      case blanketLadder:
+        parts.blanketLadderPlan();
+      case headphoneStand:
+        parts.headphoneStandPlan();
+      case plantPanel:
+        parts.plantPanelPlan();
+      case toyChest:
+        parts.toyChestPlan();
+      case shutters:
+        parts.shuttersPlan();
+      case lantern:
+        parts.lanternPlan();
+      case mirrorFrame:
+        parts.mirrorFramePlan();
+      case hexShelf:
+        parts.hexShelfPlan();
+      case coffeeTable:
+        parts.coffeeTablePlan();
+      case shoeBench:
+        parts.shoeBenchPlan();
+      case trivet:
+        parts.trivetPlan();
       case signatureCabinet:
         parts.signatureCabinet();
       case bookcase:
-        parts.cabinet(rows: 5);
-        front(s.backPanel, 0, d - t, 0, w, t, h);
+        parts.bookcasePlan();
       case cubeShelf:
         final bay = (w - 4 * t) / 3;
         flat(s.bottomPanel, 0, 0, 0, w, d, t);
@@ -293,14 +562,9 @@ enum FurnitureTemplate {
           }
         }
       case wallShelf:
-        flat(s.shelfPart, 0, 0, 0, w, d, t);
-        front(s.backPanel, 0, d - t, t, w, t, h - t);
-        front(s.frontPanel, 0, 0, t, w, t, q(35, 1.5));
-        for (final x in [0.0, w - t]) {
-          side(s.sidePanel, x, t, t, t, d - 2 * t, h - t);
-        }
+        parts.wallShelfPlan();
       case stool:
-        parts.woodFrame(slats: 4, seat: true);
+        parts.stoolPlan();
       case stepStool:
         // Side supports are rectangular stock, including the upper riser.
         for (final x in [0.0, w - t]) {
@@ -312,9 +576,9 @@ enum FurnitureTemplate {
         front(s.backPanel, t, d - t, 0, w - 2 * t, t, h - t);
         front(s.frontPanel, t, d / 2 - t, 0, w - 2 * t, t, h / 2 - t);
       case gardenBench:
-        parts.slattedBench();
+        parts.gardenBenchPlan();
       case diningTable:
-        parts.woodFrame(slats: 9);
+        parts.diningTablePlan();
       case writingDesk:
         flat(s.tabletop, 0, 0, h - t, w, d, t);
         final bay = q(365, 14);
@@ -347,6 +611,8 @@ enum FurnitureTemplate {
           t,
           h / 2 - reveal,
         );
+      case bedroomWardrobe:
+        parts.bedroomWardrobe();
       case tvStand:
         parts.cabinet(columns: 3, inset: t);
         front(s.backPanel, 0, d - t, 0, w, t, h);
@@ -379,41 +645,27 @@ enum FurnitureTemplate {
             t,
             opening - gap,
           );
-          flat(s.bottomPanel, x, y, z, width, depth, t);
+          final boxZ = z + q(2, 1 / 16); // Running clearance below each drawer.
+          flat(s.bottomPanel, x, y, boxZ, width, depth, t);
           for (final edge in [x, w - x - t]) {
-            side(s.sidePanel, edge, y, z + t, t, depth, opening - 3 * t);
+            side(s.sidePanel, edge, y, boxZ + t, t, depth, opening - 3 * t);
           }
           front(
             s.backPanel,
             x + t,
             y + depth - t,
-            z + t,
+            boxZ + t,
             width - 2 * t,
             t,
             opening - 3 * t,
           );
         }
       case workbench:
-        parts.joinersBench();
+        parts.workbenchPlan();
       case toolTote:
-        flat(s.bottomPanel, 0, 0, 0, w, d, t);
-        for (final x in [0.0, w - t]) {
-          side(s.sidePanel, x, 0, t, t, d, h - t);
-        }
-        for (final y in [0.0, d - t]) {
-          front(s.sidePanel, t, y, t, w - 2 * t, t, h / 2 - t);
-        }
-        front(
-          s.carryHandle,
-          t,
-          (d - t) / 2,
-          h - q(40, 1.5),
-          w - 2 * t,
-          t,
-          q(40, 1.5),
-        );
+        parts.toolTotePlan();
       case picnicTable:
-        parts.picnic();
+        parts.picnicTablePlan();
       case sawhorse:
         parts.sawhorse();
       case clampRack:
@@ -421,7 +673,7 @@ enum FurnitureTemplate {
       case raisedBed:
         parts.raisedBed();
       case standingPlanter:
-        parts.standingPlanter();
+        parts.standingPlanterPlan();
       case trellisPlanter:
         parts.trellisPlanter();
       case porch:
@@ -487,7 +739,7 @@ class _Parts {
     final origin = Vector3(x, y, z);
     if (normal.x + normal.y + normal.z < 0) origin.sub(normal * thick);
     // A board mounted on edge and the same board laid flat share one purchase.
-    final turnStock = template.material == FinishPreset.wood && width < thick;
+    final turnStock = finish.texture == PartTexture.wood && width < thick;
     beams.add(
       Beam(
         beams.length + 1,
@@ -530,7 +782,7 @@ class _Parts {
     double thick,
     double height,
   ) {
-    if (height > width && template.material != FinishPreset.wood) {
+    if (height > width && finish.texture != PartTexture.wood) {
       add(name, x, y, z, height, width, thick, 2, 0);
     } else {
       add(name, x, y, z, width, height, thick, 0, 2);
@@ -592,14 +844,75 @@ class _Parts {
     beams.last = beams.last.copy(bore: (u: .84, v: .77, diameter: diameter));
   }
 
+  void bedroomWardrobe() {
+    final s = editorStrings, t = thickness;
+    final gap = measure(3, 1 / 8), inset = t + gap;
+    final back = measure(6, .25), depth = d - inset - back;
+    const bays = 3;
+    cabinet(columns: bays, inset: inset, backThickness: back);
+    final opening = (w - (bays + 1) * t) / bays;
+    final topShelf = h - measure(350, 14);
+    final railWidth = measure(25, 1), railHeight = measure(32, 1.25);
+    final pitch = w / bays, doorWidth = pitch - gap;
+    final floorGap = measure(8, .3125), doorHeight = h - floorGap - gap;
+    final pullInset = measure(50, 2);
+    for (var bay = 0; bay < bays; bay++) {
+      final x = t + bay * (opening + t);
+      finish = template.material.finish;
+      flat(s.shelfPart, x, inset, topShelf, opening, depth, t);
+      if (bay == bays - 1) {
+        for (var level = 1; level <= 4; level++) {
+          flat(s.shelfPart, x, inset, level * topShelf / 5, opening, depth, t);
+        }
+      } else {
+        finish = FinishPreset.wood.finish;
+        front(
+          s.clothesRail,
+          x,
+          inset + (depth - railWidth) / 2,
+          topShelf - measure(100, 4),
+          opening,
+          railWidth,
+          railHeight,
+        );
+      }
+
+      finish = FinishPreset.plywood.finish;
+      front(s.backPanel, bay * pitch, d - back, 0, pitch, back, h);
+      finish = template.material.finish;
+      final hingesOnLeft = bay == 0;
+      front(
+        hingesOnLeft ? s.leftHingedDoor : s.rightHingedDoor,
+        bay * pitch + gap / 2,
+        0,
+        floorGap,
+        doorWidth,
+        t,
+        doorHeight,
+      );
+      // The door's long stock axis is vertical. The pull faces the free edge.
+      beams.last = beams.last.copy(
+        hinge: hingesOnLeft ? DoorHinge.left : DoorHinge.right,
+        holes: [
+          PanelHole(
+            measure(1050, 41) - floorGap,
+            pullInset,
+            measure(38, 1.5),
+            fromFarEdge: hingesOnLeft,
+          ),
+        ],
+      );
+    }
+  }
+
   void cabinet({
     int rows = 1,
     int columns = 1,
     double inset = 0,
-    bool back = true,
+    double? backThickness,
   }) {
     final s = editorStrings, t = thickness;
-    final depth = d - inset - (back ? t : 0);
+    final depth = d - inset - (backThickness ?? t);
     for (final x in [0.0, w - t]) {
       side(s.sidePanel, x, inset, 0, t, depth, h);
     }
@@ -633,70 +946,6 @@ class _Parts {
           );
         }
       }
-    }
-  }
-
-  void woodFrame({required int slats, bool seat = false}) {
-    final s = editorStrings;
-    final board = measure(90, 3.5),
-        thick = measure(20, .75),
-        post = measure(40, 1.5);
-    final inset = measure(16, .625), top = h - thick;
-    final gap = (d - slats * board) / (slats - 1);
-    for (var i = 0; i < slats; i++) {
-      flat(
-        seat ? s.seatSlat(i + 1) : s.tabletop,
-        0,
-        i * (board + gap),
-        top,
-        w,
-        board,
-        thick,
-      );
-    }
-    var leg = 0;
-    for (final x in [inset, w - inset - post]) {
-      for (final y in [inset, d - inset - post]) {
-        add(s.leg(++leg), x, y, 0, top, post, post, 2, 0);
-      }
-    }
-    for (final (i, y) in [inset, d - inset - thick].indexed) {
-      front(
-        s.sideRail(i + 1),
-        inset + post,
-        y,
-        top - board,
-        w - 2 * (inset + post),
-        thick,
-        board,
-      );
-    }
-    if (w >= measure(900, 36)) {
-      add(
-        s.crossRail(3),
-        (w - thick) / 2,
-        inset + thick,
-        top - board,
-        d - 2 * (inset + thick),
-        board,
-        thick,
-        1,
-        2,
-      );
-    }
-    final clearDepth = d - 2 * (inset + post);
-    for (final (i, x) in [inset, w - inset - thick].indexed) {
-      add(
-        s.crossRail(i + 1),
-        x,
-        inset + post,
-        top - board,
-        clearDepth,
-        board,
-        thick,
-        1,
-        2,
-      );
     }
   }
 }

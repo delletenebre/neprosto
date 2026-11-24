@@ -52,94 +52,10 @@ extension _Timber on _Parts {
         Vector3(delta.length, width, thick),
         along,
         across,
-        finish: template.material.finish,
+        finish: finish,
         startCut: cut(startPlane),
         endCut: cut(endPlane),
       ),
-    );
-  }
-
-  void slattedBench() {
-    final s = editorStrings, seat = measure(450, 18), inset = measure(90, 3.5);
-    for (var i = 0; i < 4; i++) {
-      flat(
-        s.seatSlat(i + 1),
-        0,
-        i * (board + measure(5, .1875)),
-        seat - skin,
-        w,
-        board,
-        skin,
-      );
-    }
-    for (final x in [inset, w - inset - stud]) {
-      post(x, 0, 0, seat - skin - board, stud);
-      post(x, d - stud, 0, h, stud);
-      cross(s.frameRail, x, 0, seat - skin - board, d - stud, board, stud);
-    }
-    front(
-      s.frameRail,
-      inset + stud,
-      0,
-      seat - skin - board,
-      w - 2 * (inset + stud),
-      skin,
-      board,
-    );
-    for (final z in [h - board, h - 2 * board - measure(32, 1.25)]) {
-      front(s.benchBack, 0, d - stud - skin, z, w, skin, board);
-    }
-  }
-
-  void picnic() {
-    final s = editorStrings, seat = measure(450, 18), gap = measure(6, .25);
-    final topWidth = 5 * plank + 4 * gap, yTop = (d - topWidth) / 2;
-    for (var i = 0; i < 5; i++) {
-      flat(s.tabletop, 0, yTop + i * (plank + gap), h - stud, w, plank, stud);
-    }
-    for (final y in [0.0, d - 2 * plank - gap]) {
-      for (var i = 0; i < 2; i++) {
-        flat(
-          s.seatSlat(i + 1),
-          0,
-          y + i * (plank + gap),
-          seat - stud,
-          w,
-          plank,
-          stud,
-        );
-      }
-    }
-    final inset = measure(150, 6);
-    for (final (i, x) in [inset, w - inset - stud].indexed) {
-      final railX = i == 0 ? x + stud : x - stud;
-      for (final sign in [-1, 1]) {
-        member(
-          s.leg(i * 2 + (sign < 0 ? 1 : 2)),
-          Vector3(x + stud / 2, d / 2 + sign * d * .34, 0),
-          Vector3(
-            x + stud / 2,
-            d / 2 + sign * (topWidth / 2 - board),
-            h - stud,
-          ),
-          axis(0),
-          board,
-          stud,
-          startPlane: axis(2),
-          endPlane: axis(2),
-        );
-      }
-      cross(s.frameRail, railX, 0, seat - stud - plank, d, plank, stud);
-      cross(s.frameRail, railX, yTop, h - stud - board, topWidth, board, stud);
-    }
-    front(
-      s.frameRail,
-      inset + 2 * stud,
-      (d - stud) / 2,
-      seat - stud - plank,
-      w - 2 * (inset + 2 * stud),
-      stud,
-      plank,
     );
   }
 
@@ -269,13 +185,6 @@ extension _Timber on _Parts {
       stud,
       stud,
     );
-  }
-
-  void standingPlanter() {
-    final base = h - 3 * board;
-    boxWalls(base, 3);
-    planterDeck(base, editorStrings.bottomPanel);
-    planterDeck(measure(150, 6), editorStrings.shelfPart, slats: 4);
   }
 
   void trellisPlanter() {
@@ -722,69 +631,4 @@ extension _GardenFurniture on _Parts {
   }
 }
 
-extension _JoinersBench on _Parts {
-  void joinersBench() {
-    final s = editorStrings,
-        inset = measure(150, 6),
-        top = h - stud,
-        tray = w - 2 * inset;
-    for (var i = 0; i < 4; i++) {
-      flat(s.tabletop, 0, i * plank, top, w, plank, stud);
-    }
-    final trayY = 4 * plank;
-    flat(s.bottomPanel, inset, trayY + skin, top - board, tray, board, skin);
-    for (final y in [trayY, d - skin]) {
-      front(s.frameRail, 0, y, top - board, w, skin, board);
-    }
-    for (final x in [inset, w - inset - heavy]) {
-      for (final y in [0.0, trayY - heavy]) {
-        post(x, y, 0, top - board, heavy);
-      }
-      cross(s.frameRail, x, 0, top - board, trayY, board, heavy);
-      cross(
-        s.frameRail,
-        x,
-        heavy,
-        measure(160, 6),
-        trayY - 2 * heavy,
-        board,
-        heavy,
-      );
-    }
-    for (final y in [0.0, trayY - heavy]) {
-      front(
-        s.frameRail,
-        inset + heavy,
-        y,
-        top - board,
-        w - 2 * (inset + heavy),
-        stud,
-        board,
-      );
-      front(
-        s.frameRail,
-        inset + heavy,
-        y,
-        measure(160, 6),
-        w - 2 * (inset + heavy),
-        stud,
-        board,
-      );
-    }
-    for (var i = 0; i < 4; i++) {
-      flat(
-        s.shelfPart,
-        inset,
-        heavy + i * (trayY - 2 * heavy - board) / 3,
-        measure(160, 6) + board,
-        w - 2 * inset,
-        board,
-        skin,
-      );
-    }
-    // The back lip of the recessed tool well is tied to both end frames.
-    for (final x in [inset - skin, w - inset]) {
-      cross(s.sidePanel, x, trayY + skin, top - board, board, board, skin);
-    }
-  }
-}
+extension _JoinersBench on _Parts {}

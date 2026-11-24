@@ -107,6 +107,12 @@ abstract class AppLocalizations {
   /// **'Материал'**
   String get partFinish;
 
+  /// No description provided for @mixedValues.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разные'**
+  String get mixedValues;
+
   /// No description provided for @finishPresets.
   ///
   /// In ru, this message translates to:
@@ -976,6 +982,12 @@ abstract class AppLocalizations {
   /// **'Меню действий'**
   String get actionsMenu;
 
+  /// No description provided for @measurementUnits.
+  ///
+  /// In ru, this message translates to:
+  /// **'Единицы измерения'**
+  String get measurementUnits;
+
   /// No description provided for @millimeters.
   ///
   /// In ru, this message translates to:
@@ -1564,11 +1576,11 @@ abstract class AppLocalizations {
   /// **'Плоскость'**
   String get plane;
 
-  /// No description provided for @planeFromFace.
+  /// No description provided for @buildInThisPlane.
   ///
   /// In ru, this message translates to:
-  /// **'Плоскость по грани'**
-  String get planeFromFace;
+  /// **'Строить в этой плоскости'**
+  String get buildInThisPlane;
 
   /// No description provided for @edgeAligned.
   ///
@@ -2310,7 +2322,7 @@ abstract class AppLocalizations {
   /// No description provided for @addPartHint.
   ///
   /// In ru, this message translates to:
-  /// **'Чтобы добавить деталь, нажмите «Новая деталь» или {shortcut}'**
+  /// **'Для построения выберите «Новая деталь» или нажмите {shortcut}'**
   String addPartHint(Object shortcut);
 
   /// No description provided for @widthInitial.
@@ -2922,7 +2934,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateBookcase.
   ///
   /// In ru, this message translates to:
-  /// **'Книжный стеллаж'**
+  /// **'Дощатый стеллаж на четыре полки'**
   String get templateBookcase;
 
   /// No description provided for @templateCubeShelf.
@@ -2934,13 +2946,13 @@ abstract class AppLocalizations {
   /// No description provided for @templateWallShelf.
   ///
   /// In ru, this message translates to:
-  /// **'Настенная полка с бортиком'**
+  /// **'Парящая полка со скрытым каркасом'**
   String get templateWallShelf;
 
   /// No description provided for @templateStool.
   ///
   /// In ru, this message translates to:
-  /// **'Деревянный табурет'**
+  /// **'Табурет с подставкой для гитары'**
   String get templateStool;
 
   /// No description provided for @templateStepStool.
@@ -2952,13 +2964,13 @@ abstract class AppLocalizations {
   /// No description provided for @templateGardenBench.
   ///
   /// In ru, this message translates to:
-  /// **'Садовая скамья'**
+  /// **'Садовая скамья с подлокотниками'**
   String get templateGardenBench;
 
   /// No description provided for @templateDiningTable.
   ///
   /// In ru, this message translates to:
-  /// **'Простой обеденный стол'**
+  /// **'Обеденный стол на двух опорах'**
   String get templateDiningTable;
 
   /// No description provided for @templateWritingDesk.
@@ -2973,6 +2985,126 @@ abstract class AppLocalizations {
   /// **'Тумба с дверцей и нишей'**
   String get templateBedsideCabinet;
 
+  /// No description provided for @templateBedroomWardrobe.
+  ///
+  /// In ru, this message translates to:
+  /// **'Трёхстворчатый шкаф для спальни'**
+  String get templateBedroomWardrobe;
+
+  /// No description provided for @openDoor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть дверцу'**
+  String get openDoor;
+
+  /// No description provided for @closeDoor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закрыть дверцу'**
+  String get closeDoor;
+
+  /// No description provided for @panelHoles.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отверстия'**
+  String get panelHoles;
+
+  /// No description provided for @addHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить отверстие'**
+  String get addHole;
+
+  /// No description provided for @holeDiameter.
+  ///
+  /// In ru, this message translates to:
+  /// **'Диаметр'**
+  String get holeDiameter;
+
+  /// No description provided for @throughHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сквозное'**
+  String get throughHole;
+
+  /// No description provided for @blindHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Глухое'**
+  String get blindHole;
+
+  /// No description provided for @faceA.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сторона А'**
+  String get faceA;
+
+  /// No description provided for @faceB.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сторона Б'**
+  String get faceB;
+
+  /// No description provided for @cupHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Под петлю Ø35 мм'**
+  String get cupHole;
+
+  /// No description provided for @fromLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'От левого края'**
+  String get fromLeft;
+
+  /// No description provided for @fromRight.
+  ///
+  /// In ru, this message translates to:
+  /// **'От правого края'**
+  String get fromRight;
+
+  /// No description provided for @fromBottom.
+  ///
+  /// In ru, this message translates to:
+  /// **'От нижнего края'**
+  String get fromBottom;
+
+  /// No description provided for @fromTop.
+  ///
+  /// In ru, this message translates to:
+  /// **'От верхнего края'**
+  String get fromTop;
+
+  /// No description provided for @holeDiagramHelp.
+  ///
+  /// In ru, this message translates to:
+  /// **'Щёлкните на схеме, чтобы задать центр отверстия.'**
+  String get holeDiagramHelp;
+
+  /// No description provided for @invalidHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверьте диаметр и отступы от краёв. Глубина глухого отверстия должна быть меньше толщины детали.'**
+  String get invalidHole;
+
+  /// No description provided for @leftHingedDoor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Распашная дверца с петлями слева'**
+  String get leftHingedDoor;
+
+  /// No description provided for @rightHingedDoor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Распашная дверца с петлями справа'**
+  String get rightHingedDoor;
+
+  /// No description provided for @clothesRail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штанга для одежды'**
+  String get clothesRail;
+
   /// No description provided for @templateTvStand.
   ///
   /// In ru, this message translates to:
@@ -2982,13 +3114,13 @@ abstract class AppLocalizations {
   /// No description provided for @templateWorkbench.
   ///
   /// In ru, this message translates to:
-  /// **'Столярный верстак'**
+  /// **'Верстак Рубо с раздельной столешницей'**
   String get templateWorkbench;
 
   /// No description provided for @templateToolTote.
   ///
   /// In ru, this message translates to:
-  /// **'Переносной ящик для инструмента'**
+  /// **'Ящик для инструмента с диагональной ручкой'**
   String get templateToolTote;
 
   /// No description provided for @cuttingLayout.
@@ -3072,7 +3204,7 @@ abstract class AppLocalizations {
   /// No description provided for @templatePicnicTable.
   ///
   /// In ru, this message translates to:
-  /// **'Уличный стол для пикника с лавками'**
+  /// **'Детский стол для пикника с лавками'**
   String get templatePicnicTable;
 
   /// No description provided for @templateSawhorse.
@@ -3096,7 +3228,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateStandingPlanter.
   ///
   /// In ru, this message translates to:
-  /// **'Цветник на ножках с нижней полкой'**
+  /// **'Деревянное кашпо на ножках'**
   String get templateStandingPlanter;
 
   /// No description provided for @templateTrellisPlanter.
@@ -3228,8 +3360,26 @@ abstract class AppLocalizations {
   /// No description provided for @templateGazebo.
   ///
   /// In ru, this message translates to:
-  /// **'Беседка с двускатной крышей'**
+  /// **'Открытая беседка со скамьёй'**
   String get templateGazebo;
+
+  /// No description provided for @gazeboRingBeam.
+  ///
+  /// In ru, this message translates to:
+  /// **'Верхняя обвязка'**
+  String get gazeboRingBeam;
+
+  /// No description provided for @roofBatten.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доска обрешётки'**
+  String get roofBatten;
+
+  /// No description provided for @gazeboFrameNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'В раскрой входят каркас, скамья, стропила, затяжки и обрешётка. Кровельное покрытие выбирают отдельно. Шаг обрешётки уточняют под покрытие. Сечения, узлы и анкеровку проверяют по нагрузкам участка и грунту.'**
+  String get gazeboFrameNote;
 
   /// No description provided for @templateShedFloor.
   ///
@@ -3398,6 +3548,216 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Задайте положительные ширину и глубину. Между фальцами и до противоположной грани должен оставаться материал.'**
   String get invalidRabbet;
+
+  /// No description provided for @templateLaptopTray.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поднос для ноутбука'**
+  String get templateLaptopTray;
+
+  /// No description provided for @templateBagShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вешалка с полкой для сумок'**
+  String get templateBagShelf;
+
+  /// No description provided for @templatePantryShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Узкая полка за дверью'**
+  String get templatePantryShelf;
+
+  /// No description provided for @templateConsoleTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Консоль за диван с тремя секциями'**
+  String get templateConsoleTable;
+
+  /// No description provided for @templateBathTray.
+  ///
+  /// In ru, this message translates to:
+  /// **'Полка-мостик для ванны'**
+  String get templateBathTray;
+
+  /// No description provided for @templateMachineStand.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подставка для торцовочной пилы'**
+  String get templateMachineStand;
+
+  /// No description provided for @templateTrestleBench.
+  ///
+  /// In ru, this message translates to:
+  /// **'Лавка на наклонных ножках'**
+  String get templateTrestleBench;
+
+  /// No description provided for @templateWindowBox.
+  ///
+  /// In ru, this message translates to:
+  /// **'Оконный ящик для цветов'**
+  String get templateWindowBox;
+
+  /// No description provided for @templateBirdhouse.
+  ///
+  /// In ru, this message translates to:
+  /// **'Треугольный домик для птиц'**
+  String get templateBirdhouse;
+
+  /// No description provided for @templateCandleShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Полка-подсвечник с треугольниками'**
+  String get templateCandleShelf;
+
+  /// No description provided for @templateBlanketLadder.
+  ///
+  /// In ru, this message translates to:
+  /// **'Лестница-вешалка для пледов'**
+  String get templateBlanketLadder;
+
+  /// No description provided for @templateHeadphoneStand.
+  ///
+  /// In ru, this message translates to:
+  /// **'Настольная подставка для наушников'**
+  String get templateHeadphoneStand;
+
+  /// No description provided for @templatePlantPanel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Настенная панель для растений'**
+  String get templatePlantPanel;
+
+  /// No description provided for @templateToyChest.
+  ///
+  /// In ru, this message translates to:
+  /// **'Уличный ящик для игрушек'**
+  String get templateToyChest;
+
+  /// No description provided for @templateShutters.
+  ///
+  /// In ru, this message translates to:
+  /// **'Трёхстворчатые складные ставни'**
+  String get templateShutters;
+
+  /// No description provided for @templateLantern.
+  ///
+  /// In ru, this message translates to:
+  /// **'Декоративный фонарь для террасы'**
+  String get templateLantern;
+
+  /// No description provided for @templateMirrorFrame.
+  ///
+  /// In ru, this message translates to:
+  /// **'Напольная рама для зеркала'**
+  String get templateMirrorFrame;
+
+  /// No description provided for @templateHexShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шестиугольная полка-сота'**
+  String get templateHexShelf;
+
+  /// No description provided for @templateCoffeeTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Журнальный столик с нижней полкой'**
+  String get templateCoffeeTable;
+
+  /// No description provided for @templateShoeBench.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скамья для обуви с тремя нишами'**
+  String get templateShoeBench;
+
+  /// No description provided for @templateTrivet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Решётчатая подставка под горячее'**
+  String get templateTrivet;
+
+  /// No description provided for @categoryHousehold.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для дома'**
+  String get categoryHousehold;
+
+  /// No description provided for @planEasy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Легко'**
+  String get planEasy;
+
+  /// No description provided for @planMedium.
+  ///
+  /// In ru, this message translates to:
+  /// **'Средняя сложность'**
+  String get planMedium;
+
+  /// No description provided for @planAdvanced.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сложно'**
+  String get planAdvanced;
+
+  /// No description provided for @planSource.
+  ///
+  /// In ru, this message translates to:
+  /// **'Фото и чертёж оригинала'**
+  String get planSource;
+
+  /// No description provided for @planDrawing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чертёж оригинала (ZIP)'**
+  String get planDrawing;
+
+  /// No description provided for @planAdaptation.
+  ///
+  /// In ru, this message translates to:
+  /// **'Модель адаптирована для редактора. В раскрой входят деревянные детали.'**
+  String get planAdaptation;
+
+  /// No description provided for @planHardwareHooks.
+  ///
+  /// In ru, this message translates to:
+  /// **'Предусмотрите три крючка и подвесы для стены.'**
+  String get planHardwareHooks;
+
+  /// No description provided for @planShutterNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Между створками оставлено по 3 мм под петли. Уточните зазоры по выбранной фурнитуре.'**
+  String get planShutterNote;
+
+  /// No description provided for @planLadderNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Декоративная вешалка для пледов. Предусмотрите фиксацию к стене.'**
+  String get planLadderNote;
+
+  /// No description provided for @planChestNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для крышки нужны петли и опора, удерживающая её открытой.'**
+  String get planChestNote;
+
+  /// No description provided for @planMirrorNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отдельно нужны зеркало 407 × 1525 мм, крепление полотна и фиксация рамы к стене.'**
+  String get planMirrorNote;
+
+  /// No description provided for @planRoundedNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Показаны прямоугольные заготовки. Скруглите контактные кромки при отделке.'**
+  String get planRoundedNote;
+
+  /// No description provided for @planTrivetNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вариант по рисунку Craftsmanspace: два слоя реек 12 × 7 мм склеиваются крест-накрест.'**
+  String get planTrivetNote;
 }
 
 class _AppLocalizationsDelegate

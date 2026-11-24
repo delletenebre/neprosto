@@ -38,7 +38,8 @@ class DrawingViewportState extends State<DrawingViewport> {
   Offset? down, last;
   Vector3? orbitPivot;
   Offset? hoverPosition;
-  Offset? doubleClickPosition;
+  Set<int> selectionAtPress = const {}, selectionAtFirstTap = const {};
+  bool? firstTapWithCommand;
   DrawingPainter? painted;
   RulerTarget? rulerTarget;
   MapEntry<StockAxis, Rect>? sizeLabel(Offset pos) => painted
@@ -579,17 +580,21 @@ class DrawingViewportState extends State<DrawingViewport> {
     }
   }
 
-  Future<void> doubleClick() async {
-    final at = doubleClickPosition;
+  Future<void> handleTap(SerialTapUpDetails tap) async {
+    final at = tap.localPosition;
     final kb = HardwareKeyboard.instance;
-    if (at == null ||
-        e.tool != Tool.select ||
-        kb.isAltPressed ||
-        kb.isShiftPressed ||
-        kb.isSpacePressed) {
+    if (kb.isAltPressed || kb.isShiftPressed || kb.isSpacePressed) {
+      firstTapWithCommand = null;
       return;
     }
-    if (kb.isControlPressed || kb.isMetaPressed) {
+    final command = kb.isControlPressed || kb.isMetaPressed;
+    if (tap.count == 1 || firstTapWithCommand != command) {
+      selectionAtFirstTap = selectionAtPress;
+      firstTapWithCommand = command;
+      return;
+    }
+    firstTapWithCommand = null;
+    if (command) {
       final label = sizeLabel(at), part = e.single;
       if (label == null || part == null) return;
       final index = label.key.index;
@@ -619,9 +624,17 @@ class DrawingViewportState extends State<DrawingViewport> {
     }
     final partAtPointer = scene.hit(at)?.beam;
     if (partAtPointer == null) return;
-    e.select(partAtPointer.id, individual: true);
+    if (selectionAtFirstTap.length < 2 ||
+        !selectionAtFirstTap.contains(partAtPointer.id) ||
+        !e.selection.contains(partAtPointer.id)) {
+      e.select(partAtPointer.id, individual: true);
+      if (partAtPointer.hinge != null) {
+        e.toggleDoor(partAtPointer.id);
+        return;
+      }
+    }
     final box = context.findRenderObject()! as RenderBox;
-    await showPartProperties(context, e, partAtPointer, box.localToGlobal(at));
+    await showPartProperties(context, e, box.localToGlobal(at));
   }
 
   Beam newPart(Vector3 origin) {
@@ -703,6 +716,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     moveGuides = [];
     modifierClick = null;
     if (buttons != kPrimaryMouseButton || e.tool != Tool.select) return;
+    selectionAtPress = e.selection;
     final part = e.single;
     if (part != null &&
         (HardwareKeyboard.instance.isControlPressed ||
@@ -883,6 +897,7 @@ class DrawingViewportState extends State<DrawingViewport> {
           e,
           ev.position,
           partId: hit?.beam.id,
+          facePlane: hit?.plane,
           end: switch (hit?.face) {
             0 => false,
             1 => true,
@@ -930,6 +945,22 @@ class DrawingViewportState extends State<DrawingViewport> {
 
   @override
   Widget build(BuildContext context) {
+    final motion = e.doorSwing;
+    if (motion != null &&
+        e.tool == Tool.select &&
+        identical(e.project.byId[motion.to.id], motion.to) &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      return TweenAnimationBuilder<double>(
+        key: ObjectKey(motion.to),
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeInOut,
+        builder: (_, t, _) => _viewport(0, swingingDoor: motion.from, swing: t),
+        onEnd: () {
+          if (e.doorSwing == motion) e.doorSwing = null;
+        },
+      );
+    }
     if (e.tool != Tool.rotate || e.selection.isEmpty) return _viewport(0);
     if (MediaQuery.disableAnimationsOf(context)) return _viewport(e.angle);
     return TweenAnimationBuilder<double>(
@@ -946,7 +977,11 @@ class DrawingViewportState extends State<DrawingViewport> {
     );
   }
 
-  Widget _viewport(double previewAngle) {
+  Widget _viewport(
+    double previewAngle, {
+    Beam? swingingDoor,
+    double swing = 1,
+  }) {
     return LayoutBuilder(
       builder: (context, box) {
         size = box.biggest;
@@ -965,6 +1000,7 @@ class DrawingViewportState extends State<DrawingViewport> {
           e.rotationAxis,
           e.localRotation,
           previewAngle,
+          swing,
           e.tool == Tool.rotate ? Object.hashAll(e.selection) : 0,
           c.yaw,
           c.perspective,
@@ -979,11 +1015,15 @@ class DrawingViewportState extends State<DrawingViewport> {
         );
         final sceneChanged = signature != sig;
         if (sceneChanged) {
-          cached = Scene(
-            e.tool == Tool.rotate ? e.rotationPreview(previewAngle) : e.project,
-            c,
-            size,
-          );
+          var document = e.tool == Tool.rotate
+              ? e.rotationPreview(previewAngle)
+              : e.project;
+          if (swingingDoor != null && swing < 1) {
+            document = document.edit({
+              swingingDoor.id,
+            }, (_) => swingingDoor.swingDoor(swing));
+          }
+          cached = Scene(document, c, size);
           signature = sig;
         }
         if (sceneChanged && e.tool == Tool.measure && hoverPosition != null) {
@@ -1069,11 +1109,20 @@ class DrawingViewportState extends State<DrawingViewport> {
               pinchScale = ev.scale;
               e.refresh();
             },
-            child: GestureDetector(
-              onDoubleTapDown: e.tool == Tool.select
-                  ? (details) => doubleClickPosition = details.localPosition
-                  : null,
-              onDoubleTap: e.tool == Tool.select ? doubleClick : null,
+            child: RawGestureDetector(
+              gestures: {
+                if (e.tool == Tool.select)
+                  SerialTapGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        SerialTapGestureRecognizer
+                      >(
+                        () => SerialTapGestureRecognizer(
+                          allowedButtonsFilter: (buttons) =>
+                              buttons == kPrimaryButton,
+                        ),
+                        (recognizer) => recognizer.onSerialTapUp = handleTap,
+                      ),
+              },
               child: Stack(
                 fit: StackFit.expand,
                 children: [

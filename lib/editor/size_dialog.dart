@@ -17,28 +17,58 @@ import 'stock_axis.dart';
 Future<void> showPartProperties(
   BuildContext context,
   Editor editor,
-  Beam part,
   Offset position,
 ) async {
-  final result = await editPartSize(context, editor, part, position);
+  final parts = editor.selected;
+  if (parts.isEmpty) return;
+  final result = await _editParts(context, editor, parts, position);
   if (!context.mounted) return;
   editor.hoveredSize = editor.focusedSize = null;
-  editor.refresh();
   if (result == null ||
-      editor.project.byId[part.id] != part ||
-      (result.name == part.name &&
-          result.size == part.size &&
-          result.finish == part.finish &&
-          result.locks == part.locks)) {
+      parts.any((part) => editor.project.byId[part.id] != part)) {
+    editor.refresh();
     return;
   }
-  editor.commit(editor.project.edit({part.id}, (_) => result));
+  final changes = <int, Beam>{};
+  for (final (i, part) in parts.indexed) {
+    final next = result[i];
+    if (next.name != part.name ||
+        next.size != part.size ||
+        next.finish != part.finish ||
+        next.locks != part.locks) {
+      changes[part.id] = next;
+    }
+  }
+  if (changes.isEmpty) {
+    editor.refresh();
+  } else {
+    editor.commit(
+      editor.project.edit(changes.keys.toSet(), (b) => changes[b.id]!),
+    );
+  }
 }
 
 Future<Beam?> editPartSize(
   BuildContext context,
   Editor editor,
   Beam part,
+  Offset globalPoint, {
+  bool creating = false,
+}) async {
+  final result = await _editParts(
+    context,
+    editor,
+    [part],
+    globalPoint,
+    creating: creating,
+  );
+  return result?.single;
+}
+
+Future<List<Beam>?> _editParts(
+  BuildContext context,
+  Editor editor,
+  List<Beam> parts,
   Offset globalPoint, {
   bool creating = false,
 }) {
@@ -49,13 +79,31 @@ Future<Beam?> editPartSize(
           ).overlay!.context.findRenderObject()!
           as RenderBox;
   final origin = overlay.globalToLocal(globalPoint);
-  var draft = part;
-  final firstEditable = StockAxis.values.indexWhere(
-    (a) => !part.locked(a.index),
-  );
+  final multiple = parts.length > 1;
+  var drafts = parts.toList();
+  T? common<T>(T Function(Beam) read) {
+    final first = read(drafts.first);
+    return drafts.every((b) => read(b) == first) ? first : null;
+  }
+
+  final initialSizes = [
+    for (final axis in StockAxis.values) common((b) => b.size[axis.index]),
+  ];
+  final sizes = initialSizes.toList();
+  void setSize(int axis, double? value) {
+    sizes[axis] = value;
+    for (final (i, draft) in drafts.indexed) {
+      drafts[i] = draft.copy(
+        size: draft.size.clone()..[axis] = value ?? parts[i].size[axis],
+      );
+    }
+  }
+
+  bool locked(int i) => drafts.any((b) => b.locked(i));
+  final firstEditable = StockAxis.values.indexWhere((a) => !locked(a.index));
   final valid = [true, true, true];
   final reduceMotion = MediaQuery.disableAnimationsOf(context);
-  return showGeneralDialog<Beam>(
+  return showGeneralDialog<List<Beam>>(
     context: context,
     barrierDismissible: true,
     barrierLabel: context.strings.closePartDimensions,
@@ -69,13 +117,16 @@ Future<Beam?> editPartSize(
       child: StatefulBuilder(
         builder: (_, update) {
           bool validSize(int i) =>
-              valid[i] && draft.size[i] >= draft.minimumSize(i);
+              valid[i] && drafts.every((b) => b.size[i] >= b.minimumSize(i));
           bool ready() =>
-              draft.name.trim().isNotEmpty &&
+              (multiple || drafts.single.name.trim().isNotEmpty) &&
               StockAxis.values.every((axis) => validSize(axis.index));
           void apply() {
             if (ready()) {
-              Navigator.pop(ctx, draft.copy(name: draft.name.trim()));
+              if (!multiple) {
+                drafts[0] = drafts.single.copy(name: drafts.single.name.trim());
+              }
+              Navigator.pop(ctx, drafts);
             }
           }
 
@@ -86,18 +137,21 @@ Future<Beam?> editPartSize(
             },
             child: DeskDialog(
               compact: true,
-              title: DeskTextField(
-                key: const ValueKey('part-dialog-name'),
-                initialValue: part.name,
-                placeholder: context.strings.partName,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: context.colors.ink,
-                ),
-                onChanged: (v) => update(() => draft = draft.copy(name: v)),
-                onSubmitted: (_) => apply(),
-              ),
+              title: multiple
+                  ? Text(context.strings.selectedParts(parts.length))
+                  : DeskTextField(
+                      key: const ValueKey('part-dialog-name'),
+                      initialValue: parts.single.name,
+                      placeholder: context.strings.partName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: context.colors.ink,
+                      ),
+                      onChanged: (v) =>
+                          update(() => drafts[0] = drafts.single.copy(name: v)),
+                      onSubmitted: (_) => apply(),
+                    ),
               content: FocusTraversalGroup(
                 policy: OrderedTraversalPolicy(),
                 child: Column(
@@ -110,15 +164,19 @@ Future<Beam?> editPartSize(
                         FocusTraversalOrder(
                           order: NumericFocusOrder(i.toDouble()),
                           child: ValueBox(
-                            draft.size[i],
-                            (v) => update(
-                              () => draft = draft.copy(
-                                size: draft.size.clone()..[i] = v,
-                              ),
-                            ),
+                            sizes[i],
+                            (v) => update(() => setSize(i, v)),
+                            onCleared: multiple
+                                ? () => update(() => setSize(i, null))
+                                : null,
+                            placeholder: initialSizes[i] == null
+                                ? context.strings.mixedValues
+                                : multiple
+                                ? editor.project.unit.format(initialSizes[i]!)
+                                : null,
                             key: ValueKey('dialog-size-$i'),
                             live: true,
-                            enabled: !draft.locked(i),
+                            enabled: !locked(i),
                             autofocus: i == firstEditable,
                             onValidityChanged: (ok) {
                               if (valid[i] != ok) update(() => valid[i] = ok);
@@ -129,14 +187,15 @@ Future<Beam?> editPartSize(
                         fieldWidth: 104,
                         trailing: sizeLockButton(
                           axis,
-                          draft.locked(i),
+                          locked(i),
                           validSize(i)
-                              ? () => update(
-                                  () => draft = draft.withSizeLock(
-                                    i,
-                                    !draft.locked(i),
-                                  ),
-                                )
+                              ? () => update(() {
+                                  final lock = !locked(i);
+                                  drafts = [
+                                    for (final b in drafts)
+                                      b.withSizeLock(i, lock),
+                                  ];
+                                })
                               : null,
                         ),
                       ),
@@ -146,8 +205,14 @@ Future<Beam?> editPartSize(
                       children: [
                         Text(context.strings.partFinish),
                         Expanded(
-                          child: PartFinishButton(draft.finish, (finish) {
-                            update(() => draft = draft.copy(finish: finish));
+                          child: PartFinishButton(common((b) => b.finish), (
+                            finish,
+                          ) {
+                            update(
+                              () => drafts = [
+                                for (final b in drafts) b.copy(finish: finish),
+                              ],
+                            );
                           }),
                         ),
                       ],

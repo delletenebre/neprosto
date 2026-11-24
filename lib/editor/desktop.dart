@@ -22,6 +22,7 @@ class DeskControl extends StatelessWidget {
     this.minimumSize = Size.zero,
     this.foreground,
     this.background,
+    this.borderRadius,
     this.outlined = false,
   });
 
@@ -30,12 +31,14 @@ class DeskControl extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Size minimumSize;
   final Color? foreground, background;
+  final BorderRadius? borderRadius;
   final bool outlined;
 
   @override
   Widget build(BuildContext context) {
+    final radius = borderRadius ?? BorderRadius.circular(appleControls ? 6 : 4);
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(appleControls ? 6 : 4),
+      borderRadius: radius,
       side: outlined
           ? BorderSide(color: context.colors.line, width: .8)
           : BorderSide.none,
@@ -49,7 +52,7 @@ class DeskControl extends StatelessWidget {
           minimumSize: minimumSize,
           padding: padding,
           color: background,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: radius,
           foregroundColor: foreground,
           child: child,
         ),
@@ -496,6 +499,7 @@ class DeskIcon extends StatelessWidget {
   final VoidCallback? action;
   final bool active;
   final Color? foreground, background;
+  final BorderRadius? borderRadius;
   final double size;
   const DeskIcon(
     this.icon,
@@ -505,6 +509,7 @@ class DeskIcon extends StatelessWidget {
     this.active = false,
     this.foreground,
     this.background,
+    this.borderRadius,
     this.size = 17,
   });
   @override
@@ -513,6 +518,7 @@ class DeskIcon extends StatelessWidget {
     waitDuration: const Duration(milliseconds: 380),
     child: DeskControl(
       onPressed: action,
+      borderRadius: borderRadius,
       background: active && action != null
           ? (macControls ? context.selectionFill : EditorPalette.highlight)
           : background,
@@ -538,6 +544,7 @@ class DeskMenu<T> extends StatelessWidget {
     required this.title,
     required this.items,
     this.selected,
+    this.borderRadius,
     this.dividers = const {},
     required this.change,
     required this.child,
@@ -545,6 +552,7 @@ class DeskMenu<T> extends StatelessWidget {
   final String title;
   final List<(T, String)> items;
   final T? selected;
+  final BorderRadius? borderRadius;
   final Set<T> dividers;
   final ValueChanged<T> change;
   final Widget child;
@@ -572,6 +580,7 @@ class DeskMenu<T> extends StatelessWidget {
     message: title,
     child: DeskControl(
       onPressed: () => open(context),
+      borderRadius: borderRadius,
       padding: EdgeInsets.zero,
       minimumSize: const Size(18, 24),
       child: DefaultTextStyle(

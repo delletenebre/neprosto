@@ -185,7 +185,7 @@ class SceneFace {
   final List<Offset> points;
   final Vector3 normal;
   final Path path;
-  Path? boreRim;
+  Path? boreRim, boreFloor;
   final Rect bounds;
   final double depth;
   SceneFace(
@@ -205,32 +205,66 @@ class SceneFace {
          points.map((p) => p.dy).reduce(math.max),
        ),
        depth = world.fold(0.0, (a, b) => a + b.dot(cam.eye)) / world.length {
-    final bore = beam.bore;
-    if (bore == null || face < 4) return;
-    final r = bore.diameter / 2;
+    if (beam.holes.isEmpty || face < 4) return;
     final surface = profileLocal?.first.z ?? (face.isOdd ? 1.0 : 0.0);
-    Path opening(double z) {
-      final center = beam.pointAt(Vector3(bore.u, bore.v, z));
-      return Path()..addPolygon([
-        for (var i = 0; i < 40; i++)
-          cam.project(
-            center +
-                beam.along * (r * math.cos(i * math.pi / 20)) +
-                beam.across * (r * math.sin(i * math.pi / 20)),
-            viewport,
-          ),
-      ], true);
-    }
+    final facePath = Path.from(path);
+    final cutouts = Path();
+    for (final hole in beam.holes) {
+      final depth = hole.depth;
+      final bottom = depth == null
+          ? (face.isOdd ? 0.0 : 1.0)
+          : hole.back
+          ? 1 - depth / beam.size.z
+          : depth / beam.size.z;
+      if (depth != null &&
+          (hole.back != face.isOdd ||
+              (face.isOdd ? surface <= bottom : surface >= bottom))) {
+        continue;
+      }
+      final r = hole.diameter / 2;
+      final center =
+          beam.origin +
+          beam.along * hole.centerX(beam.size) +
+          beam.across * hole.centerY(beam.size);
+      Path opening(double z) {
+        final at = center + beam.up * (z * beam.size.z);
+        return Path()..addPolygon([
+          for (var i = 0; i < 40; i++)
+            cam.project(
+              at +
+                  beam.along * (r * math.cos(i * math.pi / 20)) +
+                  beam.across * (r * math.sin(i * math.pi / 20)),
+              viewport,
+            ),
+        ], true);
+      }
 
-    final near = Path.combine(PathOperation.intersect, path, opening(surface));
-    final through = Path.combine(
-      PathOperation.intersect,
-      near,
-      opening(face.isOdd ? 0 : 1),
-    );
-    boreRim = Path.combine(PathOperation.difference, near, through);
-    path.fillType = PathFillType.evenOdd;
-    path.addPath(through, Offset.zero);
+      final near = Path.combine(
+        PathOperation.intersect,
+        facePath,
+        opening(surface),
+      );
+      final floor = Path.combine(
+        PathOperation.intersect,
+        near,
+        opening(bottom),
+      );
+      (boreRim ??= Path()).addPath(
+        Path.combine(PathOperation.difference, near, floor),
+        Offset.zero,
+      );
+      if (depth == null) {
+        cutouts.addPath(floor, Offset.zero);
+      } else {
+        (boreFloor ??= Path()).addPath(floor, Offset.zero);
+      }
+    }
+    if (!cutouts.getBounds().isEmpty) {
+      final solid = Path.combine(PathOperation.difference, facePath, cutouts);
+      path.reset();
+      path.fillType = solid.fillType;
+      path.addPath(solid, Offset.zero);
+    }
   }
   WorkPlane get plane => WorkPlane(
     'Грань',

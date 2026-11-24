@@ -15,6 +15,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get partFinish => 'Материал';
 
   @override
+  String get mixedValues => 'Разные';
+
+  @override
   String get finishPresets => 'Готовые образцы';
 
   @override
@@ -520,6 +523,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get actionsMenu => 'Меню действий';
 
   @override
+  String get measurementUnits => 'Единицы измерения';
+
+  @override
   String get millimeters => 'Миллиметры';
 
   @override
@@ -844,7 +850,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get plane => 'Плоскость';
 
   @override
-  String get planeFromFace => 'Плоскость по грани';
+  String get buildInThisPlane => 'Строить в этой плоскости';
 
   @override
   String get edgeAligned => 'По краю';
@@ -1262,7 +1268,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String addPartHint(Object shortcut) {
-    return 'Чтобы добавить деталь, нажмите «Новая деталь» или $shortcut';
+    return 'Для построения выберите «Новая деталь» или нажмите $shortcut';
   }
 
   @override
@@ -1578,25 +1584,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get categoryWorkshop => 'Мастерская и офис';
 
   @override
-  String get templateBookcase => 'Книжный стеллаж';
+  String get templateBookcase => 'Дощатый стеллаж на четыре полки';
 
   @override
   String get templateCubeShelf => 'Ступенчатый стеллаж-перегородка';
 
   @override
-  String get templateWallShelf => 'Настенная полка с бортиком';
+  String get templateWallShelf => 'Парящая полка со скрытым каркасом';
 
   @override
-  String get templateStool => 'Деревянный табурет';
+  String get templateStool => 'Табурет с подставкой для гитары';
 
   @override
   String get templateStepStool => 'Двухступенчатый табурет';
 
   @override
-  String get templateGardenBench => 'Садовая скамья';
+  String get templateGardenBench => 'Садовая скамья с подлокотниками';
 
   @override
-  String get templateDiningTable => 'Простой обеденный стол';
+  String get templateDiningTable => 'Обеденный стол на двух опорах';
 
   @override
   String get templateWritingDesk => 'Письменный стол с боковыми полками';
@@ -1605,13 +1611,75 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templateBedsideCabinet => 'Тумба с дверцей и нишей';
 
   @override
+  String get templateBedroomWardrobe => 'Трёхстворчатый шкаф для спальни';
+
+  @override
+  String get openDoor => 'Открыть дверцу';
+
+  @override
+  String get closeDoor => 'Закрыть дверцу';
+
+  @override
+  String get panelHoles => 'Отверстия';
+
+  @override
+  String get addHole => 'Добавить отверстие';
+
+  @override
+  String get holeDiameter => 'Диаметр';
+
+  @override
+  String get throughHole => 'Сквозное';
+
+  @override
+  String get blindHole => 'Глухое';
+
+  @override
+  String get faceA => 'Сторона А';
+
+  @override
+  String get faceB => 'Сторона Б';
+
+  @override
+  String get cupHole => 'Под петлю Ø35 мм';
+
+  @override
+  String get fromLeft => 'От левого края';
+
+  @override
+  String get fromRight => 'От правого края';
+
+  @override
+  String get fromBottom => 'От нижнего края';
+
+  @override
+  String get fromTop => 'От верхнего края';
+
+  @override
+  String get holeDiagramHelp =>
+      'Щёлкните на схеме, чтобы задать центр отверстия.';
+
+  @override
+  String get invalidHole =>
+      'Проверьте диаметр и отступы от краёв. Глубина глухого отверстия должна быть меньше толщины детали.';
+
+  @override
+  String get leftHingedDoor => 'Распашная дверца с петлями слева';
+
+  @override
+  String get rightHingedDoor => 'Распашная дверца с петлями справа';
+
+  @override
+  String get clothesRail => 'Штанга для одежды';
+
+  @override
   String get templateTvStand => 'ТВ-тумба с отсеком для техники';
 
   @override
-  String get templateWorkbench => 'Столярный верстак';
+  String get templateWorkbench => 'Верстак Рубо с раздельной столешницей';
 
   @override
-  String get templateToolTote => 'Переносной ящик для инструмента';
+  String get templateToolTote => 'Ящик для инструмента с диагональной ручкой';
 
   @override
   String get cuttingLayout => 'Схема раскроя';
@@ -1653,7 +1721,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rackFinger => 'Держатель струбцины';
 
   @override
-  String get templatePicnicTable => 'Уличный стол для пикника с лавками';
+  String get templatePicnicTable => 'Детский стол для пикника с лавками';
 
   @override
   String get templateSawhorse => 'Столярные козлы';
@@ -1665,7 +1733,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templateRaisedBed => 'Высокая клумба для грунта';
 
   @override
-  String get templateStandingPlanter => 'Цветник на ножках с нижней полкой';
+  String get templateStandingPlanter => 'Деревянное кашпо на ножках';
 
   @override
   String get templateTrellisPlanter => 'Кашпо со шпалерой';
@@ -1736,7 +1804,17 @@ class AppLocalizationsRu extends AppLocalizations {
       'Петли слева при взгляде со стороны подкоса. Подкос опирается на нижнюю перекладину у петель и поддерживает верхний свободный угол.';
 
   @override
-  String get templateGazebo => 'Беседка с двускатной крышей';
+  String get templateGazebo => 'Открытая беседка со скамьёй';
+
+  @override
+  String get gazeboRingBeam => 'Верхняя обвязка';
+
+  @override
+  String get roofBatten => 'Доска обрешётки';
+
+  @override
+  String get gazeboFrameNote =>
+      'В раскрой входят каркас, скамья, стропила, затяжки и обрешётка. Кровельное покрытие выбирают отдельно. Шаг обрешётки уточняют под покрытие. Сечения, узлы и анкеровку проверяют по нагрузкам участка и грунту.';
 
   @override
   String get templateShedFloor => 'Каркас пола бытовки с распорками «ёлочкой»';
@@ -1835,4 +1913,117 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get invalidRabbet =>
       'Задайте положительные ширину и глубину. Между фальцами и до противоположной грани должен оставаться материал.';
+
+  @override
+  String get templateLaptopTray => 'Поднос для ноутбука';
+
+  @override
+  String get templateBagShelf => 'Вешалка с полкой для сумок';
+
+  @override
+  String get templatePantryShelf => 'Узкая полка за дверью';
+
+  @override
+  String get templateConsoleTable => 'Консоль за диван с тремя секциями';
+
+  @override
+  String get templateBathTray => 'Полка-мостик для ванны';
+
+  @override
+  String get templateMachineStand => 'Подставка для торцовочной пилы';
+
+  @override
+  String get templateTrestleBench => 'Лавка на наклонных ножках';
+
+  @override
+  String get templateWindowBox => 'Оконный ящик для цветов';
+
+  @override
+  String get templateBirdhouse => 'Треугольный домик для птиц';
+
+  @override
+  String get templateCandleShelf => 'Полка-подсвечник с треугольниками';
+
+  @override
+  String get templateBlanketLadder => 'Лестница-вешалка для пледов';
+
+  @override
+  String get templateHeadphoneStand => 'Настольная подставка для наушников';
+
+  @override
+  String get templatePlantPanel => 'Настенная панель для растений';
+
+  @override
+  String get templateToyChest => 'Уличный ящик для игрушек';
+
+  @override
+  String get templateShutters => 'Трёхстворчатые складные ставни';
+
+  @override
+  String get templateLantern => 'Декоративный фонарь для террасы';
+
+  @override
+  String get templateMirrorFrame => 'Напольная рама для зеркала';
+
+  @override
+  String get templateHexShelf => 'Шестиугольная полка-сота';
+
+  @override
+  String get templateCoffeeTable => 'Журнальный столик с нижней полкой';
+
+  @override
+  String get templateShoeBench => 'Скамья для обуви с тремя нишами';
+
+  @override
+  String get templateTrivet => 'Решётчатая подставка под горячее';
+
+  @override
+  String get categoryHousehold => 'Для дома';
+
+  @override
+  String get planEasy => 'Легко';
+
+  @override
+  String get planMedium => 'Средняя сложность';
+
+  @override
+  String get planAdvanced => 'Сложно';
+
+  @override
+  String get planSource => 'Фото и чертёж оригинала';
+
+  @override
+  String get planDrawing => 'Чертёж оригинала (ZIP)';
+
+  @override
+  String get planAdaptation =>
+      'Модель адаптирована для редактора. В раскрой входят деревянные детали.';
+
+  @override
+  String get planHardwareHooks =>
+      'Предусмотрите три крючка и подвесы для стены.';
+
+  @override
+  String get planShutterNote =>
+      'Между створками оставлено по 3 мм под петли. Уточните зазоры по выбранной фурнитуре.';
+
+  @override
+  String get planLadderNote =>
+      'Декоративная вешалка для пледов. Предусмотрите фиксацию к стене.';
+
+  @override
+  String get planChestNote =>
+      'Для крышки нужны петли и опора, удерживающая её открытой.';
+
+  @override
+  String get planMirrorNote =>
+      'Отдельно нужны зеркало 407 × 1525 мм, крепление полотна и фиксация рамы к стене.';
+
+  @override
+  String get planRoundedNote =>
+      'Показаны прямоугольные заготовки. Скруглите контактные кромки при отделке.';
+
+  @override
+  String get planTrivetNote =>
+      'Вариант по рисунку Craftsmanspace: два слоя реек 12 × 7 мм склеиваются крест-накрест.';
 }

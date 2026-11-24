@@ -55,6 +55,16 @@ String stockRabbets(Beam part, LengthUnit unit) => [
       '${edge.label} · ${unit.format(cut.width)} × ${unit.format(cut.depth)} ${unit.symbol}',
 ].join('\n');
 
+String stockHoles(Beam part, LengthUnit unit) {
+  final s = editorStrings;
+  return [
+    for (final h in part.holes)
+      'Ø${unit.format(h.diameter)} · ${s.length} ${unit.format(h.centerX(part.size))} · '
+          '${s.width} ${unit.format(h.centerY(part.size))} · '
+          '${h.depth == null ? s.throughHole : '${h.back ? s.faceB : s.faceA} · ${s.rabbetDepth} ${unit.format(h.depth!)}'}',
+  ].join('\n');
+}
+
 Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
   final book = Excel.createExcel();
   book.rename(book.getDefaultSheet()!, editorStrings.stock);
@@ -62,6 +72,7 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
       details = book[editorStrings.partsLabel];
   final hasCuts = rows.any((r) => r.sample.bevelled);
   final hasRabbets = rows.any((r) => r.sample.rabbets.isNotEmpty);
+  final hasHoles = rows.any((r) => r.sample.holes.isNotEmpty);
   final headerStyle = CellStyle(
     bold: true,
     fontColorHex: ExcelColor.white,
@@ -84,6 +95,7 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
         (editorStrings.endCut, 30.0),
       ],
       if (hasRabbets) (editorStrings.rabbetTitle, 46.0),
+      if (hasHoles) ('${editorStrings.panelHoles} (${unit.symbol})', 64.0),
     ];
     sheet.appendRow([for (final c in columns) TextCellValue(c.$1)]);
     sheet.setRowHeight(0, 24);
@@ -116,18 +128,27 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
         TextCellValue(stockCut(part, true)),
       ],
       if (hasRabbets) TextCellValue(stockRabbets(part, unit)),
+      if (hasHoles) TextCellValue(stockHoles(part, unit)),
     ]);
-    if (part.rabbets.length > 1) {
-      sheet.setRowHeight(rowIndex, 16.0 * part.rabbets.length);
-      sheet
-              .cell(
-                CellIndex.indexByColumnRow(
-                  columnIndex: sheet.maxColumns - 1,
-                  rowIndex: rowIndex,
-                ),
-              )
-              .cellStyle =
-          profileStyle;
+    final lines = part.rabbets.length > part.holes.length
+        ? part.rabbets.length
+        : part.holes.length;
+    if (lines > 1) {
+      sheet.setRowHeight(rowIndex, 16.0 * lines);
+      for (final column in [
+        if (part.rabbets.length > 1) sheet.maxColumns - (hasHoles ? 2 : 1),
+        if (part.holes.length > 1) sheet.maxColumns - 1,
+      ]) {
+        sheet
+                .cell(
+                  CellIndex.indexByColumnRow(
+                    columnIndex: column,
+                    rowIndex: rowIndex,
+                  ),
+                )
+                .cellStyle =
+            profileStyle;
+      }
     }
     for (final (i, size) in sizes.indexed) {
       final cell = CellIndex.indexByColumnRow(

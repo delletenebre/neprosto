@@ -56,21 +56,16 @@ class MainFlutterWindow: NSWindow {
   }
 
   private var toolbarLabels: [String: String] = [:]
-  private var toolbarEnabled: [String: Bool] = [:]
   private let toolbarSymbols = [
-    "partsSidebar": "sidebar.left", "inspector": "sidebar.right",
-    "undo": "arrow.uturn.backward", "redo": "arrow.uturn.forward",
-    "save": "square.and.arrow.down", "settings": "gearshape"
+    "partsSidebar": "sidebar.left", "inspector": "sidebar.right"
   ]
 
   private func configureDocumentToolbar(_ args: [String: Any]) {
     guard let name = args["title"] as? String, let edited = args["edited"] as? Bool,
-          let labels = args["labels"] as? [String: String],
-          let enabled = args["enabled"] as? [String: Bool] else { return }
+          let labels = args["labels"] as? [String: String] else { return }
     title = name
     isDocumentEdited = edited
     toolbarLabels = labels
-    toolbarEnabled = enabled
     if let panels = args["panels"] as? [String: Bool],
        let viewMenu = NSApp.mainMenu?.items.first(where: { $0.identifier?.rawValue == "np.view" })?.submenu {
       for item in viewMenu.items {
@@ -95,7 +90,7 @@ class MainFlutterWindow: NSWindow {
       guard let label = toolbarLabels[id] else { continue }
       item.label = label
       item.toolTip = label
-      item.isEnabled = workspaceMenuEnabled && toolbarEnabled[id] != false
+      item.isEnabled = workspaceMenuEnabled
     }
   }
 
@@ -244,8 +239,7 @@ class MainFlutterWindow: NSWindow {
 
 extension MainFlutterWindow: NSToolbarDelegate {
   func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-    return [.init("partsSidebar"), .flexibleSpace, .init("undo"), .init("redo"),
-            .init("save"), .space, .init("settings"), .init("inspector")]
+    return [.init("partsSidebar"), .flexibleSpace, .init("inspector")]
   }
 
   func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -261,7 +255,7 @@ extension MainFlutterWindow: NSToolbarDelegate {
     item.toolTip = label
     item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
     item.autovalidates = false
-    item.isEnabled = workspaceMenuEnabled && toolbarEnabled[id] != false
+    item.isEnabled = workspaceMenuEnabled
     item.target = self
     item.action = #selector(toolbarAction(_:))
     return item

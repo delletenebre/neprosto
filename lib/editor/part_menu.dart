@@ -9,7 +9,9 @@ import 'controller.dart';
 import 'desktop.dart';
 import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
+import 'hole_dialog.dart';
 import 'joint_dialog.dart';
+import 'scene.dart';
 import 'size_dialog.dart';
 
 Future<void> showDrawingMenu(
@@ -17,6 +19,7 @@ Future<void> showDrawingMenu(
   Editor editor,
   Offset position, {
   int? partId,
+  WorkPlane? facePlane,
   bool? end,
   VoidCallback? addHere,
 }) async {
@@ -105,6 +108,14 @@ Future<void> showDrawingMenu(
     );
   } else {
     heading = part?.name ?? context.strings.selectedParts(ids.length);
+    if (facePlane != null) {
+      add(
+        context.strings.buildInThisPlane,
+        CupertinoIcons.layers,
+        'square.2.layers.3d',
+        () => editor.setPlane(facePlane),
+      );
+    }
     if (editor.canGroup) {
       add(
         context.strings.groupLabel,
@@ -124,11 +135,19 @@ Future<void> showDrawingMenu(
       );
     }
     if (part != null) {
+      if (part.hinge != null) {
+        add(
+          part.doorOpen ? context.strings.closeDoor : context.strings.openDoor,
+          CupertinoIcons.arrow_turn_up_right,
+          'arrow.turn.up.right',
+          () => editor.toggleDoor(part.id),
+        );
+      }
       add(
         context.strings.nameAndDimensions,
         CupertinoIcons.pencil,
         'pencil.and.ruler',
-        () => showPartProperties(context, editor, part, position),
+        () => showPartProperties(context, editor, position),
       );
       add(
         context.strings.endCutsTitle,
@@ -141,6 +160,12 @@ Future<void> showDrawingMenu(
         CupertinoIcons.crop,
         'crop',
         () => showRabbets(context, editor, part),
+      );
+      add(
+        context.strings.panelHoles,
+        CupertinoIcons.circle,
+        'circle',
+        () => showPanelHoles(context, editor, part),
       );
       if (doc.visibleGeometry.beams.length > 1) {
         add(

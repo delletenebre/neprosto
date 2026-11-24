@@ -14,11 +14,12 @@ String _hex(int rgb) =>
 
 class PartFinishButton extends StatelessWidget {
   const PartFinishButton(this.finish, this.onChanged, {super.key});
-  final PartFinish finish;
+  final PartFinish? finish;
   final ValueChanged<PartFinish> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final current = finish;
     final preset = FinishPreset.values
         .where((p) => p.finish == finish)
         .firstOrNull;
@@ -26,7 +27,7 @@ class PartFinishButton extends StatelessWidget {
       onPressed: () async {
         final chosen = await showDeskDialog<PartFinish>(
           context: context,
-          builder: (_) => _FinishDialog(finish),
+          builder: (_) => _FinishDialog(current ?? woodFinish),
         );
         if (context.mounted && chosen != null && chosen != finish) {
           onChanged(chosen);
@@ -35,8 +36,14 @@ class PartFinishButton extends StatelessWidget {
       child: Row(
         spacing: controlGap,
         children: [
-          _Sample(finish),
-          Expanded(child: Text(preset?.label ?? finish.texture.label)),
+          if (current != null) _Sample(current),
+          Expanded(
+            child: Text(
+              preset?.label ??
+                  current?.texture.label ??
+                  context.strings.mixedValues,
+            ),
+          ),
           const Icon(CupertinoIcons.chevron_down, size: 13),
         ],
       ),

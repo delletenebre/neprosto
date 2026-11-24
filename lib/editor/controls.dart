@@ -140,11 +140,13 @@ class ValueBox extends StatefulWidget {
     this.onSubmitted,
     this.onValidityChanged,
     this.onFocusChanged,
+    this.onCleared,
+    this.placeholder,
   });
-  final double value;
-  final String? unit;
+  final double? value;
+  final String? unit, placeholder;
   final bool signed, live, autofocus, enabled;
-  final VoidCallback? onSubmitted;
+  final VoidCallback? onSubmitted, onCleared;
   final ValueChanged<bool>? onValidityChanged;
   final ValueChanged<bool>? onFocusChanged;
   final ValueChanged<double> changed;
@@ -155,7 +157,12 @@ class ValueBox extends StatefulWidget {
 class _ValueBoxState extends State<ValueBox> {
   final text = TextEditingController();
   LengthUnit units = LengthUnit.millimeter;
-  String format(double n) => widget.unit == null ? units.format(n) : mm(n);
+  String format(double? n) => n == null
+      ? ''
+      : widget.unit == null
+      ? units.format(n)
+      : mm(n);
+  bool get cleared => widget.onCleared != null && text.text.trim().isEmpty;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -180,7 +187,9 @@ class _ValueBoxState extends State<ValueBox> {
         ? -1
         : 0;
     if (dir == 0) return KeyEventResult.ignored;
-    final n = (parse(text.text) ?? widget.value) + dir * increment!;
+    final base = parse(text.text) ?? widget.value;
+    if (base == null) return KeyEventResult.ignored;
+    final n = base + dir * increment!;
     if (widget.signed || n > 0) {
       text.text = format(n);
       text.selection = TextSelection(
@@ -188,6 +197,7 @@ class _ValueBoxState extends State<ValueBox> {
         extentOffset: text.text.length,
       );
       widget.changed(n);
+      widget.onValidityChanged?.call(true);
     }
     return KeyEventResult.handled;
   }
@@ -263,6 +273,7 @@ class _ValueBoxState extends State<ValueBox> {
       focusNode: focus,
       autofocus: widget.autofocus,
       enabled: widget.enabled,
+      placeholder: widget.placeholder,
       style: mono.copyWith(
         fontSize: 12,
         color: widget.enabled ? context.colors.ink : context.colors.muted,
@@ -270,7 +281,7 @@ class _ValueBoxState extends State<ValueBox> {
       textAlign: TextAlign.right,
       onSubmitted: (_) {
         if (widget.onSubmitted != null) {
-          if (parse(text.text) != null) widget.onSubmitted!();
+          if (cleared || parse(text.text) != null) widget.onSubmitted!();
         } else {
           focus.unfocus();
         }
@@ -278,8 +289,12 @@ class _ValueBoxState extends State<ValueBox> {
       onChanged: widget.live
           ? (s) {
               final n = parse(s);
-              if (n != null) widget.changed(n);
-              widget.onValidityChanged?.call(n != null);
+              if (cleared) {
+                widget.onCleared!();
+              } else if (n != null) {
+                widget.changed(n);
+              }
+              widget.onValidityChanged?.call(cleared || n != null);
             }
           : null,
       suffix: Padding(

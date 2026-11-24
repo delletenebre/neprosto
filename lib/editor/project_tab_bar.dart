@@ -4,7 +4,7 @@ import 'platform_ui.dart';
 
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
-import 'package:material_ui/material_ui.dart' show Tooltip;
+import 'package:material_ui/material_ui.dart' as m;
 
 import 'desktop.dart';
 import 'project_tabs.dart';
@@ -25,19 +25,20 @@ class ProjectTabBar extends StatefulWidget {
   final ValueChanged<ProjectTab> select, close;
   final VoidCallback create;
   final List<(String, String)> menuItems;
-  final ValueChanged<String> onMenuAction;
+  final void Function(String action, ProjectTab tab) onMenuAction;
 
   @override
   State<ProjectTabBar> createState() => _ProjectTabBarState();
 }
 
 class _ProjectTabBarState extends State<ProjectTabBar> {
-  final activeKey = GlobalKey();
   ProjectTab? hovered;
+  BorderRadius? get tabRadius => macControls ? BorderRadius.zero : null;
 
   void revealActive() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = activeKey.currentContext;
+      if (!mounted) return;
+      final context = GlobalObjectKey(widget.active).currentContext;
       if (context != null) Scrollable.ensureVisible(context, alignment: .5);
     });
   }
@@ -52,6 +53,25 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
   void didUpdateWidget(ProjectTabBar old) {
     super.didUpdateWidget(old);
     if (widget.active != old.active) revealActive();
+  }
+
+  Future<void> showTabMenu(ProjectTab tab, Offset position) async {
+    final index = await showDeskPopup(
+      context,
+      position,
+      title: tab.committed.name,
+      showTitle: true,
+      rows: [
+        DeskPopupRow(context.strings.rename, symbol: 'pencil'),
+        DeskPopupRow(
+          context.strings.closeTab,
+          symbol: 'xmark',
+          breakBefore: true,
+        ),
+      ],
+    );
+    if (!mounted || index == null || !widget.tabs.contains(tab)) return;
+    widget.onMenuAction(index == 0 ? 'rename' : 'close', tab);
   }
 
   Widget tabButton(ProjectTab tab, {double? width}) {
@@ -76,7 +96,9 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
       ),
     );
     final content = Padding(
-      padding: const EdgeInsetsDirectional.only(end: 8),
+      padding: macControls
+          ? const EdgeInsetsDirectional.only(start: 3, end: 11)
+          : const EdgeInsetsDirectional.only(end: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         spacing: controlGap,
@@ -112,76 +134,91 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
         ],
       ),
     );
+    final body = Container(
+      key: GlobalObjectKey(tab),
+      width: width,
+      padding: macControls
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      decoration: BoxDecoration(
+        color: macControls
+            ? (selected ? context.colors.panel : context.colors.chrome)
+            : (selected ? context.colors.pale : context.colors.panel),
+        border: macControls
+            ? BorderDirectional(
+                end: BorderSide(color: context.colors.line, width: .7),
+                bottom: BorderSide(
+                  color: selected
+                      ? EditorPalette.highlight
+                      : context.colors.line,
+                  width: selected ? 2 : .7,
+                ),
+              )
+            : Border.all(
+                color: selected ? context.colors.accent : context.colors.line,
+              ),
+        borderRadius: macControls ? null : BorderRadius.circular(7),
+      ),
+      child: Stack(
+        fit: macControls ? StackFit.expand : StackFit.loose,
+        alignment: AlignmentDirectional.centerStart,
+        children: [
+          Semantics(
+            selected: selected,
+            child: selected
+                ? DeskMenu<String>(
+                    title: '${context.strings.project} · $description',
+                    borderRadius: tabRadius,
+                    items: widget.menuItems,
+                    dividers: {
+                      if (widget.menuItems.first.$1 != 'save') 'save',
+                      'rename',
+                      'close',
+                    },
+                    change: (action) => widget.onMenuAction(action, tab),
+                    child: content,
+                  )
+                : m.Tooltip(
+                    message: description,
+                    child: DeskControl(
+                      onPressed: () => widget.select(tab),
+                      borderRadius: tabRadius,
+                      child: content,
+                    ),
+                  ),
+          ),
+          if (showClose)
+            PositionedDirectional(
+              start: macControls ? 3 : 0,
+              child: macControls
+                  ? _MacTabCloseButton(
+                      label: context.strings.closeProjectTab(name),
+                      onPressed: () => widget.close(tab),
+                    )
+                  : DeskIcon(
+                      CupertinoIcons.xmark,
+                      context.strings.closeProjectTab(name),
+                      () => widget.close(tab),
+                      size: 13,
+                    ),
+            ),
+        ],
+      ),
+    );
     return MouseRegion(
       key: ObjectKey(tab),
       onEnter: (_) => setState(() => hovered = tab),
       onExit: (_) {
         if (hovered == tab) setState(() => hovered = null);
       },
-      child: Container(
-        key: selected ? activeKey : null,
-        width: width,
-        padding: EdgeInsets.symmetric(
-          horizontal: 3,
-          vertical: macControls ? 0 : 2,
-        ),
-        decoration: BoxDecoration(
-          color: macControls
-              ? (selected ? context.colors.panel : context.colors.chrome)
-              : (selected ? context.colors.pale : context.colors.panel),
-          border: macControls
-              ? BorderDirectional(
-                  end: BorderSide(color: context.colors.line, width: .7),
-                  bottom: BorderSide(
-                    color: selected
-                        ? EditorPalette.highlight
-                        : context.colors.line,
-                    width: selected ? 2 : .7,
-                  ),
-                )
-              : Border.all(
-                  color: selected ? context.colors.accent : context.colors.line,
-                ),
-          borderRadius: macControls ? null : BorderRadius.circular(7),
-        ),
-        child: Stack(
-          alignment: AlignmentDirectional.centerStart,
-          children: [
-            Semantics(
-              selected: selected,
-              child: selected
-                  ? DeskMenu<String>(
-                      title: '${context.strings.project} · $description',
-                      items: widget.menuItems,
-                      dividers: {
-                        if (widget.menuItems.first.$1 != 'save') 'save',
-                        'rename',
-                        'close',
-                      },
-                      change: widget.onMenuAction,
-                      child: content,
-                    )
-                  : Tooltip(
-                      message: description,
-                      child: DeskControl(
-                        onPressed: () => widget.select(tab),
-                        child: content,
-                      ),
-                    ),
-            ),
-            if (showClose)
-              PositionedDirectional(
-                start: 0,
-                child: DeskIcon(
-                  CupertinoIcons.xmark,
-                  context.strings.closeProjectTab(name),
-                  () => widget.close(tab),
-                  size: 13,
-                ),
-              ),
-          ],
-        ),
-      ),
+      child: macControls
+          ? GestureDetector(
+              excludeFromSemantics: true,
+              onSecondaryTapUp: (details) =>
+                  showTabMenu(tab, details.globalPosition),
+              child: body,
+            )
+          : body,
     );
   }
 
@@ -195,6 +232,9 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
             )
           : null;
       return Row(
+        crossAxisAlignment: macControls
+            ? CrossAxisAlignment.stretch
+            : CrossAxisAlignment.center,
         spacing: macControls ? 0 : toolbarGap,
         children: [
           Flexible(
@@ -209,6 +249,9 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
+                  crossAxisAlignment: macControls
+                      ? CrossAxisAlignment.stretch
+                      : CrossAxisAlignment.center,
                   spacing: macControls ? 1 : controlGap,
                   children: [
                     for (final tab in widget.tabs) tabButton(tab, width: width),
@@ -221,10 +264,65 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
             CupertinoIcons.plus,
             context.strings.newProject,
             widget.create,
+            borderRadius: tabRadius,
             size: macControls ? 15 : 17,
           ),
         ],
       );
     },
   );
+}
+
+class _MacTabCloseButton extends StatelessWidget {
+  const _MacTabCloseButton({required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = context.colors.isDark;
+    final ink = dark ? m.Colors.white : m.Colors.black;
+    return m.Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 600),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 29, maxHeight: 28),
+        child: m.TextButton(
+          onPressed: onPressed,
+          style:
+              m.TextButton.styleFrom(
+                minimumSize: const Size.square(16),
+                fixedSize: const Size.square(16),
+                padding: EdgeInsets.zero,
+                visualDensity: m.VisualDensity.standard,
+                tapTargetSize: m.MaterialTapTargetSize.padded,
+                splashFactory: m.NoSplash.splashFactory,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ).copyWith(
+                overlayColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.pressed)) {
+                    return ink.withValues(alpha: dark ? .18 : .14);
+                  }
+                  if (states.contains(WidgetState.hovered)) {
+                    return ink.withValues(alpha: dark ? .10 : .20);
+                  }
+                  return m.Colors.transparent;
+                }),
+                side: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.focused)
+                      ? BorderSide(color: context.colors.accent, width: 1.5)
+                      : BorderSide.none,
+                ),
+              ),
+          child: Icon(
+            CupertinoIcons.xmark,
+            size: 11,
+            color: ink.withValues(alpha: dark ? .40 : .44),
+          ),
+        ),
+      ),
+    );
+  }
 }

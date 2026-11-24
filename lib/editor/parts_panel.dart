@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../l10n/strings.dart';
 import 'palette.dart';
 import 'platform_ui.dart';
@@ -38,10 +40,21 @@ class PartsPanel extends StatefulWidget {
 class _PartsPanelState extends State<PartsPanel> {
   final collapsedGroups = <int?>{};
   Object? hoveredDimensionId;
+  Timer? pendingRowSelection;
+  int? lastPlainRow;
   Editor get e => widget.editor;
+
+  @override
+  void dispose() {
+    pendingRowSelection?.cancel();
+    super.dispose();
+  }
 
   Widget partControl(Beam b, {required Widget child}) {
     void select([SerialTapUpDetails? tap]) {
+      final preserveSelection = pendingRowSelection != null;
+      pendingRowSelection?.cancel();
+      pendingRowSelection = null;
       FocusManager.instance.primaryFocus?.unfocus();
       FocusManager.instance.applyFocusChangesIfNeeded();
       if (e.pickingAlignmentSupport) {
@@ -53,12 +66,26 @@ class _PartsPanelState extends State<PartsPanel> {
       }
       final k = HardwareKeyboard.instance;
       final multi = k.isShiftPressed || k.isMetaPressed || k.isControlPressed;
-      if (tap != null && tap.count == 2 && !multi && !k.isAltPressed) {
-        e.select(b.id, individual: true);
-        final part = e.single;
-        if (part != null && part.id == b.id) {
-          showPartProperties(context, e, part, tap.globalPosition);
+      final plainClick = tap != null && !multi && !k.isAltPressed;
+      final doubleClick = plainClick && tap.count > 1 && lastPlainRow == b.id;
+      lastPlainRow = plainClick && !doubleClick ? b.id : null;
+      if (doubleClick) {
+        if (!preserveSelection || !e.selection.contains(b.id)) {
+          e.select(b.id, individual: true);
         }
+        showPartProperties(context, e, tap.globalPosition);
+      } else if (plainClick &&
+          e.selection.length > 1 &&
+          e.selection.contains(b.id)) {
+        // Wait for a possible double-click before narrowing the selection.
+        final selection = e.selection;
+        pendingRowSelection = Timer(kDoubleTapTimeout, () {
+          pendingRowSelection = null;
+          if (identical(e.selection, selection) &&
+              ModalRoute.isCurrentOf(context) == true) {
+            e.select(b.id);
+          }
+        });
       } else {
         e.select(b.id, multi: multi, individual: k.isAltPressed);
       }
@@ -79,7 +106,13 @@ class _PartsPanelState extends State<PartsPanel> {
                     allowedButtonsFilter: (buttons) =>
                         buttons == kPrimaryButton,
                   ),
-                  (recognizer) => recognizer.onSerialTapUp = select,
+                  (recognizer) => recognizer
+                    ..onSerialTapDown = (tap) {
+                      if (tap.count > 1 && lastPlainRow == b.id) {
+                        pendingRowSelection?.cancel();
+                      }
+                    }
+                    ..onSerialTapUp = select,
                 ),
         },
         child: child,
@@ -380,36 +413,32 @@ class _PartsPanelState extends State<PartsPanel> {
           if (macControls)
             Container(
               constraints: const BoxConstraints(minHeight: 35),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: context.colors.line, width: .7),
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(child: sections),
-                  DeskIcon(cu.CupertinoIcons.plus, addTip, add, size: 15),
-                ],
-              ),
+              child: sections,
             )
-          else ...[
+          else
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 13, 10, 10),
               child: sections,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 10, 8),
-              child: Tooltip(
-                message: addTip,
-                child: DeskButton(
-                  onPressed: add,
-                  icon: const Icon(cu.CupertinoIcons.plus, size: 16),
-                  label: Text(addLabel),
-                ),
+          Padding(
+            padding: macControls
+                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+                : const EdgeInsets.fromLTRB(12, 0, 10, 8),
+            child: Tooltip(
+              message: addTip,
+              child: DeskButton(
+                onPressed: add,
+                icon: const Icon(cu.CupertinoIcons.plus, size: 16),
+                label: Text(addLabel),
               ),
             ),
-          ],
+          ),
           if (e.tool == Tool.measure || e.tool == Tool.gap)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 10, 8),

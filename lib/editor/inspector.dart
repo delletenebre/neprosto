@@ -12,6 +12,7 @@ import 'alignment_panel.dart';
 import 'joint_dialog.dart';
 import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
+import 'hole_dialog.dart';
 import 'parts_workbook.dart' show stockCut;
 import 'controller.dart';
 import 'hotkeys.dart';
@@ -219,6 +220,18 @@ class Inspector extends StatelessWidget {
                 ],
               ),
             ),
+            if (e.tool == Tool.select && part != null && part.hinge != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(15, 0, 15, 8),
+                child: DeskButton(
+                  onPressed: () => e.toggleDoor(part.id),
+                  child: Text(
+                    part.doorOpen
+                        ? context.strings.closeDoor
+                        : context.strings.openDoor,
+                  ),
+                ),
+              ),
             if (e.tool == Tool.select &&
                 part != null &&
                 e.project.visibleGeometry.beams.length > 1)
@@ -387,7 +400,9 @@ class Inspector extends StatelessWidget {
                     part.size[i],
                     (v) {
                       if (v < part.minimumSize(i)) {
-                        e.message = i == 0
+                        e.message = v < part.minimumHoleSize(i)
+                            ? context.strings.invalidHole
+                            : i == 0
                             ? context.strings.lengthTooShortForCuts
                             : context.strings.invalidRabbet;
                         e.refresh();
@@ -415,6 +430,12 @@ class Inspector extends StatelessWidget {
                 icon: const Icon(cu.CupertinoIcons.crop, size: 15),
                 label: Text(context.strings.rabbetTitle),
                 onPressed: () => showRabbets(context, e, part),
+              ),
+              const SizedBox(height: 5),
+              DeskButton(
+                icon: const Icon(cu.CupertinoIcons.circle, size: 15),
+                label: Text(context.strings.panelHoles),
+                onPressed: () => showPanelHoles(context, e, part),
               ),
             ]),
             block(context, context.strings.partFinish, [

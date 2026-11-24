@@ -64,7 +64,15 @@ class _PartsListState extends State<PartsList> {
         key(b.startCut.z),
         key(b.endCut.y),
         key(b.endCut.z),
-        b.bore,
+        ([
+          for (final h in b.holes)
+            [
+              key(h.centerX(b.size)),
+              key(h.centerY(b.size)),
+              key(h.diameter),
+              if (h.depth != null) ...[key(h.depth!), h.back ? 1 : 0],
+            ].join(','),
+        ]..sort()).join('|'),
         (
           b.rabbets[RabbetEdge.topLeft],
           b.rabbets[RabbetEdge.topRight],

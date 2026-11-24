@@ -15,6 +15,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get partFinish => 'Material';
 
   @override
+  String get mixedValues => 'Mixed';
+
+  @override
   String get finishPresets => 'Presets';
 
   @override
@@ -521,6 +524,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get actionsMenu => 'Actions menu';
 
   @override
+  String get measurementUnits => 'Measurement units';
+
+  @override
   String get millimeters => 'Millimeters';
 
   @override
@@ -841,7 +847,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get plane => 'Plane';
 
   @override
-  String get planeFromFace => 'Plane from face';
+  String get buildInThisPlane => 'Build in this plane';
 
   @override
   String get edgeAligned => 'Edge aligned';
@@ -1259,7 +1265,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String addPartHint(Object shortcut) {
-    return 'To add a part, click “New part” or press $shortcut';
+    return 'To draw a part, click “New part” or press $shortcut';
   }
 
   @override
@@ -1576,25 +1582,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categoryWorkshop => 'Workshop and office';
 
   @override
-  String get templateBookcase => 'Bookcase';
+  String get templateBookcase => 'Four-tier timber shelving';
 
   @override
   String get templateCubeShelf => 'Staircase room divider';
 
   @override
-  String get templateWallShelf => 'Wall ledge';
+  String get templateWallShelf => 'Floating box shelf';
 
   @override
-  String get templateStool => 'Wooden stool';
+  String get templateStool => 'Guitarist’s stool and stand';
 
   @override
   String get templateStepStool => 'Two-step stool';
 
   @override
-  String get templateGardenBench => 'Garden bench';
+  String get templateGardenBench => 'Garden bench with armrests';
 
   @override
-  String get templateDiningTable => 'Simple dining table';
+  String get templateDiningTable => 'Trestle dining table';
 
   @override
   String get templateWritingDesk => 'Writing desk with side shelves';
@@ -1603,13 +1609,75 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateBedsideCabinet => 'Bedside cabinet with cubby';
 
   @override
+  String get templateBedroomWardrobe => 'Three-door bedroom wardrobe';
+
+  @override
+  String get openDoor => 'Open door';
+
+  @override
+  String get closeDoor => 'Close door';
+
+  @override
+  String get panelHoles => 'Holes';
+
+  @override
+  String get addHole => 'Add hole';
+
+  @override
+  String get holeDiameter => 'Diameter';
+
+  @override
+  String get throughHole => 'Through';
+
+  @override
+  String get blindHole => 'Blind';
+
+  @override
+  String get faceA => 'Face A';
+
+  @override
+  String get faceB => 'Face B';
+
+  @override
+  String get cupHole => 'Ø35 mm hinge cup';
+
+  @override
+  String get fromLeft => 'From left edge';
+
+  @override
+  String get fromRight => 'From right edge';
+
+  @override
+  String get fromBottom => 'From bottom edge';
+
+  @override
+  String get fromTop => 'From top edge';
+
+  @override
+  String get holeDiagramHelp =>
+      'Click the diagram to position the hole centre.';
+
+  @override
+  String get invalidHole =>
+      'Check the diameter and edge distances. A blind hole must be shallower than the part thickness.';
+
+  @override
+  String get leftHingedDoor => 'Left-hinged door';
+
+  @override
+  String get rightHingedDoor => 'Right-hinged door';
+
+  @override
+  String get clothesRail => 'Clothes rail';
+
+  @override
   String get templateTvStand => 'Media console';
 
   @override
-  String get templateWorkbench => 'Workbench';
+  String get templateWorkbench => 'Split-top Roubo workbench';
 
   @override
-  String get templateToolTote => 'Tool tote';
+  String get templateToolTote => 'Diagonal-handle tool tote';
 
   @override
   String get cuttingLayout => 'Cutting layout';
@@ -1651,7 +1719,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rackFinger => 'Clamp support';
 
   @override
-  String get templatePicnicTable => 'Outdoor picnic table with benches';
+  String get templatePicnicTable => 'Children’s picnic table';
 
   @override
   String get templateSawhorse => 'Trestle sawhorse';
@@ -1663,7 +1731,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateRaisedBed => 'Open-bottom raised flower bed';
 
   @override
-  String get templateStandingPlanter => 'Standing planter with lower shelf';
+  String get templateStandingPlanter => 'Planter on legs';
 
   @override
   String get templateTrellisPlanter => 'Trellis planter';
@@ -1734,7 +1802,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Hinge on the left when viewed from the brace side. The brace transfers load from the upper latch corner to the lower hinge rail.';
 
   @override
-  String get templateGazebo => 'Gable-roof gazebo';
+  String get templateGazebo => 'Open gazebo frame with bench';
+
+  @override
+  String get gazeboRingBeam => 'Ring beam';
+
+  @override
+  String get roofBatten => 'Roof batten';
+
+  @override
+  String get gazeboFrameNote =>
+      'The cut list includes the frame, bench, rafters, ties and battens. Select the roof covering separately and match the batten spacing to it. Verify timber sizes, connections and anchorage for local loads and ground conditions.';
 
   @override
   String get templateShedFloor => 'Cabin floor with herringbone bridging';
@@ -1832,4 +1910,115 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get invalidRabbet =>
       'Enter a positive width and depth. Leave material between rabbets and before the opposite face.';
+
+  @override
+  String get templateLaptopTray => 'Laptop tray';
+
+  @override
+  String get templateBagShelf => 'Bag rack with shelf';
+
+  @override
+  String get templatePantryShelf => 'Behind-door pantry rack';
+
+  @override
+  String get templateConsoleTable => 'Three-bay sofa console';
+
+  @override
+  String get templateBathTray => 'Bathtub tray';
+
+  @override
+  String get templateMachineStand => 'Miter saw stand';
+
+  @override
+  String get templateTrestleBench => 'Splayed-leg bench';
+
+  @override
+  String get templateWindowBox => 'Window flower box';
+
+  @override
+  String get templateBirdhouse => 'A-frame bird shelter';
+
+  @override
+  String get templateCandleShelf => 'Candle shelf with triangular trim';
+
+  @override
+  String get templateBlanketLadder => 'Blanket ladder';
+
+  @override
+  String get templateHeadphoneStand => 'Headphone stand';
+
+  @override
+  String get templatePlantPanel => 'Wall panel for plants';
+
+  @override
+  String get templateToyChest => 'Outdoor toy chest';
+
+  @override
+  String get templateShutters => 'Three-panel folding shutters';
+
+  @override
+  String get templateLantern => 'Terrace lantern';
+
+  @override
+  String get templateMirrorFrame => 'Floor mirror frame';
+
+  @override
+  String get templateHexShelf => 'Honeycomb shelf';
+
+  @override
+  String get templateCoffeeTable => 'Coffee table with lower shelf';
+
+  @override
+  String get templateShoeBench => 'Three-cubby shoe bench';
+
+  @override
+  String get templateTrivet => 'Lattice trivet';
+
+  @override
+  String get categoryHousehold => 'Home accessories';
+
+  @override
+  String get planEasy => 'Easy';
+
+  @override
+  String get planMedium => 'Intermediate';
+
+  @override
+  String get planAdvanced => 'Advanced';
+
+  @override
+  String get planSource => 'Original photos and plan';
+
+  @override
+  String get planDrawing => 'Original drawing (ZIP)';
+
+  @override
+  String get planAdaptation =>
+      'Adapted for the editor. The cutting list covers wooden parts.';
+
+  @override
+  String get planHardwareHooks => 'Allow for three hooks and wall hangers.';
+
+  @override
+  String get planShutterNote =>
+      'A 3 mm hinge gap separates each panel. Check the required clearance for your hinges.';
+
+  @override
+  String get planLadderNote => 'Decorative blanket rack. Fit a wall restraint.';
+
+  @override
+  String get planChestNote =>
+      'Fit hinges and a lid stay that holds the lid open.';
+
+  @override
+  String get planMirrorNote =>
+      'Add a 407 × 1525 mm mirror, mirror fixings and a wall restraint.';
+
+  @override
+  String get planRoundedNote =>
+      'Rectangular blanks are shown. Round the contact edges during finishing.';
+
+  @override
+  String get planTrivetNote =>
+      'Adapted from the Craftsmanspace pattern with two crossed layers of 12 × 7 mm strips glued together.';
 }

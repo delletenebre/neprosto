@@ -7,14 +7,52 @@ import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/drawing.dart';
+import 'package:neprosto/editor/inspector.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/palette.dart';
+import 'package:neprosto/editor/parts_panel.dart';
 import 'package:neprosto/editor/project_tab_bar.dart';
 import 'package:neprosto/editor/project_tabs.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
+  testWidgets(
+    'Parts and dimensions show their creation button below the tabs',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1200, 780));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final editor = Editor(Project('Тест', []));
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
+
+      final dimensionsTab = find.text('Размеры  0');
+      Future<void> tapCreationButton(String label) async {
+        final button = find.ancestor(
+          of: find.text(label),
+          matching: find.byType(DeskButton),
+        );
+        expect(
+          t.getRect(button).top,
+          greaterThan(t.getRect(dimensionsTab).bottom),
+        );
+        await t.tap(button);
+        await t.pumpAndSettle();
+      }
+
+      await tapCreationButton('Новая деталь');
+      expect(editor.tool, Tool.beam);
+      await t.tap(dimensionsTab);
+      await t.pumpAndSettle();
+      await tapCreationButton('Новый размер');
+      expect(editor.tool, Tool.measure);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
+
   testWidgets(
     'Dragging the same edge moves the part or resizes it with Shift',
     (t) async {
@@ -178,6 +216,22 @@ void main() {
       expect(frame(activeTab).border, isNotNull);
       expect(frame(benchTab).color, isNot(frame(activeTab).color));
       expect(t.getRect(benchTab).right, lessThan(t.getRect(activeTab).left));
+      void expectFlatTab(Finder tab) {
+        final surface = find
+            .descendant(of: tab, matching: find.byType(Material))
+            .first;
+        final shape =
+            t.widget<Material>(surface).shape! as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.zero);
+        final outer = t.getRect(tab), inner = t.getRect(surface);
+        final border = frame(tab).border!.dimensions.resolve(TextDirection.ltr);
+        expect(inner, border.deflateRect(outer));
+      }
+
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        expectFlatTab(activeTab);
+        expectFlatTab(benchTab);
+      }
       final folder = find.descendant(
         of: find.byKey(ObjectKey(tabs.items.first)),
         matching: find.byIcon(cu.CupertinoIcons.folder),
@@ -196,6 +250,9 @@ void main() {
       addTearDown(mouse.removePointer);
       await mouse.moveTo(position.center);
       await t.pumpAndSettle();
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        expectFlatTab(benchTab);
+      }
       expect(folder, findsNothing);
       expect(t.getCenter(close), folderPosition.center);
       expect(t.getRect(benchTab).contains(t.getTopLeft(close)), isTrue);
@@ -209,7 +266,18 @@ void main() {
       expect(dot, findsOneWidget);
       await mouse.moveTo(position.center);
       await t.pumpAndSettle();
-      final target = t.getCenter(close);
+      var target = t.getCenter(close);
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        final hitArea = t.getRect(close);
+        final paintArea = t.getRect(
+          find.descendant(of: close, matching: find.byType(Material)),
+        );
+        expect(hitArea.size, const Size(29, 28));
+        expect(paintArea.size, const Size.square(16));
+        expect(paintArea.center, hitArea.center);
+        target = hitArea.centerRight - const Offset(2, 0);
+        expect(paintArea.contains(target), isFalse);
+      }
       await mouse.moveTo(target);
       await mouse.down(target);
       await mouse.up();
@@ -224,6 +292,55 @@ void main() {
       TargetPlatform.macOS,
       TargetPlatform.windows,
     }),
+  );
+
+  testWidgets(
+    'Mac tab context menu acts on the clicked project without switching documents',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1100, 680));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      const popup = MethodChannel('neprosto/popup');
+      final messenger = t.binding.defaultBinaryMessenger;
+      int? choice;
+      final menus = <Map<Object?, Object?>>[];
+      messenger.setMockMethodCallHandler(popup, (call) async {
+        if (call.method != 'contextMenu') return null;
+        menus.add(call.arguments as Map<Object?, Object?>);
+        return choice;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(popup, null));
+      final tabs = ProjectTabs(Editor(Project.bench()))..create();
+      final active = tabs.value, bench = tabs.items.first;
+      await t.pumpWidget(NeprostoApp.withTabs(tabs));
+      await t.pumpAndSettle();
+      Future<void> openMenu() async {
+        await t.tap(
+          find.byKey(ObjectKey(bench)),
+          buttons: kSecondaryMouseButton,
+        );
+        await t.pumpAndSettle();
+      }
+
+      await openMenu();
+      expect(menus.single['heading'], 'Скамья');
+      expect(menus.single['items'], ['Переименовать…', 'Закрыть вкладку']);
+      expect(tabs.value, same(active));
+      choice = 0;
+      await openMenu();
+      await t.enterText(find.byType(EditableText).last, 'Скамья у окна');
+      await t.tap(find.text('Готово'));
+      await t.pumpAndSettle();
+      expect(bench.committed.name, 'Скамья у окна');
+      expect(tabs.value, same(active));
+      expect(find.text('Скамья у окна'), findsOneWidget);
+      choice = 1;
+      await openMenu();
+      expect(find.textContaining('проект «Скамья у окна»'), findsOneWidget);
+      await t.tap(find.text('Не сохранять'));
+      await t.pumpAndSettle();
+      expect(tabs.items.single, same(active));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
   testWidgets(
@@ -342,6 +459,140 @@ void main() {
       await invoke('close');
       await t.pumpAndSettle();
       expect(tabs.items, hasLength(1));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'Document actions stay together above the drawing at both window sizes',
+    (t) async {
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      await t.binding.setSurfaceSize(const Size(1380, 800));
+      await t.pumpWidget(NeprostoApp(editor: Editor(Project.bench())));
+      await t.pumpAndSettle();
+      final bar = find.byKey(const ValueKey('drawing-toolbar'));
+      for (final width in [1380.0, 880.0]) {
+        await t.binding.setSurfaceSize(Size(width, 800));
+        await t.pumpAndSettle();
+        final save = width == 1380
+            ? find.text('Сохранить')
+            : find.byTooltip('Сохранить');
+        final actions = [
+          find.byTooltip('Отменить'),
+          find.byTooltip('Повторить'),
+          save,
+          find.byTooltip('Настройки'),
+        ];
+        for (final action in actions) {
+          expect(find.descendant(of: bar, matching: action), findsOneWidget);
+          expect(t.getRect(bar).contains(t.getCenter(action)), isTrue);
+        }
+        final centers = actions.map(t.getCenter).toList();
+        for (var i = 1; i < centers.length; i++) {
+          expect(centers[i].dx, greaterThan(centers[i - 1].dx));
+          expect(centers[i].dy, closeTo(centers.first.dy, 2));
+        }
+        expect(
+          t.getCenter(find.byTooltip('Видимость сетки')).dx,
+          greaterThan(centers.last.dx),
+        );
+        expect(save.hitTestable(), findsOneWidget);
+      }
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
+
+  testWidgets(
+    'Mac window toolbar follows the document and toggles the drawing panels',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(880, 570));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final messenger = t.binding.defaultBinaryMessenger;
+      const popup = MethodChannel('neprosto/popup');
+      const commands = MethodChannel('neprosto/editor');
+      late Map<Object?, Object?> toolbar;
+      messenger.setMockMethodCallHandler(popup, (call) async {
+        if (call.method != 'documentToolbar') return null;
+        toolbar = call.arguments as Map<Object?, Object?>;
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(popup, null));
+      Future<void> invoke(String action) async {
+        await messenger.handlePlatformMessage(
+          commands.name,
+          commands.codec.encodeMethodCall(MethodCall(action)),
+          null,
+        );
+        await t.pumpAndSettle();
+      }
+
+      final editor = Editor(Project.bench());
+      final tabs = ProjectTabs(editor);
+      await t.pumpWidget(NeprostoApp.withTabs(tabs));
+      await t.pumpAndSettle();
+      final drawingToolbar = find.byKey(const ValueKey('drawing-toolbar'));
+      Finder action(String label) =>
+          find.descendant(of: drawingToolbar, matching: find.byTooltip(label));
+      bool enabled(String label) =>
+          t
+              .widget<DeskControl>(
+                find.descendant(
+                  of: action(label),
+                  matching: find.byType(DeskControl),
+                ),
+              )
+              .onPressed !=
+          null;
+      expect(action('Настройки').hitTestable(), findsOneWidget);
+      expect(action('Сохранить').hitTestable(), findsOneWidget);
+      expect(toolbar['labels'], {
+        'partsSidebar': 'Дерево деталей',
+        'inspector': 'Свойства',
+      });
+      expect(toolbar['title'], editor.project.name);
+      expect(toolbar['edited'], false);
+      expect(enabled('Отменить'), isFalse);
+      expect(enabled('Повторить'), isFalse);
+      final drawing = find.byKey(const Key('drawing'));
+      final originalWidth = t.getSize(drawing).width;
+      expect(
+        t.getBottomRight(find.byIcon(cu.CupertinoIcons.location_north)).dy,
+        lessThanOrEqualTo(t.getTopLeft(drawing).dy),
+      );
+
+      editor.commit(editor.project.copy(name: 'Полка'));
+      await t.pumpAndSettle();
+      expect(toolbar['title'], 'Полка');
+      expect(toolbar['edited'], true);
+      expect(enabled('Отменить'), isTrue);
+      await t.tap(action('Отменить'));
+      await t.pumpAndSettle();
+      expect(toolbar['title'], 'Скамья');
+      expect(toolbar['edited'], false);
+      expect(enabled('Повторить'), isTrue);
+      await t.tap(action('Повторить'));
+      await t.pumpAndSettle();
+      expect(toolbar['title'], 'Полка');
+
+      await invoke('inspector');
+      expect(find.byType(Inspector), findsNothing);
+      expect(t.getSize(drawing).width, greaterThan(originalWidth));
+      await invoke('partsSidebar');
+      expect(find.byType(PartsPanel), findsNothing);
+      expect(toolbar['panels'], {'partsSidebar': false, 'inspector': false});
+      await invoke('inspector');
+      await invoke('partsSidebar');
+      expect(find.byType(Inspector), findsOneWidget);
+      expect(find.byType(PartsPanel), findsOneWidget);
+      expect(t.getSize(drawing).width, originalWidth);
+      tabs.create();
+      await t.pumpAndSettle();
+      expect(toolbar['title'], tabs.value.committed.name);
+      expect(enabled('Отменить'), isFalse);
+      expect(enabled('Повторить'), isFalse);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );

@@ -6,10 +6,8 @@ import 'desktop.dart';
 import 'drawing.dart';
 import 'model.dart';
 import 'palette.dart';
-import 'part_finish.dart';
 import 'project_templates.dart';
 import 'scene.dart';
-import 'template_stock.dart';
 
 typedef NewProjectChoice = ({Project? template, LengthUnit unit});
 
@@ -33,19 +31,22 @@ class _TemplatePickerState extends State<_TemplatePicker> {
   var selected = FurnitureTemplate.signatureCabinet;
   late var unit = widget.unit;
   late var project = selected.build(unit);
-  late var stock = templateStock(project);
+  bool expanded = true;
 
   void select(FurnitureTemplate next, LengthUnit units) => setState(() {
     selected = next;
     unit = units;
     project = selected.build(unit);
-    stock = templateStock(project);
   });
 
   void finish(Project? template) =>
       Navigator.pop(context, (template: template, unit: unit));
 
-  bool expanded = true;
+  String get materialLabel {
+    final textures = project.beams.map((b) => b.finish.texture).toSet();
+    if (textures.length == 1) return selected.material.label;
+    return textures.map((texture) => texture.label).join(' + ');
+  }
 
   Iterable<FurnitureTemplate> templatesIn(TemplateCategory category) =>
       FurnitureTemplate.values.where(
@@ -140,65 +141,9 @@ class _TemplatePickerState extends State<_TemplatePicker> {
   String sizeLabel(Iterable<double> dimensions) =>
       '${dimensions.map(unit.format).join(' × ')} ${unit.symbol}';
 
-  void showCuttingLayout() => showDeskDialog<void>(
-    context: context,
-    builder: (ctx) => DeskDialog(
-      maxWidth: 610,
-      title: Text('${ctx.strings.cuttingLayout} · ${project.name}'),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            '${selected.material.label} · ${ctx.strings.stockKerf(sizeLabel([templateKerf(unit)]))}',
-          ),
-          for (final (index, blank) in stock.indexed) ...[
-            const SizedBox(height: 14),
-            Text(
-              '${index + 1}.  ${sizeLabel([blank.size.width, blank.size.height, blank.thickness])}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 180),
-                child: AspectRatio(
-                  aspectRatio: blank.size.aspectRatio,
-                  child: CustomPaint(painter: _CutDiagram(blank, ctx.colors)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 12,
-              runSpacing: 3,
-              children: [
-                for (final entry in blank.cuts.entries)
-                  Text(
-                    '#${entry.key}  ${project.byId[entry.key]!.name} · ${sizeLabel([entry.value.width, entry.value.height])}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        DeskButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: Text(ctx.strings.close),
-        ),
-      ],
-    ),
-  );
-
   Widget details() {
     final bounds = project.partBounds!;
     final size = bounds.high - bounds.low;
-    final groups = <(Size, double), List<StockBlank>>{};
-    for (final blank in stock) {
-      (groups[(blank.size, blank.thickness)] ??= []).add(blank);
-    }
     final s = context.strings;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -217,7 +162,8 @@ class _TemplatePickerState extends State<_TemplatePicker> {
           runSpacing: 3,
           children: [
             for (final label in [
-              selected.material.label,
+              materialLabel,
+              if (selected.difficulty case final difficulty?) difficulty.label,
               sizeLabel([size.x, size.y, size.z]),
               s.partCount(project.beams.length),
             ])
@@ -227,75 +173,13 @@ class _TemplatePickerState extends State<_TemplatePicker> {
               ),
           ],
         ),
-        RepaintBoundary(
-          child: CustomPaint(
-            size: const Size(double.infinity, 190),
-            painter: _Preview(project, context.colors, selected),
-          ),
-        ),
-        SizedBox(height: .7, child: ColoredBox(color: context.colors.line)),
-        if (selected.constructionNote case final note?) ...[
-          const SizedBox(height: 6),
-          Text(note, style: TextStyle(color: context.colors.ink, fontSize: 12)),
-        ],
-        const SizedBox(height: 12),
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          children: [
-            Text(
-              s.stockShopping,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+        AspectRatio(
+          aspectRatio: 3 / 2,
+          child: RepaintBoundary(
+            child: CustomPaint(
+              painter: _Preview(project, context.colors, selected),
             ),
-            DeskButton(
-              onPressed: showCuttingLayout,
-              child: Text(s.cuttingLayout),
-            ),
-          ],
-        ),
-        for (final entry in groups.entries) ...[
-          const SizedBox(height: 4),
-          Builder(
-            builder: (_) {
-              final (size, thickness) = entry.key;
-              final type = selected.material != FinishPreset.wood
-                  ? s.stockSheet
-                  : size.height == thickness
-                  ? s.stockBar
-                  : s.stockBoard;
-              final offcuts = <Size, int>{};
-              for (final blank in entry.value) {
-                final used = blank.requiredSize;
-                if (used.width * used.height < .8 * size.width * size.height) {
-                  offcuts.update(used, (n) => n + 1, ifAbsent: () => 1);
-                }
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$type  ${sizeLabel([size.width, size.height, thickness])}  ×  ${entry.value.length}',
-                  ),
-                  for (final offcut in offcuts.entries)
-                    Text(
-                      s.stockOffcut(
-                        '${sizeLabel([offcut.key.width, offcut.key.height, thickness])}  ×  ${offcut.value}',
-                      ),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: context.colors.muted,
-                      ),
-                    ),
-                ],
-              );
-            },
           ),
-        ],
-        const SizedBox(height: 6),
-        Text(
-          s.stockKerf(sizeLabel([templateKerf(unit)])),
-          style: TextStyle(fontSize: 11, color: context.colors.muted),
         ),
       ],
     );
@@ -422,6 +306,10 @@ class _Preview extends CustomPainter {
       camera
         ..yaw = .38
         ..pitch = .23;
+    } else if (template == FurnitureTemplate.gazebo) {
+      camera
+        ..yaw = -.35
+        ..pitch = .24;
     }
     camera.fit(project, size);
     camera.scale *= 1.18;
@@ -437,43 +325,4 @@ class _Preview extends CustomPainter {
   @override
   bool shouldRepaint(_Preview old) =>
       old.project != project || old.colors != colors;
-}
-
-class _CutDiagram extends CustomPainter {
-  const _CutDiagram(this.blank, this.colors);
-  final StockBlank blank;
-  final EditorPalette colors;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final scale = size.width / blank.size.width;
-    final outline = Paint()
-      ..color = colors.line
-      ..style = PaintingStyle.stroke;
-    canvas.drawRect(Offset.zero & size, Paint()..color = colors.field);
-    canvas.drawRect(Offset.zero & size, outline);
-    for (final entry in blank.cuts.entries) {
-      final r = Rect.fromPoints(
-        entry.value.topLeft * scale,
-        entry.value.bottomRight * scale,
-      );
-      canvas.drawRect(r, Paint()..color = colors.pale);
-      canvas.drawRect(r, outline);
-      final label = TextPainter(
-        text: TextSpan(
-          text: '#${entry.key}',
-          style: TextStyle(fontSize: 10, color: colors.ink),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      if (label.width + 2 <= r.width && label.height <= r.height) {
-        label.paint(canvas, r.center - label.size.center(Offset.zero));
-      }
-      label.dispose();
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CutDiagram old) =>
-      old.blank != blank || old.colors != colors;
 }

@@ -152,6 +152,66 @@ void main() {
     expect(quitBindings, [false, true, false]);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets(
+    'Editing settings apply or cancel project units and keep each unit’s step',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1200, 780));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final project = Project.bench().copy(unit: LengthUnit.centimeter);
+      final editor = Editor(project);
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
+
+      final field = find.descendant(
+        of: find.byKey(const ValueKey('input-step')),
+        matching: find.byType(DeskTextField),
+      );
+      String stepText() => t.widget<DeskTextField>(field).controller!.text;
+      Future<void> tap(String label) async {
+        await t.tap(find.text(label));
+        await t.pumpAndSettle();
+      }
+
+      await tap('Шаг · 1');
+      expect(
+        t
+            .widget<DeskSegments<LengthUnit>>(
+              find.byType(DeskSegments<LengthUnit>),
+            )
+            .value,
+        LengthUnit.centimeter,
+      );
+      await tap('Дюймы');
+      expect(stepText(), '0.0625');
+      await t.enterText(field, '1/4');
+      await tap('Отмена');
+      expect(editor.project, same(project));
+      expect(editor.step.value(LengthUnit.inch), 1 / 16);
+
+      await tap('Шаг · 1');
+      await tap('Миллиметры');
+      await t.enterText(field, '5');
+      await tap('Дюймы');
+      await t.enterText(field, '1/8');
+      await tap('Миллиметры');
+      expect(stepText(), '5');
+      await tap('Дюймы');
+      expect(stepText(), '0.125');
+      await tap('Готово');
+      expect(find.byTooltip('″'), findsOneWidget);
+      expect(find.text('Шаг · 0.125'), findsOneWidget);
+      expect(editor.step.value(LengthUnit.millimeter), 5);
+      expect(editor.project.unit, LengthUnit.inch);
+      expect(editor.project.beams.first.size, project.beams.first.size);
+      editor.undo();
+      expect(editor.project, same(project));
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
+
   testWidgets('Workspace boundaries use project units and undo as one edit', (
     t,
   ) async {

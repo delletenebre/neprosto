@@ -148,176 +148,153 @@ extension _Framing on _Parts {
 
   void gazebo() {
     final s = editorStrings,
-        rise = measure(480, 19),
-        mid = d / 2,
-        pitch = rise / mid;
-    final gain = math.sqrt(1 + pitch * pitch), inset = measure(150, 6);
-    final eave = h - rise, cover = skin + stud;
-    final tieTop = eave - (cover + plank) * gain;
-    final plateTop = tieTop - plank;
-    double roof(double y) => h - (y - mid).abs() * pitch;
-    final seat = measure(450, 18), clearWidth = w - 2 * (inset + heavy);
-    final back = d - inset - heavy,
-        seatDepth = 4 * board + 3 * measure(5, .1875);
-    for (final z in [measure(670, 26), measure(940, 37)]) {
-      front(s.benchBack, inset + heavy, back, z, clearWidth, skin, board);
-      for (final x in [inset, w - inset - stud]) {
-        cross(
-          s.frameRail,
-          x,
-          inset + heavy,
-          z,
-          d - 2 * (inset + heavy),
-          board,
-          stud,
-        );
+        ringTop = measure(2260, 89),
+        beamBase = ringTop - plank;
+    for (final y in [0.0, d - heavy]) {
+      for (final x in [0.0, w - heavy]) {
+        post(x, y, 0, beamBase, heavy);
       }
     }
-    for (var i = 0; i < 4; i++) {
-      flat(
-        s.seatSlat(i + 1),
-        inset + heavy,
-        back - seatDepth + i * (seatDepth - board) / 3,
-        seat - skin,
-        clearWidth,
-        board,
-        skin,
-      );
+
+    // Both directions bear on the post tops. The side beams use the part
+    // of each post left behind the front and back beams.
+    for (final y in [0.0, d - stud]) {
+      front(s.gazeboRingBeam, 0, y, beamBase, w, stud, plank);
     }
-    front(
-      s.frameRail,
-      inset + heavy,
-      back,
-      seat - skin - board,
-      clearWidth,
-      stud,
-      board,
-    );
-    for (final x in [inset + heavy, (w - stud) / 2, w - inset - heavy - stud]) {
-      cross(
-        s.frameRail,
-        x,
-        back - seatDepth,
-        seat - skin - board,
-        seatDepth,
-        board,
-        stud,
-      );
-      post(x, back - seatDepth, 0, seat - skin - board, stud);
-    }
-    for (final y in [inset, d - inset - heavy]) {
-      front(
-        s.frameRail,
-        inset,
-        y,
-        plateTop - plank,
-        w - 2 * inset,
-        heavy,
-        plank,
-      );
-      for (final x in [inset, w - inset - heavy]) {
-        post(x, y, 0, plateTop - plank, heavy);
-        final left = x == inset, face = left ? x + heavy : x;
-        final reach = measure(320, 12), cy = y + heavy / 2;
+    final reach = measure(330, 13);
+    for (final x in [0.0, w - stud]) {
+      cross(s.gazeboRingBeam, x, stud, beamBase, d - 2 * stud, plank, stud);
+      for (final front in [true, false]) {
+        final edge = front ? heavy : d - heavy;
         member(
           s.bridging,
-          Vector3(face, cy, plateTop - plank - reach),
-          Vector3(face + (left ? reach : -reach), cy, plateTop - plank),
-          axis(1),
+          Vector3(x + stud / 2, edge, beamBase - reach),
+          Vector3(x + stud / 2, edge + (front ? reach : -reach), beamBase),
+          axis(0),
           board,
           stud,
-          startPlane: axis(0),
+          startPlane: axis(1),
           endPlane: axis(2),
         );
       }
+      final edge = x == 0 ? heavy : w - heavy;
+      member(
+        s.bridging,
+        Vector3(edge, d - stud / 2, beamBase - reach),
+        Vector3(edge + (x == 0 ? reach : -reach), d - stud / 2, beamBase),
+        axis(1),
+        board,
+        stud,
+        startPlane: axis(0),
+        endPlane: axis(2),
+      );
     }
-    final ridgeTop = roof(mid - stud / 2) - cover * gain;
-    front(s.ridgeBeam, 0, mid - stud / 2, ridgeTop - plank, w, stud, plank);
+
+    // The bench shares the rear posts. Its seat bearers span the front rail
+    // and the ledger on the face of the posts.
+    final seat = measure(450, 18), gap = measure(6, .25);
+    final span = w - 2 * skin, rear = d - heavy;
+    final seatFront = rear - stud - skin - 3 * plank - 2 * gap;
+    final railZ = seat - skin - stud - board;
+    final backTop = seat + measure(410, 16);
+    post((w - heavy) / 2, rear, 0, backTop, heavy);
+    for (final (i, x) in [skin, (w - board) / 2, w - skin - board].indexed) {
+      add(s.leg(i + 1), x, seatFront + skin, 0, railZ, board, stud, 2, 0);
+    }
+    for (final y in [seatFront + skin, rear - stud]) {
+      front(s.frameRail, skin, y, railZ, span, stud, board);
+    }
+    front(
+      s.frontPanel,
+      skin,
+      seatFront,
+      seat - skin - board,
+      span,
+      skin,
+      board,
+    );
     for (var i = 0; i < 5; i++) {
-      final cx = inset + heavy / 2 + i * (w - 2 * inset - heavy) / 4;
-      cross(
-        s.roofTie,
-        cx - stud / 2,
-        inset,
-        plateTop,
-        d - 2 * inset,
+      final x = skin + i * (span - board) / 4;
+      add(
+        s.frameRail,
+        x,
+        seatFront + skin,
+        seat - skin - stud,
+        rear - seatFront - skin,
+        board,
+        stud,
+        1,
+        0,
+      );
+    }
+    for (var i = 0; i < 3; i++) {
+      flat(
+        s.seatSlat(i + 1),
+        skin,
+        seatFront + i * (plank + gap),
+        seat - skin,
+        span,
         plank,
-        stud,
+        skin,
       );
-      post(
-        cx - stud / 2,
-        mid - stud / 2,
-        tieTop,
-        ridgeTop - plank - tieTop,
-        stud,
+    }
+
+    final backBase = seat + measure(55, 2);
+    for (final z in [backBase, backTop - board]) {
+      front(s.frameRail, skin, rear - stud, z, span, stud, board);
+    }
+    final count = (span / (board + measure(30, 1.25))).round();
+    for (var i = 0; i < count; i++) {
+      final x = skin + i * (span - board) / (count - 1);
+      add(
+        s.benchBack,
+        x,
+        rear - stud - skin,
+        backBase,
+        backTop - backBase,
+        board,
+        skin,
+        2,
+        0,
       );
-      for (final side in [0, 1]) {
-        final y0 = side == 0 ? 0.0 : mid + stud / 2,
-            y1 = side == 0 ? mid - stud / 2 : d;
-        final drop = (cover + plank / 2) * gain;
+    }
+    gazeboRoof(ringTop);
+  }
+
+  void gazeboRoof(double ringTop) {
+    final s = editorStrings, half = w / 2, heel = ringTop + board;
+    final pitch = (h - heel) / half, gain = math.sqrt(1 + pitch * pitch);
+    // The top edge runs from the outer end of the tie to the ridge.
+    // The horizontal heel cut bears on the tie; the ridge cut is plumb.
+    final heelRun = board * gain / (2 * pitch);
+    final ridgeCentreZ = h - board * gain / 2;
+    for (var i = 0; i < 5; i++) {
+      final y = i * (d - stud) / 4;
+      front(s.roofTie, 0, y, ringTop, w, stud, board);
+      for (final x in [heelRun, w - heelRun]) {
         member(
           s.roofRafter,
-          Vector3(cx, y0, roof(y0) - drop),
-          Vector3(cx, y1, roof(y1) - drop),
-          axis(0),
-          plank,
-          stud,
-          startPlane: axis(1),
-          endPlane: axis(1),
-        );
-        final cy = side == 0 ? inset + heavy / 2 : d - inset - heavy / 2;
-        final normal = Vector3(0, side == 0 ? -pitch : pitch, 1).normalized();
-        member(
-          s.uprightPost,
-          Vector3(cx, cy, tieTop),
-          Vector3(cx, cy, roof(cy) - (cover + plank) * gain),
-          axis(0),
-          heavy,
+          Vector3(x, y + stud / 2, heel),
+          Vector3(half, y + stud / 2, ridgeCentreZ),
+          axis(1),
+          board,
           stud,
           startPlane: axis(2),
-          endPlane: normal,
+          endPlane: axis(0),
         );
-        if (i == 0 || i == 4) {
-          final face = side == 0 ? inset + heavy : d - inset - heavy,
-              reach = measure(300, 12);
-          member(
-            s.bridging,
-            Vector3(cx, face, plateTop - reach),
-            Vector3(cx, face + (side == 0 ? reach : -reach), plateTop),
-            axis(0),
-            board,
-            stud,
-            startPlane: axis(1),
-            endPlane: axis(2),
-          );
-        }
       }
     }
-    for (final side in [0, 1]) {
-      final tangent = Vector3(0, 1 / gain, (side == 0 ? pitch : -pitch) / gain);
-      final normal = axis(0).cross(tangent);
+
+    // Lay the wide face of each batten on all five rafters of its slope.
+    final first = (stud + board / 2) / gain;
+    final last = half - (measure(100, 4) + board / 2) / gain;
+    for (final sign in [1.0, -1.0]) {
+      final normal = Vector3(-sign * pitch, 0, 1) / gain;
       for (var i = 0; i < 4; i++) {
-        final y = side * mid + board + i * (mid - 2 * board) / 3;
-        beams.add(
-          Beam(
-            beams.length + 1,
-            s.frameRail,
-            Vector3(0, y, roof(y)) - normal * cover - tangent * (board / 2),
-            Vector3(w, board, stud),
-            axis(0),
-            tangent,
-          ),
-        );
-      }
-      for (var i = 0; i < 16; i++) {
-        roofStrip(
-          i * plank,
-          plank,
-          side * mid,
-          (side + 1) * mid,
-          roof(side * mid),
-          roof((side + 1) * mid),
-        );
+        final run = first + i * (last - first) / 3;
+        final x = sign > 0 ? run : w - run;
+        final start = Vector3(x, 0, heel + pitch * run) + normal * (stud / 2);
+        member(s.roofBatten, start, start + axis(1) * d, normal, board, stud);
       }
     }
   }

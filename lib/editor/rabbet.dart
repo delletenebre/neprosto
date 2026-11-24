@@ -39,8 +39,11 @@ Map<RabbetEdge, Rabbet> _readRabbets(Object? data) {
 }
 
 extension RabbetGeometry on Beam {
+  double minimumSize(int dim) =>
+      math.max(_minimumCutSize(dim), minimumHoleSize(dim));
+
   /// Keep a web of wood between cuts that meet in the other dimension.
-  double minimumSize(int dim) {
+  double _minimumCutSize(int dim) {
     if (dim == 0) return minimumLength;
     if (rabbets.isEmpty) return 0;
     final width = dim == 1;
@@ -64,8 +67,8 @@ extension RabbetGeometry on Beam {
 
   bool get cutsFit =>
       size.x >= minimumLength &&
-      size.y >= minimumSize(1) &&
-      size.z >= minimumSize(2);
+      size.y >= _minimumCutSize(1) &&
+      size.z >= _minimumCutSize(2);
 
   /// Normalized Y/Z outline. The same vertices drive the diagram and the solid.
   List<Vector3> get sectionOutline {

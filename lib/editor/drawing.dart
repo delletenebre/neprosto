@@ -694,6 +694,9 @@ class DrawingPainter extends CustomPainter {
       );
     }
     if (clipTexture) c.restore();
+    if (f.boreFloor case final floor?) {
+      c.drawPath(floor, Paint()..color = Color.lerp(fill, Colors.black, .32)!);
+    }
     if (f.boreRim case final rim?) {
       c.drawPath(rim, Paint()..color = Color.lerp(fill, Colors.black, .65)!);
     }

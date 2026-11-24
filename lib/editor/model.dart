@@ -1,4 +1,5 @@
 import '../l10n/strings.dart';
+import '../l10n/app_localizations.dart' show lookupAppLocalizations;
 import 'part_finish.dart';
 
 import 'dart:convert';
@@ -8,6 +9,7 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 export 'package:vector_math/vector_math_64.dart' show Vector3;
 part 'clearance.dart';
 part 'rabbet.dart';
+part 'panel_hole.dart';
 
 Vector3 axis(int i) => Vector3.zero()..[i] = 1;
 String mm(double value) {
@@ -101,7 +103,36 @@ class Beam {
   final int locks;
   final bool hidden;
   final PartFinish finish;
-  final FaceBore? bore;
+  final List<PanelHole> holes;
+  final DoorHinge? hinge;
+  final bool doorOpen;
+  FaceBore? get bore {
+    final hole = holes.firstOrNull;
+    return hole == null
+        ? null
+        : (
+            u: hole.centerX(size) / size.x,
+            v: hole.centerY(size) / size.y,
+            diameter: hole.diameter,
+          );
+  }
+
+  Beam swingDoor(double fraction) {
+    if (fraction == 0) return this;
+    if (hinge == null) return this;
+    final right = hinge == DoorHinge.right;
+    final width = right ? size.y : 0.0;
+    final sign = right != doorOpen ? 1.0 : -1.0;
+    final turned = fraction == 1
+        ? up * sign
+        : turn(across, along, sign * fraction * math.pi / 2);
+    return copy(
+      origin: origin + (across - turned) * width,
+      across: turned,
+      doorOpen: fraction == 1 ? !doorOpen : doorOpen,
+    );
+  }
+
   final Map<RabbetEdge, Rabbet> rabbets;
   // Longitudinal offset across the full width and thickness of each end.
   final ({double y, double z}) startCut, endCut;
@@ -154,11 +185,19 @@ class Beam {
     this.locks = 0,
     this.hidden = false,
     this.finish = woodFinish,
-    this.bore,
+    FaceBore? bore,
+    List<PanelHole> holes = const [],
+    this.hinge,
+    this.doorOpen = false,
     Map<RabbetEdge, Rabbet> rabbets = const {},
     this.startCut = (y: 0, z: 0),
     this.endCut = (y: 0, z: 0),
-  }) : rabbets = rabbets.isEmpty ? const {} : Map.unmodifiable(rabbets);
+  }) : holes = bore == null
+           ? (holes.isEmpty ? const [] : List.unmodifiable(holes))
+           : List.unmodifiable([
+               PanelHole(bore.u * size.x, bore.v * size.y, bore.diameter),
+             ]),
+       rabbets = rabbets.isEmpty ? const {} : Map.unmodifiable(rabbets);
 
   Vector3 get up => along.cross(across);
   Vector3 corner(int i) => pointAt(
@@ -182,6 +221,9 @@ class Beam {
     bool? hidden,
     PartFinish? finish,
     FaceBore? bore,
+    List<PanelHole>? holes,
+    DoorHinge? hinge,
+    bool? doorOpen,
     Map<RabbetEdge, Rabbet>? rabbets,
     ({double y, double z})? startCut,
     ({double y, double z})? endCut,
@@ -196,7 +238,10 @@ class Beam {
     locks: locks ?? this.locks,
     hidden: hidden ?? this.hidden,
     finish: finish ?? this.finish,
-    bore: bore ?? this.bore,
+    bore: bore,
+    holes: holes ?? this.holes,
+    hinge: hinge ?? this.hinge,
+    doorOpen: doorOpen ?? this.doorOpen,
     rabbets: rabbets ?? this.rabbets,
     startCut: startCut ?? this.startCut,
     endCut: endCut ?? this.endCut,
@@ -235,7 +280,9 @@ class Beam {
     'across': _xyz(across),
     'group': group,
     'locks': locks,
-    if (bore case final hole?) 'bore': [hole.u, hole.v, hole.diameter],
+    if (holes.isNotEmpty) 'holes': holes.map((h) => h.toJson()).toList(),
+    if (hinge != null) 'hinge': hinge!.name,
+    if (doorOpen) 'doorOpen': true,
     if (rabbets.isNotEmpty)
       'rabbets': {
         for (final e in rabbets.entries)
@@ -263,7 +310,16 @@ class Beam {
       locks: json['locks'] as int? ?? 0,
       hidden: json['hidden'] as bool? ?? false,
       finish: readPartFinish(json['finish']),
-      bore: _readBore(json['bore']),
+      bore: json.containsKey('holes') ? null : _readBore(json['bore']),
+      holes: (json['holes'] as List? ?? const [])
+          .map(PanelHole.fromJson)
+          .toList(),
+      hinge: json['hinge'] != null
+          ? DoorHinge.values.byName(json['hinge'] as String)
+          : json['bore'] != null
+          ? _legacyWardrobeHinges[json['name']]
+          : null,
+      doorOpen: json['doorOpen'] as bool? ?? false,
       rabbets: _readRabbets(json['rabbets']),
       startCut: (y: cuts[0].toDouble(), z: cuts[1].toDouble()),
       endCut: (y: cuts[2].toDouble(), z: cuts[3].toDouble()),

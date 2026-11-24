@@ -13,6 +13,7 @@ import 'controller.dart';
 import 'controls.dart';
 import 'desktop.dart';
 import 'hotkeys.dart';
+import 'model.dart';
 import 'platform_ui.dart';
 
 import 'package:material_ui/material_ui.dart' as m;
@@ -43,6 +44,7 @@ enum SettingsPage {
 typedef SettingsResult = ({
   EditorPalette? palette,
   Locale locale,
+  LengthUnit unit,
   EditStep step,
   bool snap,
   bool dimensions,
@@ -77,11 +79,10 @@ class _EditorSettingsState extends State<EditorSettings> {
   late EditorPalette? palette = widget.palette;
   late Locale locale = widget.locale;
   SettingsPage page = SettingsPage.editing;
-  late final unit = widget.editor.project.unit;
+  late LengthUnit unit = widget.editor.project.unit;
   late bool snap = widget.editor.snapByDefault,
       show = widget.editor.dimensionsByDefault;
-  late bool stepped = widget.editor.step.enabled;
-  late double increment = widget.editor.step.millimeters(unit);
+  late EditStep step = widget.editor.step;
   late GridVisibility grid = widget.editor.gridVisibility;
   late bool showHiddenOutlines = widget.editor.showHiddenOutlines;
   late EditorHotkeys keys = widget.editor.hotkeys;
@@ -90,7 +91,7 @@ class _EditorSettingsState extends State<EditorSettings> {
     text: widget.autosaveMinutes.toString(),
   );
   int? get interval => int.tryParse(minutes.text);
-  final invalid = <String>{};
+  bool stepValid = true;
   Command? _recording;
   Command? get recording => _recording;
   set recording(Command? command) {
@@ -165,7 +166,7 @@ class _EditorSettingsState extends State<EditorSettings> {
     FocusManager.instance.primaryFocus?.unfocus();
     if (scroll.hasClients) scroll.jumpTo(0);
     setState(() {
-      invalid.clear();
+      stepValid = true;
       page = value;
       recording = null;
       error = null;
@@ -201,27 +202,37 @@ class _EditorSettingsState extends State<EditorSettings> {
     ),
   );
 
-  Widget field(
-    String id,
-    double value,
-    ValueChanged<double> onChange,
-    double width,
-  ) => SizedBox(
-    width: width,
-    child: ValueBox(
-      value,
-      onChange,
-      key: ValueKey(id),
-      live: true,
-      onValidityChanged: (valid) {
-        if (invalid.contains(id) == valid) {
-          setState(() => valid ? invalid.remove(id) : invalid.add(id));
-        }
-      },
+  Widget stepField(LengthUnit fieldUnit) => Units(
+    fieldUnit,
+    widget.editor.step.millimeters(fieldUnit),
+    key: ValueKey(fieldUnit),
+    child: SizedBox(
+      width: 78,
+      child: ValueBox(
+        step.millimeters(fieldUnit),
+        (mm) => setState(() {
+          step = step.change(fieldUnit, mm / fieldUnit.factor, step.enabled);
+        }),
+        key: const ValueKey('input-step'),
+        live: true,
+        onValidityChanged: (valid) {
+          if (valid != stepValid) setState(() => stepValid = valid);
+        },
+      ),
     ),
   );
 
   List<Widget> editing() => [
+    heading(context.strings.measurementUnits),
+    DeskSegments(
+      unit,
+      {for (final choice in LengthUnit.values) choice: choice.title},
+      (next) => setState(() {
+        unit = next;
+        stepValid = true;
+      }),
+    ),
+    const SizedBox(height: 18),
     heading(context.strings.movementAndRuler),
     card([
       Text(context.strings.modeWithoutModifierKeys),
@@ -243,20 +254,12 @@ class _EditorSettingsState extends State<EditorSettings> {
       Row(
         children: [
           Expanded(child: Text(context.strings.moveAndResizeInIncrements)),
-          if (stepped) ...[
-            field(
-              'input-step',
-              increment,
-              (n) => setState(() => increment = n),
-              78,
-            ),
-            const SizedBox(width: 9),
-          ],
+          if (step.enabled) ...[stepField(unit), const SizedBox(width: 9)],
           DeskSwitch(
-            value: stepped,
+            value: step.enabled,
             onChanged: (v) => setState(() {
-              stepped = v;
-              invalid.remove('input-step');
+              step = step.change(unit, step.value(unit), v);
+              stepValid = true;
             }),
           ),
         ],
@@ -409,7 +412,8 @@ class _EditorSettingsState extends State<EditorSettings> {
 
   void apply() {
     final result = (
-      step: widget.editor.step.change(unit, increment / unit.factor, stepped),
+      unit: unit,
+      step: step,
       snap: snap,
       dimensions: show,
       showHiddenOutlines: showHiddenOutlines,
@@ -524,9 +528,7 @@ class _EditorSettingsState extends State<EditorSettings> {
       DeskButton(
         primary: true,
         onPressed:
-            recording == null &&
-                invalid.isEmpty &&
-                (!autosave || (interval ?? 0) > 0)
+            recording == null && stepValid && (!autosave || (interval ?? 0) > 0)
             ? apply
             : null,
         child: Text(context.strings.done),

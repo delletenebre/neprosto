@@ -1198,13 +1198,21 @@ void main() {
       }
       await t.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await rightClick(board(3));
+      final buildInPlane = find.text('Строить в этой плоскости');
+      await t.tap(buildInPlane);
+      await t.pumpAndSettle();
+      final clickedBoard = e.project.byId[3]!;
+      expect(e.plane.normal, clickedBoard.up);
+      expect(e.plane.origin.z, clickedBoard.pointAt(Vector3.all(1)).z);
       expect(e.selection, {1, 2, 3, 4});
       expect(e.canUndo, false);
+      await rightClick(board(3));
       expect(find.text('Сгруппировать'), findsOneWidget);
       await t.tap(find.text('Сгруппировать'));
       await t.pumpAndSettle();
       expect(e.project.assembly(3), {1, 2, 3, 4});
       await rightClick(t.getCenter(find.text('Планка сиденья 2').first));
+      expect(buildInPlane, findsNothing);
       expect(find.text('Сгруппировать'), findsNothing);
       await t.tap(find.text('Разгруппировать'));
       await t.pumpAndSettle();
@@ -1234,6 +1242,7 @@ void main() {
       expect(find.text('Дублировать'), findsNothing);
       final empty = t.getBottomRight(drawing) - const Offset(10, 10);
       await rightClick(empty);
+      expect(buildInPlane, findsNothing);
       await t.tap(find.text('Новая деталь здесь'));
       await t.pumpAndSettle();
       expect(e.project.beams, hasLength(original.beams.length + 2));
@@ -1765,6 +1774,7 @@ void main() {
       await t.pumpAndSettle();
       expect(t.widget<DeskTextField>(field).controller!.text, '1200');
       await t.tap(find.text('Планка сиденья 1'));
+      await t.pump(kDoubleTapTimeout);
       await t.pumpAndSettle();
       final width = find.descendant(
         of: find.byKey(const ValueKey('size-1-1')),
