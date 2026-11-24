@@ -21,6 +21,7 @@ import 'controls.dart';
 import 'drawing.dart';
 import 'model.dart';
 import 'part_menu.dart';
+import 'part_type_picker.dart';
 import 'size_dialog.dart';
 
 class PartsPanel extends StatefulWidget {
@@ -162,6 +163,11 @@ class _PartsPanelState extends State<PartsPanel> {
                   child: Row(
                     spacing: toolbarGap,
                     children: [
+                      if (b.hinge case final side?)
+                        DoorIcon(
+                          side,
+                          color: b.hidden ? context.colors.disabled : null,
+                        ),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

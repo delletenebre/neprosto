@@ -404,6 +404,13 @@ class Editor extends ChangeNotifier {
 
   Editor(this.project);
   ({Beam from, Beam to})? doorSwing;
+  Beam configureDoor(Beam part, DoorHinge? hinge, {double? angle}) =>
+      part.withDoorHinge(
+        hinge,
+        towardEye: camera.towardEye(part.pointAt(Vector3.all(.5))),
+        screenUp: camera.up,
+        angle: angle,
+      );
   void toggleDoor(int id) {
     final door = project.byId[id];
     if (door == null || door.hinge == null || door.hidden) return;

@@ -27,7 +27,11 @@ class _PartsListState extends State<PartsList> {
   bool exporting = false;
   String? exportMessage;
 
-  Future<void> exportWorkbook(Project project, List<StockRow> entries) async {
+  Future<void> exportWorkbook(
+    Project project,
+    List<StockRow> entries, {
+    bool bazis = false,
+  }) async {
     if (exporting || entries.isEmpty) return;
     setState(() {
       exportMessage = null;
@@ -36,7 +40,7 @@ class _PartsListState extends State<PartsList> {
     final strings = context.strings;
     String? message;
     try {
-      if (await savePartsWorkbook(project, entries)) {
+      if (await savePartsWorkbook(project, entries, bazis: bazis)) {
         message = kIsWeb ? strings.downloadStarted : strings.excelFileSaved;
       }
     } catch (_) {
@@ -315,6 +319,12 @@ class _PartsListState extends State<PartsList> {
               exportMessage!,
               style: TextStyle(color: context.colors.muted, fontSize: 12),
             ),
+          DeskButton(
+            onPressed: entries.isEmpty || exporting
+                ? null
+                : () => exportWorkbook(p, entries, bazis: true),
+            label: Text(context.strings.bazisExport),
+          ),
           DeskButton(
             onPressed: entries.isEmpty || exporting
                 ? null

@@ -79,13 +79,3 @@ extension HoleLimits on Beam {
     }),
   );
 }
-
-enum DoorHinge { left, right }
-
-// Wardrobes saved before hinge metadata used localized door names.
-final _legacyWardrobeHinges = {
-  for (final s in editorLocales.map(lookupAppLocalizations)) ...{
-    s.leftHingedDoor: DoorHinge.left,
-    s.rightHingedDoor: DoorHinge.right,
-  },
-};

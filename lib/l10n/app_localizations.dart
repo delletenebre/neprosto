@@ -3009,6 +3009,36 @@ abstract class AppLocalizations {
   /// **'Отверстия'**
   String get panelHoles;
 
+  /// No description provided for @holeSelection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отверстие {number} из {count}'**
+  String holeSelection(int number, int count);
+
+  /// No description provided for @holeReferenceCorner.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отступы от угла'**
+  String get holeReferenceCorner;
+
+  /// No description provided for @drillingType.
+  ///
+  /// In ru, this message translates to:
+  /// **'Тип отверстия'**
+  String get drillingType;
+
+  /// No description provided for @drillingFace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сторона сверления'**
+  String get drillingFace;
+
+  /// No description provided for @noPanelHoles.
+  ///
+  /// In ru, this message translates to:
+  /// **'На детали пока нет отверстий'**
+  String get noPanelHoles;
+
   /// No description provided for @addHole.
   ///
   /// In ru, this message translates to:
@@ -3086,6 +3116,60 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Проверьте диаметр и отступы от краёв. Глубина глухого отверстия должна быть меньше толщины детали.'**
   String get invalidHole;
+
+  /// No description provided for @ordinaryPart.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обычная деталь'**
+  String get ordinaryPart;
+
+  /// No description provided for @bazisExport.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для БАЗИС-Раскрой'**
+  String get bazisExport;
+
+  /// No description provided for @partType.
+  ///
+  /// In ru, this message translates to:
+  /// **'Тип детали'**
+  String get partType;
+
+  /// No description provided for @forwardDirection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вперёд'**
+  String get forwardDirection;
+
+  /// No description provided for @towardViewer.
+  ///
+  /// In ru, this message translates to:
+  /// **'К вам'**
+  String get towardViewer;
+
+  /// No description provided for @awayFromViewer.
+  ///
+  /// In ru, this message translates to:
+  /// **'От вас'**
+  String get awayFromViewer;
+
+  /// No description provided for @liftUpDoor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дверца вверх · петли сверху'**
+  String get liftUpDoor;
+
+  /// No description provided for @dropDownDoor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дверца вниз · петли снизу'**
+  String get dropDownDoor;
+
+  /// No description provided for @doorAngle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Угол открывания'**
+  String get doorAngle;
 
   /// No description provided for @leftHingedDoor.
   ///

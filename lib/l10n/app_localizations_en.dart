@@ -1621,6 +1621,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get panelHoles => 'Holes';
 
   @override
+  String holeSelection(int number, int count) {
+    return 'Hole $number of $count';
+  }
+
+  @override
+  String get holeReferenceCorner => 'Offsets from corner';
+
+  @override
+  String get drillingType => 'Hole type';
+
+  @override
+  String get drillingFace => 'Drilling face';
+
+  @override
+  String get noPanelHoles => 'This part has no holes yet';
+
+  @override
   String get addHole => 'Add hole';
 
   @override
@@ -1660,6 +1677,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get invalidHole =>
       'Check the diameter and edge distances. A blind hole must be shallower than the part thickness.';
+
+  @override
+  String get ordinaryPart => 'Plain part';
+
+  @override
+  String get bazisExport => 'For BAZIS Cutting';
+
+  @override
+  String get partType => 'Part type';
+
+  @override
+  String get forwardDirection => 'Forward';
+
+  @override
+  String get towardViewer => 'Toward you';
+
+  @override
+  String get awayFromViewer => 'Away from you';
+
+  @override
+  String get liftUpDoor => 'Lift-up door · top hinges';
+
+  @override
+  String get dropDownDoor => 'Drop-down door · bottom hinges';
+
+  @override
+  String get doorAngle => 'Opening angle';
 
   @override
   String get leftHingedDoor => 'Left-hinged door';

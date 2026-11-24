@@ -11,6 +11,7 @@ import 'controls.dart';
 import 'desktop.dart';
 import 'finish_picker.dart';
 import 'model.dart';
+import 'part_type_picker.dart';
 import 'controller.dart';
 import 'stock_axis.dart';
 
@@ -35,6 +36,8 @@ Future<void> showPartProperties(
     if (next.name != part.name ||
         next.size != part.size ||
         next.finish != part.finish ||
+        next.hinge != part.hinge ||
+        next.openingAngle != part.openingAngle ||
         next.locks != part.locks) {
       changes[part.id] = next;
     }
@@ -81,6 +84,7 @@ Future<List<Beam>?> _editParts(
   final origin = overlay.globalToLocal(globalPoint);
   final multiple = parts.length > 1;
   var drafts = parts.toList();
+  final door = DoorSettingsDraft(parts.first);
   T? common<T>(T Function(Beam) read) {
     final first = read(drafts.first);
     return drafts.every((b) => read(b) == first) ? first : null;
@@ -119,12 +123,20 @@ Future<List<Beam>?> _editParts(
           bool validSize(int i) =>
               valid[i] && drafts.every((b) => b.size[i] >= b.minimumSize(i));
           bool ready() =>
-              (multiple || drafts.single.name.trim().isNotEmpty) &&
+              (multiple ||
+                  (drafts.single.name.trim().isNotEmpty && door.valid)) &&
               StockAxis.values.every((axis) => validSize(axis.index));
           void apply() {
             if (ready()) {
               if (!multiple) {
-                drafts[0] = drafts.single.copy(name: drafts.single.name.trim());
+                final part = drafts.single.copy(
+                  name: drafts.single.name.trim(),
+                );
+                drafts[0] = editor.configureDoor(
+                  part,
+                  door.hinge,
+                  angle: door.angle,
+                );
               }
               Navigator.pop(ctx, drafts);
             }
@@ -199,6 +211,14 @@ Future<List<Beam>?> _editParts(
                               : null,
                         ),
                       ),
+                    if (!multiple) ...[
+                      const SizedBox(height: 8),
+                      PartTypePicker(
+                        door,
+                        refresh: () => update(() {}),
+                        submit: apply,
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       spacing: controlGap,

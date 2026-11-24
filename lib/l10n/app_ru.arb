@@ -988,6 +988,17 @@
   "openDoor": "Открыть дверцу",
   "closeDoor": "Закрыть дверцу",
   "panelHoles": "Отверстия",
+  "holeSelection": "Отверстие {number} из {count}",
+  "@holeSelection": {
+    "placeholders": {
+      "number": { "type": "int" },
+      "count": { "type": "int" }
+    }
+  },
+  "holeReferenceCorner": "Отступы от угла",
+  "drillingType": "Тип отверстия",
+  "drillingFace": "Сторона сверления",
+  "noPanelHoles": "На детали пока нет отверстий",
   "addHole": "Добавить отверстие",
   "holeDiameter": "Диаметр",
   "throughHole": "Сквозное",
@@ -1001,6 +1012,15 @@
   "fromTop": "От верхнего края",
   "holeDiagramHelp": "Щёлкните на схеме, чтобы задать центр отверстия.",
   "invalidHole": "Проверьте диаметр и отступы от краёв. Глубина глухого отверстия должна быть меньше толщины детали.",
+  "ordinaryPart": "Обычная деталь",
+  "bazisExport": "Для БАЗИС-Раскрой",
+  "partType": "Тип детали",
+  "forwardDirection": "Вперёд",
+  "towardViewer": "К вам",
+  "awayFromViewer": "От вас",
+  "liftUpDoor": "Дверца вверх · петли сверху",
+  "dropDownDoor": "Дверца вниз · петли снизу",
+  "doorAngle": "Угол открывания",
   "leftHingedDoor": "Распашная дверца с петлями слева",
   "rightHingedDoor": "Распашная дверца с петлями справа",
   "clothesRail": "Штанга для одежды",

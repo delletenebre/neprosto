@@ -1,8 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:excel/excel.dart' show Excel;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart';
+import 'package:neprosto/editor/part_type_picker.dart';
+import 'package:neprosto/editor/part_finish.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/project_templates.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
@@ -80,6 +84,188 @@ void main() {
     axis(0),
     axis(1),
   );
+  test('Hinge edge and outside face survive selecting a new type, arbitrary angles and reopening', () {
+    for (final verticalLength in [true, false]) {
+      for (final fromRear in [false, true]) {
+        final upright = panel.copy(
+          along: axis(verticalLength ? 2 : 0),
+          across: axis(verticalLength ? 0 : 2),
+        );
+        final viewer = axis(1) * (fromRear ? 1.0 : -1.0);
+        for (final hinge in DoorHinge.values) {
+          for (final degrees in [42.5, 90.0, 115.0, 180.0]) {
+            final closed = upright.withDoorHinge(
+              hinge,
+              towardEye: viewer,
+              screenUp: axis(2),
+              angle: degrees,
+            );
+            final open = Beam.fromJson(closed.swingDoor(1).toJson());
+            final stationary = [
+              for (var i = 0; i < 8; i++)
+                if (open.corner(i).distanceTo(closed.corner(i)) < 1e-7)
+                  closed.corner(i),
+            ];
+            expect(stationary, hasLength(2));
+            final bounds = Bounds3.points(closed.corners);
+            for (final p in stationary) {
+              final expected = switch (hinge) {
+                DoorHinge.top => bounds.high.z,
+                DoorHinge.bottom => bounds.low.z,
+                DoorHinge.left => fromRear ? bounds.high.x : bounds.low.x,
+                DoorHinge.right => fromRear ? bounds.low.x : bounds.high.x,
+              };
+              expect(hinge.onSide ? p.x : p.z, closeTo(expected, 1e-8));
+              expect(
+                p.y,
+                closeTo(fromRear ? bounds.high.y : bounds.low.y, 1e-8),
+              );
+            }
+            expect(
+              open.up.dot(closed.up),
+              closeTo(math.cos(degrees * math.pi / 180), 1e-8),
+            );
+            final ordinary = open.withDoorHinge(
+              null,
+              towardEye: viewer,
+              screenUp: axis(2),
+            );
+            expect(ordinary.hinge, isNull);
+            expect(ordinary.doorOpen, isFalse);
+            for (var i = 0; i < 8; i++) {
+              expect(
+                ordinary.corner(i).distanceTo(upright.corner(i)),
+                lessThan(1e-7),
+              );
+            }
+            expect(ordinary.name, panel.name);
+          }
+        }
+      }
+    }
+  });
+
+  test('BAZIS worksheet keeps millimetres, individual materials, names and positions in a grouped row', () {
+    final a = panel.copy(
+      finish: FinishPreset.oakBoard.finish,
+      startCut: (y: 12, z: 0),
+    );
+    final b = a.copy(
+      id: 2,
+      name: 'Полка',
+      finish: FinishPreset.whiteBoard.finish,
+    );
+    final excel = Excel.decodeBytes(
+      encodeBazisCutList([
+        StockRow([a, b]),
+      ]),
+    );
+    expect(excel.tables.keys, ['Панели']);
+    final rows = excel['Панели'].rows;
+    expect(rows, hasLength(3));
+    expect(rows.first.map((v) => v!.value.toString()), [
+      'Позиция',
+      'Наименование',
+      'Материал',
+      'Толщина',
+      'Длина',
+      'Ширина',
+      'Кол-во',
+    ]);
+    expect(rows[1][0]!.value.toString(), '1');
+    expect(rows[2][1]!.value.toString(), 'Полка');
+    expect(rows[1][2]!.value.toString(), isNot(rows[2][2]!.value.toString()));
+    expect(double.parse(rows[1][4]!.value.toString()), 406);
+    expect(rows[2][6]!.value.toString(), '1');
+  });
+
+  testWidgets(
+    'Edit door settings under the name and show a leading icon only for doors',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1320, 900));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final e = Editor(Project('Проект', [panel]))..select(panel.id);
+      await t.pumpWidget(NeprostoApp(editor: e));
+      await t.pumpAndSettle();
+
+      Future<void> editName() async {
+        await t.tap(find.byTooltip('Переименовать деталь'));
+        await t.pumpAndSettle();
+        expect(find.text('Название детали'), findsOneWidget);
+        expect(
+          t.getTopLeft(find.byType(PartTypePicker)).dy,
+          greaterThan(
+            t.getBottomLeft(find.byKey(const ValueKey('rename-field'))).dy,
+          ),
+        );
+      }
+
+      Future<void> choose(String label) async {
+        await t.tap(
+          find.descendant(
+            of: find.byType(PartTypePicker),
+            matching: find.byType(DeskMenu<DoorHinge?>),
+          ),
+        );
+        await t.pumpAndSettle();
+        await t.tap(find.text(label).last);
+        await t.pumpAndSettle();
+      }
+
+      expect(find.byType(PartTypePicker), findsNothing);
+      expect(find.byType(DoorIcon), findsNothing);
+      await editName();
+      await choose('Дверца вверх · петли сверху');
+      final field = find.descendant(
+        of: find.byKey(const ValueKey('dialog-door-angle')),
+        matching: find.byType(EditableText),
+      );
+      await t.enterText(field, '181');
+      await t.pump();
+      final done = find.widgetWithText(DeskButton, 'Готово');
+      expect(t.widget<DeskButton>(done).onPressed, isNull);
+      await t.enterText(field, '115');
+      await t.pump();
+      expect(e.single!.hinge, isNull);
+      await t.tap(done);
+      await t.pumpAndSettle();
+      expect(e.single!.hinge, DoorHinge.top);
+      expect(e.single!.openingAngle, 115);
+      expect(find.byType(PartTypePicker), findsNothing);
+      expect(find.text('Угол открывания'), findsNothing);
+      final icons = find.byType(DoorIcon);
+      expect(icons, findsWidgets);
+      for (final element in icons.evaluate()) {
+        final icon = find.byWidget(element.widget);
+        final row = find.ancestor(of: icon, matching: find.byType(Row)).first;
+        final name = find
+            .descendant(of: row, matching: find.text(panel.name))
+            .first;
+        expect(
+          t.getTopRight(icon).dx,
+          lessThanOrEqualTo(t.getTopLeft(name).dx),
+        );
+      }
+      await t.tap(find.text('Открыть дверцу'));
+      await t.pumpAndSettle();
+      expect(e.single!.doorOpen, isTrue);
+      await editName();
+      await choose('Обычная деталь');
+      await t.tap(find.text('Отмена'));
+      await t.pumpAndSettle();
+      expect(e.single!.hinge, DoorHinge.top);
+      await editName();
+      await choose('Обычная деталь');
+      await t.tap(done);
+      await t.pumpAndSettle();
+      expect(e.single!.hinge, isNull);
+      expect(e.single!.doorOpen, isFalse);
+      expect(find.byType(DoorIcon), findsNothing);
+      expect(find.text('Открыть дверцу'), findsNothing);
+      e.undo();
+      expect(e.single!.doorOpen, isTrue);
+    },
+  );
   test('All through holes reveal the interior and blind holes have a floor on the drilled face', () {
     final part = panel.copy(
       holes: const [
@@ -123,7 +309,7 @@ void main() {
   });
 
   testWidgets(
-    'Open a leaf in 3D, close it from properties and edit its drill layout',
+    'Double click edits properties; buttons swing the door and edit its drill layout',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1320, 900));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -143,7 +329,8 @@ void main() {
       await t.pump(const Duration(milliseconds: 60));
       await t.tapAt(at);
       await t.pumpAndSettle();
-      expect(e.single!.doorOpen, isTrue);
+      expect(e.single!.doorOpen, isFalse);
+      expect(find.byKey(const ValueKey('part-dialog-name')), findsOneWidget);
       Future<void> tap(String text) async {
         final target = find.text(text).last;
         await t.ensureVisible(target);
@@ -151,6 +338,9 @@ void main() {
         await t.pumpAndSettle();
       }
 
+      await tap('Отмена');
+      await tap('Открыть дверцу');
+      expect(e.single!.doorOpen, isTrue);
       await tap('Закрыть дверцу');
       expect(e.single!.doorOpen, isFalse);
       Future<void> input(String key, String text) async {
@@ -165,7 +355,19 @@ void main() {
       }
 
       await tap('Отверстия');
+      expect(find.text('Вперёд · К вам'), findsOneWidget);
       await tap('Под петлю Ø35 мм');
+      expect(
+        t.widget<Text>(find.byKey(const ValueKey('hole-view-face'))).data,
+        'Сторона Б',
+      );
+      expect(find.text('Вперёд · От вас'), findsOneWidget);
+      await t.tap(find.text('Сторона А').hitTestable());
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 70));
+      expect(t.hasRunningAnimations, isTrue);
+      await t.pumpAndSettle();
+      await tap('Сторона Б');
       await input('hole-horizontal', '2,2');
       await input('hole-vertical', '10+2');
       await input('hole-depth', '2');
@@ -178,20 +380,30 @@ void main() {
         isNull,
       );
       await input('hole-depth', '1,2');
+      await tap('Под петлю Ø35 мм');
+      await tap('Сторона А');
+      final diagram = t.getRect(find.byKey(const ValueKey('hole-diagram')));
+      await t.tapAt(diagram.center + const Offset(8, 20));
+      await t.pumpAndSettle();
       await tap('Применить');
       final saved = e.single!;
-      expect(saved.holes, [
+      expect(saved.holes, hasLength(3));
+      expect(saved.holes.last.back, isFalse);
+      expect(saved.holes.last.x, isNot(120));
+      expect(saved.holes.take(2), [
         door.holes.single,
         const PanelHole(120, 22, 35, depth: 12, back: true),
       ]);
       await tap('Отверстия');
-      await tap('Удалить');
+      await t.tap(find.byTooltip('Удалить').hitTestable().last);
+      await t.pumpAndSettle();
       await tap('Отмена');
       expect(e.single, same(saved));
       await tap('Отверстия');
-      await tap('Удалить');
+      await t.tap(find.byTooltip('Удалить').hitTestable().last);
+      await t.pumpAndSettle();
       await tap('Применить');
-      expect(e.single!.holes, [saved.holes.last]);
+      expect(e.single!.holes, saved.holes.skip(1));
       e.undo();
       expect(e.single, same(saved));
     },

@@ -1623,6 +1623,23 @@ class AppLocalizationsRu extends AppLocalizations {
   String get panelHoles => 'Отверстия';
 
   @override
+  String holeSelection(int number, int count) {
+    return 'Отверстие $number из $count';
+  }
+
+  @override
+  String get holeReferenceCorner => 'Отступы от угла';
+
+  @override
+  String get drillingType => 'Тип отверстия';
+
+  @override
+  String get drillingFace => 'Сторона сверления';
+
+  @override
+  String get noPanelHoles => 'На детали пока нет отверстий';
+
+  @override
   String get addHole => 'Добавить отверстие';
 
   @override
@@ -1662,6 +1679,33 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get invalidHole =>
       'Проверьте диаметр и отступы от краёв. Глубина глухого отверстия должна быть меньше толщины детали.';
+
+  @override
+  String get ordinaryPart => 'Обычная деталь';
+
+  @override
+  String get bazisExport => 'Для БАЗИС-Раскрой';
+
+  @override
+  String get partType => 'Тип детали';
+
+  @override
+  String get forwardDirection => 'Вперёд';
+
+  @override
+  String get towardViewer => 'К вам';
+
+  @override
+  String get awayFromViewer => 'От вас';
+
+  @override
+  String get liftUpDoor => 'Дверца вверх · петли сверху';
+
+  @override
+  String get dropDownDoor => 'Дверца вниз · петли снизу';
+
+  @override
+  String get doorAngle => 'Угол открывания';
 
   @override
   String get leftHingedDoor => 'Распашная дверца с петлями слева';

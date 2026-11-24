@@ -94,8 +94,14 @@ Future<ProjectFile> writeProject(Project project, ProjectFile file) async {
   return file;
 }
 
-Future<bool> savePartsWorkbook(Project p, List<StockRow> rows) async {
-  final stem = editorStrings.partsFilename(_fileStem(p));
+Future<bool> savePartsWorkbook(
+  Project p,
+  List<StockRow> rows, {
+  bool bazis = false,
+}) async {
+  final stem = bazis
+      ? '${_fileStem(p)} - BAZIS'
+      : editorStrings.partsFilename(_fileStem(p));
   final name = '$stem.xlsx';
   final location = kIsWeb
       ? null
@@ -105,7 +111,7 @@ Future<bool> savePartsWorkbook(Project p, List<StockRow> rows) async {
         );
   if (!kIsWeb && location == null) return false;
   await XFile.fromData(
-    encodePartsWorkbook(p.unit, rows),
+    bazis ? encodeBazisCutList(rows) : encodePartsWorkbook(p.unit, rows),
     name: name,
     mimeType:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

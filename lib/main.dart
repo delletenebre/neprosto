@@ -31,6 +31,7 @@ import 'editor/drawing.dart';
 import 'editor/inspector.dart';
 import 'editor/model.dart';
 import 'editor/parts_panel.dart';
+import 'editor/part_type_picker.dart';
 import 'editor/parts_list.dart';
 import 'editor/project_settings.dart';
 import 'editor/template_picker.dart';
@@ -659,47 +660,84 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     return true;
   }
 
-  Future<String?> nameDialog(String title, String value) async {
+  Future<String?> nameDialog(
+    String title,
+    String value, {
+    DoorSettingsDraft? door,
+  }) {
     var result = value;
     return showDeskDialog<String>(
       context: context,
-      builder: (ctx) => DeskDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: 320,
-          child: DeskTextField(
-            key: const ValueKey('rename-field'),
-            initialValue: value,
-            autofocus: true,
-            onChanged: (v) => result = v,
-            onSubmitted: (v) {
-              if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
-            },
-          ),
-        ),
-        actions: [
-          DeskButton(
-            plain: true,
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(context.strings.cancel),
-          ),
-          DeskButton(
-            primary: true,
-            onPressed: () {
-              if (result.trim().isNotEmpty) Navigator.pop(ctx, result.trim());
-            },
-            child: Text(context.strings.done),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (_, update) {
+          final ready = result.trim().isNotEmpty && (door?.valid ?? true);
+          void submit() {
+            if (result.trim().isNotEmpty && (door?.valid ?? true)) {
+              Navigator.pop(ctx, result.trim());
+            }
+          }
+
+          return DeskDialog(
+            title: Text(title),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 12,
+                children: [
+                  DeskTextField(
+                    key: const ValueKey('rename-field'),
+                    initialValue: value,
+                    autofocus: true,
+                    onChanged: (v) => update(() => result = v),
+                    onSubmitted: (_) => submit(),
+                  ),
+                  if (door != null)
+                    PartTypePicker(
+                      door,
+                      refresh: () => update(() {}),
+                      submit: submit,
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              DeskButton(
+                plain: true,
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(context.strings.cancel),
+              ),
+              DeskButton(
+                primary: true,
+                onPressed: ready ? submit : null,
+                child: Text(context.strings.done),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Future<void> renamePart(Beam part) async {
-    final name = await nameDialog(context.strings.partName, part.name);
-    if (name != null && name != part.name && e.project.byId[part.id] == part) {
-      e.commit(e.project.edit({part.id}, (b) => b.copy(name: name)));
+    final editor = e;
+    final door = DoorSettingsDraft(part);
+    final name = await nameDialog(
+      context.strings.partName,
+      part.name,
+      door: door,
+    );
+    if (name == null || !mounted || editor.project.byId[part.id] != part) {
+      return;
     }
+    if (name == part.name &&
+        door.hinge == part.hinge &&
+        (door.hinge == null || door.angle == part.openingAngle)) {
+      return;
+    }
+    final named = name == part.name ? part : part.copy(name: name);
+    final updated = editor.configureDoor(named, door.hinge, angle: door.angle);
+    editor.commit(editor.project.edit({part.id}, (_) => updated));
   }
 
   Future<void> showPartsList() async {

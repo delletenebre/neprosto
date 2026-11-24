@@ -13,6 +13,7 @@ import 'joint_dialog.dart';
 import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
 import 'hole_dialog.dart';
+import 'part_type_picker.dart';
 import 'parts_workbook.dart' show stockCut;
 import 'controller.dart';
 import 'hotkeys.dart';
@@ -196,6 +197,7 @@ class Inspector extends StatelessWidget {
                   Row(
                     spacing: toolbarGap,
                     children: [
+                      if (part?.hinge case final side?) DoorIcon(side),
                       Expanded(
                         child: Text(
                           title,

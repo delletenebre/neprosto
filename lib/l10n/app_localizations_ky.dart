@@ -1627,6 +1627,23 @@ class AppLocalizationsKy extends AppLocalizations {
   String get panelHoles => 'Тешиктер';
 
   @override
+  String holeSelection(int number, int count) {
+    return 'Тешик $number / $count';
+  }
+
+  @override
+  String get holeReferenceCorner => 'Бурчтан аралык';
+
+  @override
+  String get drillingType => 'Тешиктин түрү';
+
+  @override
+  String get drillingFace => 'Бургулоо тарабы';
+
+  @override
+  String get noPanelHoles => 'Тетикте азырынча тешик жок';
+
+  @override
   String get addHole => 'Тешик кошуу';
 
   @override
@@ -1666,6 +1683,33 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get invalidHole =>
       'Диаметрди жана четтерге чейинки аралыкты текшериңиз. Туюк тешиктин тереңдиги тетиктин калыңдыгынан аз болушу керек.';
+
+  @override
+  String get ordinaryPart => 'Жөнөкөй тетик';
+
+  @override
+  String get bazisExport => 'БАЗИС-Раскрой үчүн';
+
+  @override
+  String get partType => 'Тетиктин түрү';
+
+  @override
+  String get forwardDirection => 'Алдыга';
+
+  @override
+  String get towardViewer => 'Сизге карай';
+
+  @override
+  String get awayFromViewer => 'Сизден ары';
+
+  @override
+  String get liftUpDoor => 'Өйдө ачылат · илмеги үстүндө';
+
+  @override
+  String get dropDownDoor => 'Ылдый ачылат · илмеги астында';
+
+  @override
+  String get doorAngle => 'Ачылуу бурчу';
 
   @override
   String get leftHingedDoor => 'Илмеги сол жактагы эшик';

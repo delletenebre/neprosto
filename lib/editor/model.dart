@@ -10,6 +10,7 @@ export 'package:vector_math/vector_math_64.dart' show Vector3;
 part 'clearance.dart';
 part 'rabbet.dart';
 part 'panel_hole.dart';
+part 'door.dart';
 
 Vector3 axis(int i) => Vector3.zero()..[i] = 1;
 String mm(double value) {
@@ -106,6 +107,10 @@ class Beam {
   final List<PanelHole> holes;
   final DoorHinge? hinge;
   final bool doorOpen;
+  final DoorMount? _doorMount;
+  DoorMount get doorMount => _doorMount ?? defaultDoorMount;
+  final double? _openingAngle;
+  double get openingAngle => _openingAngle ?? 90;
   FaceBore? get bore {
     final hole = holes.firstOrNull;
     return hole == null
@@ -115,22 +120,6 @@ class Beam {
             v: hole.centerY(size) / size.y,
             diameter: hole.diameter,
           );
-  }
-
-  Beam swingDoor(double fraction) {
-    if (fraction == 0) return this;
-    if (hinge == null) return this;
-    final right = hinge == DoorHinge.right;
-    final width = right ? size.y : 0.0;
-    final sign = right != doorOpen ? 1.0 : -1.0;
-    final turned = fraction == 1
-        ? up * sign
-        : turn(across, along, sign * fraction * math.pi / 2);
-    return copy(
-      origin: origin + (across - turned) * width,
-      across: turned,
-      doorOpen: fraction == 1 ? !doorOpen : doorOpen,
-    );
   }
 
   final Map<RabbetEdge, Rabbet> rabbets;
@@ -189,6 +178,8 @@ class Beam {
     List<PanelHole> holes = const [],
     this.hinge,
     this.doorOpen = false,
+    this._doorMount,
+    this._openingAngle,
     Map<RabbetEdge, Rabbet> rabbets = const {},
     this.startCut = (y: 0, z: 0),
     this.endCut = (y: 0, z: 0),
@@ -224,6 +215,9 @@ class Beam {
     List<PanelHole>? holes,
     DoorHinge? hinge,
     bool? doorOpen,
+    DoorMount? doorMount,
+    double? openingAngle,
+    bool clearHinge = false,
     Map<RabbetEdge, Rabbet>? rabbets,
     ({double y, double z})? startCut,
     ({double y, double z})? endCut,
@@ -240,8 +234,10 @@ class Beam {
     finish: finish ?? this.finish,
     bore: bore,
     holes: holes ?? this.holes,
-    hinge: hinge ?? this.hinge,
+    hinge: clearHinge ? null : hinge ?? this.hinge,
+    doorMount: clearHinge ? defaultDoorMount : doorMount ?? this.doorMount,
     doorOpen: doorOpen ?? this.doorOpen,
+    openingAngle: clearHinge ? 90 : openingAngle ?? this.openingAngle,
     rabbets: rabbets ?? this.rabbets,
     startCut: startCut ?? this.startCut,
     endCut: endCut ?? this.endCut,
@@ -283,6 +279,13 @@ class Beam {
     if (holes.isNotEmpty) 'holes': holes.map((h) => h.toJson()).toList(),
     if (hinge != null) 'hinge': hinge!.name,
     if (doorOpen) 'doorOpen': true,
+    if (hinge != null && openingAngle != 90) 'openingAngle': openingAngle,
+    if (hinge != null && doorMount != defaultDoorMount)
+      'doorMount': {
+        'verticalAcross': doorMount.verticalAcross,
+        'leftAtMax': doorMount.leftAtMax,
+        'frontAtMax': doorMount.frontAtMax,
+      },
     if (rabbets.isNotEmpty)
       'rabbets': {
         for (final e in rabbets.entries)
@@ -320,11 +323,14 @@ class Beam {
           ? _legacyWardrobeHinges[json['name']]
           : null,
       doorOpen: json['doorOpen'] as bool? ?? false,
+      doorMount: _readDoorMount(json['doorMount']),
+      openingAngle: (json['openingAngle'] as num?)?.toDouble() ?? 90,
       rabbets: _readRabbets(json['rabbets']),
       startCut: (y: cuts[0].toDouble(), z: cuts[1].toDouble()),
       endCut: (y: cuts[2].toDouble(), z: cuts[3].toDouble()),
     );
-    if (b.id <= 0 ||
+    if (!validDoorAngle(b.openingAngle) ||
+        b.id <= 0 ||
         !b.cutsFit ||
         [b.size.x, b.size.y, b.size.z].any((d) => d <= 0) ||
         (b.along.length - 1).abs() > .00001 ||

@@ -628,10 +628,6 @@ class DrawingViewportState extends State<DrawingViewport> {
         !selectionAtFirstTap.contains(partAtPointer.id) ||
         !e.selection.contains(partAtPointer.id)) {
       e.select(partAtPointer.id, individual: true);
-      if (partAtPointer.hinge != null) {
-        e.toggleDoor(partAtPointer.id);
-        return;
-      }
     }
     final box = context.findRenderObject()! as RenderBox;
     await showPartProperties(context, e, box.localToGlobal(at));

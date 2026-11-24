@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:excel/excel.dart';
 
 import 'model.dart';
+import 'part_finish.dart';
 import 'joint.dart';
 
 class StockRow {
@@ -63,6 +64,48 @@ String stockHoles(Beam part, LengthUnit unit) {
           '${s.width} ${unit.format(h.centerY(part.size))} · '
           '${h.depth == null ? s.throughHole : '${h.back ? s.faceB : s.faceA} · ${s.rabbetDepth} ${unit.format(h.depth!)}'}',
   ].join('\n');
+}
+
+/// Column names match the Russian BAZIS cutting-job import dialog. Cutting
+/// sizes are always millimetres and each project position gets its own row.
+Uint8List encodeBazisCutList(List<StockRow> rows) {
+  final book = Excel.createExcel();
+  book.rename(book.getDefaultSheet()!, 'Панели');
+  final sheet = book['Панели'];
+  const columns = [
+    'Позиция',
+    'Наименование',
+    'Материал',
+    'Толщина',
+    'Длина',
+    'Ширина',
+    'Кол-во',
+  ];
+  sheet.appendRow(columns.map(TextCellValue.new).toList());
+  for (final row in rows) {
+    for (final b in row.parts) {
+      final preset = FinishPreset.values
+          .where((p) => p.finish == b.finish)
+          .firstOrNull;
+      final color = b.finish.rgb
+          .toRadixString(16)
+          .padLeft(6, '0')
+          .toUpperCase();
+      final material = preset?.label ?? '${b.finish.texture.name} #$color';
+      sheet.appendRow([
+        IntCellValue(b.id),
+        TextCellValue(b.name),
+        TextCellValue(material),
+        DoubleCellValue(b.size.z),
+        DoubleCellValue(blankLength(b)),
+        DoubleCellValue(b.size.y),
+        IntCellValue(1),
+      ]);
+    }
+  }
+  sheet.setColumnWidth(1, 38);
+  sheet.setColumnWidth(2, 28);
+  return Uint8List.fromList(book.encode()!);
 }
 
 Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
