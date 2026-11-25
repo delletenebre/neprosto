@@ -155,6 +155,7 @@ class DrawingPainter extends CustomPainter {
     c.save();
     c.clipRect(Offset.zero & s);
     _workspace(c);
+    if (rulerTarget?.face == null) _rulerGuide(c);
     if (original != null) {
       final pen = Paint()
         ..color = const Color(0xff87958a)
@@ -172,15 +173,7 @@ class DrawingPainter extends CustomPainter {
       _face(c, f);
       if (f == rulerTarget?.face) {
         _highlightFace(c, f);
-        if (rulerTarget?.guide case final guide?) {
-          c.drawLine(
-            project(guide.$1),
-            project(guide.$2),
-            Paint()
-              ..color = colors.accent
-              ..strokeWidth = 3.5,
-          );
-        }
+        _rulerGuide(c);
       }
       if (clip != null) c.restore();
     }
@@ -328,7 +321,7 @@ class DrawingPainter extends CustomPainter {
     }
     if (hover case final a?) {
       final screen = project(a.resolve(scene.project));
-      if (a.beam != null) {
+      if (a.attached) {
         _marker(c, screen);
         _label(
           c,
@@ -576,23 +569,16 @@ class DrawingPainter extends CustomPainter {
     );
   }
 
-  (Vector3, Vector3)? _clipLine(Vector3 a, Vector3 b) {
-    final camera = scene.camera;
-    if (camera.perspective) {
-      final limit = camera.eyeDistance * .95;
-      final da = (a - camera.target).dot(camera.eye),
-          db = (b - camera.target).dot(camera.eye);
-      if (da > limit && db > limit) return null;
-      if (da > limit || db > limit) {
-        final cut = a + (b - a) * ((limit - da) / (db - da));
-        if (da > limit) {
-          a = cut;
-        } else {
-          b = cut;
-        }
-      }
+  void _rulerGuide(Canvas c) {
+    if (rulerTarget?.guide case final guide?) {
+      c.drawLine(
+        project(guide.$1),
+        project(guide.$2),
+        Paint()
+          ..color = colors.accent
+          ..strokeWidth = 3.5,
+      );
     }
-    return (a, b);
   }
 
   void _workspace(Canvas c) {
@@ -612,8 +598,8 @@ class DrawingPainter extends CustomPainter {
     final corner = Paint()
       ..strokeWidth = 1.2
       ..color = Color.lerp(colors.paper, colors.muted, .65)!;
-    _wireframe(corners, (a, b) {
-      final clipped = _clipLine(a, b);
+    forEachBoxEdge(corners, (a, b) {
+      final clipped = scene.camera.clipLine(a, b);
       if (clipped == null) return;
       final start = project(clipped.$1);
       final edge = project(clipped.$2) - start;
@@ -636,13 +622,13 @@ class DrawingPainter extends CustomPainter {
 
   void _partOutline(Canvas c, Beam b, Paint pen) {
     void line(Vector3 a, Vector3 b) {
-      if (_clipLine(a, b) case (final from, final to)) {
+      if (scene.camera.clipLine(a, b) case (final from, final to)) {
         c.drawLine(project(from), project(to), pen);
       }
     }
 
     if (b.rabbets.isEmpty) {
-      _wireframe(b.corners, line);
+      forEachBoxEdge(b.corners, line);
       return;
     }
     final section = b.sectionOutline;
@@ -653,14 +639,6 @@ class DrawingPainter extends CustomPainter {
       line(start[i], start[j]);
       line(end[i], end[j]);
       line(start[i], end[i]);
-    }
-  }
-
-  void _wireframe(List<Vector3> corners, void Function(Vector3, Vector3) line) {
-    for (var i = 0; i < corners.length; i++) {
-      for (final bit in [1, 2, 4]) {
-        if (i & bit == 0) line(corners[i], corners[i | bit]);
-      }
     }
   }
 

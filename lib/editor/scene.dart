@@ -90,6 +90,22 @@ class Camera {
       : 1;
   Vector3 towardEye(Vector3 p) =>
       perspective ? eye - (p - target) / eyeDistance : eye;
+  (Vector3, Vector3)? clipLine(Vector3 a, Vector3 b) {
+    if (perspective) {
+      final limit = eyeDistance * .95;
+      final da = (a - target).dot(eye), db = (b - target).dot(eye);
+      if (da > limit && db > limit) return null;
+      if (da > limit || db > limit) {
+        final cut = a + (b - a) * ((limit - da) / (db - da));
+        if (da > limit) {
+          a = cut;
+        } else {
+          b = cut;
+        }
+      }
+    }
+    return (a, b);
+  }
   Offset project(Vector3 p, Size s) {
     final v = p - target;
     return s.center(Offset.zero) +
@@ -343,11 +359,16 @@ class ResizeEdge {
   double distanceSquared(Offset pos) => segmentDistanceSquared(pos, start, end);
 }
 
-Offset? _closestOnSegment(Offset pos, Offset start, Offset end) {
+double? _segmentFraction(Offset pos, Offset start, Offset end) {
   final line = end - start, offset = pos - start;
   if (line.distanceSquared < .0001) return null;
   final t = (offset.dx * line.dx + offset.dy * line.dy) / line.distanceSquared;
-  return start + line * t.clamp(0.0, 1.0);
+  return t.clamp(0.0, 1.0);
+}
+
+Offset? _closestOnSegment(Offset pos, Offset start, Offset end) {
+  final t = _segmentFraction(pos, start, end);
+  return t == null ? null : start + (end - start) * t;
 }
 
 double segmentDistanceSquared(Offset pos, Offset start, Offset end) {
@@ -569,8 +590,24 @@ class Scene {
     Offset pos, {
     required bool sticky,
     SnapMode mode = SnapMode.auto,
+    Vector3? planeOrigin,
   }) {
     final surface = hit(pos);
+    final part = _partRulerTarget(pos, surface, sticky, mode);
+    if (!sticky || surface != null || project.workspaceSize == null) return part;
+    final boundary = _workspaceRulerTarget(pos, mode, planeOrigin);
+    if (part == null || boundary == null) return part ?? boundary;
+    double distance(RulerTarget t) =>
+        (camera.project(t.anchor.point, size) - pos).distance;
+    return distance(boundary) + .001 < distance(part) ? boundary : part;
+  }
+
+  RulerTarget? _partRulerTarget(
+    Offset pos,
+    SceneFace? surface,
+    bool sticky,
+    SnapMode mode,
+  ) {
     final face = surface ?? (sticky ? edgeAt(pos, surface: null)?.face : null);
     final feature = sticky
         ? snap(pos, mode: mode, only: face == null ? null : {face.beam.id})
@@ -615,6 +652,76 @@ class Scene {
       face: surface,
       guide: null,
     );
+  }
+
+  RulerTarget? _workspaceRulerTarget(Offset pos, SnapMode mode, Vector3? planeOrigin) {
+    if (mode != SnapMode.auto && mode != SnapMode.edge && mode != SnapMode.corner) {
+      return null;
+    }
+    final room = project.workspaceSize!;
+    final corners = project.workspaceCorners;
+    RulerTarget? best;
+    var bestScore = double.infinity, bestDepth = double.negativeInfinity;
+    void consider(Vector3 point, String label, (Vector3, Vector3) guide, {Offset? onLine}) {
+      final screen = camera.project(point, size);
+      final distance = ((onLine ?? screen) - pos).distance;
+      if (distance > (onLine == null ? 13 : 8)) return;
+      // Give a corner or midpoint a small capture area along the edge.
+      final score = distance - (onLine == null ? 3 : 0);
+      final depth = point.dot(camera.eye);
+      if (score > bestScore + .001 ||
+          ((score - bestScore).abs() <= .001 && depth <= bestDepth) ||
+          hit(screen) != null) {
+        return;
+      }
+      best = (anchor: Anchor.workspace(point, room, label), face: null, guide: guide);
+      bestScore = score;
+      bestDepth = depth;
+    }
+
+    void edge(Vector3 a, Vector3 b) {
+      final clipped = camera.clipLine(a, b);
+      if (clipped == null) return;
+      final (from, to) = clipped;
+      if (mode != SnapMode.edge) {
+        if (identical(from, a)) consider(a, 'Угол', clipped);
+        if (identical(to, b)) consider(b, 'Угол', clipped);
+      }
+      if (mode == SnapMode.corner) return;
+      final mid = (a + b) * .5;
+      if ((mid - from).dot(mid - to) <= 0) consider(mid, 'Середина ребра', clipped);
+      if (mode != SnapMode.auto) return;
+      final start = camera.project(from, size), end = camera.project(to, size);
+      final t = _segmentFraction(pos, start, end);
+      if (t == null) return;
+      final screen = start + (end - start) * t;
+      if ((screen - pos).distance > 8 || hit(screen) != null) return;
+      // Interpolate in world space using the projected endpoints' depth factors.
+      final x = (1 - t) * camera.projectionFactor(from);
+      final y = t * camera.projectionFactor(to);
+      final raw = from + (to - from) * (y / (x + y));
+      final direction = (b - a).normalized();
+      final offset = input.round((raw - a).dot(direction));
+      final point = a + direction * offset.clamp((from - a).dot(direction), (to - a).dot(direction));
+      consider(point, 'Ребро', clipped, onLine: screen);
+    }
+
+    // In an axis view the front and back outlines coincide. Measure on the
+    // current plane so the invisible depth does not add to the ruler length.
+    final depthAxis = camera.perspective ? null : [0, 1, 2].where((i) => camera.eye[i].abs() > 1 - 1e-12).firstOrNull;
+    if (depthAxis != null) {
+      final depth = (planeOrigin?[depthAxis] ?? 0.0).clamp(0.0, room[depthAxis]);
+      final ring = faceCorners[2 * depthAxis];
+      for (final i in ring) {
+        corners[i][depthAxis] = depth;
+      }
+      for (var i = 0; i < ring.length; i++) {
+        edge(corners[ring[i]], corners[ring[(i + 1) % ring.length]]);
+      }
+    } else {
+      forEachBoxEdge(corners, edge);
+    }
+    return best;
   }
 
   RulerTarget? _rulerLine(Offset pos, SceneFace face) {

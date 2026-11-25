@@ -91,6 +91,14 @@ const faceCorners = [
   [4, 5, 7, 6],
 ];
 
+void forEachBoxEdge(List<Vector3> corners, void Function(Vector3, Vector3) edge) {
+  for (var i = 0; i < corners.length; i++) {
+    for (final bit in [1, 2, 4]) {
+      if (i & bit == 0) edge(corners[i], corners[i | bit]);
+    }
+  }
+}
+
 typedef FaceBore = ({double u, double v, double diameter});
 
 FaceBore? _readBore(Object? data) {
@@ -380,6 +388,8 @@ class Anchor {
     _ => label,
   };
   final int? face;
+  bool get onWorkspace => beam == null && local != null;
+  bool get attached => beam != null || onWorkspace;
   Anchor(
     this.point, [
     this.beam,
@@ -388,7 +398,19 @@ class Anchor {
     this.label = 'Угол',
     this.face,
   ]);
+  Anchor.workspace(Vector3 point, Vector3 size, String label)
+    : this(
+        point,
+        null,
+        0,
+        Vector3(point.x / size.x, point.y / size.y, point.z / size.z),
+        label,
+      );
   Vector3 resolve(Project project) {
+    final size = project.workspaceSize;
+    if (onWorkspace && size != null) {
+      return local!.clone()..multiply(size);
+    }
     final stock = project.byId[beam];
     if (stock == null) return point;
     final t = local;
@@ -429,7 +451,7 @@ class Dimension {
   final bool clearance;
   final String? name;
   final bool? _locked;
-  bool get locked => _locked ?? (a.beam != null || b.beam != null);
+  bool get locked => _locked ?? (a.attached || b.attached);
   Dimension(this.a, this.b, {this.clearance = false, this.name, this._locked});
 
   Dimension copy({String? name, bool? locked}) => Dimension(
@@ -439,6 +461,16 @@ class Dimension {
     name: name ?? this.name,
     locked: locked ?? this.locked,
   );
+  Dimension _detachWorkspace(Project project) {
+    if (!a.onWorkspace && !b.onWorkspace) return this;
+    return Dimension(
+      a.onWorkspace ? Anchor(a.resolve(project)) : a,
+      b.onWorkspace ? Anchor(b.resolve(project)) : b,
+      clearance: clearance,
+      name: name,
+      locked: _locked,
+    );
+  }
   ({Vector3 from, Vector3 to, Vector3 direction})? geometry(Project p) {
     if (clearance) {
       final first = p.byId[a.beam], second = p.byId[b.beam];
@@ -588,7 +620,7 @@ class Project {
   Project withWorkspace(Vector3? size) => Project(
     name,
     beams,
-    dimensions,
+    size == null ? dimensions.map((d) => d._detachWorkspace(this)) : dimensions,
     unit,
     size,
     groupNames,

@@ -467,16 +467,17 @@ class DrawingViewportState extends State<DrawingViewport> {
   }
 
   Anchor? measurePoint(Offset pos) {
-    rulerTarget = scene.rulerTarget(
-      pos,
-      sticky: e.movementSnapping,
-      mode: e.snapMode,
-    );
-    if (rulerTarget case final target?) return target.anchor;
     final first = e.first;
     final plane = first == null
         ? e.plane
         : e.plane.through(first.resolve(e.project));
+    rulerTarget = scene.rulerTarget(
+      pos,
+      sticky: e.movementSnapping,
+      mode: e.snapMode,
+      planeOrigin: plane.origin,
+    );
+    if (rulerTarget case final target?) return target.anchor;
     final point = e.camera.onPlane(pos, size, plane);
     return point == null
         ? null
