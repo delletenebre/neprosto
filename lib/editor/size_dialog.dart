@@ -11,6 +11,7 @@ import 'controls.dart';
 import 'desktop.dart';
 import 'finish_picker.dart';
 import 'model.dart';
+import 'step.dart';
 import 'part_type_picker.dart';
 import 'controller.dart';
 import 'stock_axis.dart';
@@ -18,11 +19,18 @@ import 'stock_axis.dart';
 Future<void> showPartProperties(
   BuildContext context,
   Editor editor,
-  Offset position,
-) async {
+  Offset position, {
+  DialogSource? source,
+}) async {
   final parts = editor.selected;
   if (parts.isEmpty) return;
-  final result = await _editParts(context, editor, parts, position);
+  final result = await _editParts(
+    context,
+    editor,
+    parts,
+    position,
+    source: source,
+  );
   if (!context.mounted) return;
   editor.hoveredSize = editor.focusedSize = null;
   if (result == null ||
@@ -57,6 +65,7 @@ Future<Beam?> editPartSize(
   Beam part,
   Offset globalPoint, {
   bool creating = false,
+  DialogSource? source,
 }) async {
   final result = await _editParts(
     context,
@@ -64,6 +73,7 @@ Future<Beam?> editPartSize(
     [part],
     globalPoint,
     creating: creating,
+    source: source,
   );
   return result?.single;
 }
@@ -74,6 +84,7 @@ Future<List<Beam>?> _editParts(
   List<Beam> parts,
   Offset globalPoint, {
   bool creating = false,
+  DialogSource? source,
 }) {
   final overlay =
       Navigator.of(
@@ -106,18 +117,15 @@ Future<List<Beam>?> _editParts(
   bool locked(int i) => drafts.any((b) => b.locked(i));
   final firstEditable = StockAxis.values.indexWhere((a) => !locked(a.index));
   final valid = [true, true, true];
-  final reduceMotion = MediaQuery.disableAnimationsOf(context);
-  return showGeneralDialog<List<Beam>>(
+  return showDeskDialog<List<Beam>>(
+    source: source,
+    useSafeArea: false,
     context: context,
     barrierDismissible: true,
     barrierLabel: context.strings.closePartDimensions,
     barrierColor: const Color(0x18000000),
-    transitionDuration: reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 230),
-    transitionBuilder: (_, animation, secondary, child) => child,
-    pageBuilder: (ctx, animation, _) => AnimatedBuilder(
-      animation: animation,
+    builder: (ctx) => CustomSingleChildLayout(
+      delegate: _PartDialogLayout(origin),
       child: StatefulBuilder(
         builder: (_, update) {
           bool validSize(int i) =>
@@ -184,7 +192,7 @@ Future<List<Beam>?> _editParts(
                             placeholder: initialSizes[i] == null
                                 ? context.strings.mixedValues
                                 : multiple
-                                ? editor.project.unit.format(initialSizes[i]!)
+                                ? editor.lengthInput.format(initialSizes[i]!)
                                 : null,
                             key: ValueKey('dialog-size-$i'),
                             live: true,
@@ -260,24 +268,13 @@ Future<List<Beam>?> _editParts(
           );
         },
       ),
-      builder: (_, child) {
-        final t = Curves.easeOutCubic.transform(animation.value);
-        return CustomSingleChildLayout(
-          delegate: _PartDialogLayout(origin, t),
-          child: Transform.scale(
-            scale: .22 + .78 * t,
-            child: Opacity(opacity: animation.value, child: child),
-          ),
-        );
-      },
     ),
   );
 }
 
 class _PartDialogLayout extends SingleChildLayoutDelegate {
   final Offset origin;
-  final double progress;
-  _PartDialogLayout(this.origin, this.progress);
+  _PartDialogLayout(this.origin);
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
@@ -295,30 +292,24 @@ class _PartDialogLayout extends SingleChildLayoutDelegate {
     final x = origin.dx + gap + childSize.width <= size.width - gap
         ? origin.dx + gap
         : origin.dx - gap - childSize.width;
-    final target = Offset(
+    return Offset(
       x.clamp(gap, math.max(gap, size.width - childSize.width - gap)),
       (origin.dy - childSize.height * .45).clamp(
         gap,
         math.max(gap, size.height - childSize.height - gap),
       ),
     );
-    return Offset.lerp(
-      origin - childSize.center(Offset.zero),
-      target,
-      progress,
-    )!;
   }
 
   @override
-  bool shouldRelayout(_PartDialogLayout old) =>
-      old.origin != origin || old.progress != progress;
+  bool shouldRelayout(_PartDialogLayout old) => old.origin != origin;
 }
 
 Future<double?> editDimensionLabel(
   BuildContext context,
   Beam part,
   StockAxis axis,
-  Offset globalCenter,
+  Rect labelBounds,
 ) {
   final overlay =
       Navigator.of(
@@ -326,14 +317,16 @@ Future<double?> editDimensionLabel(
             rootNavigator: true,
           ).overlay!.context.findRenderObject()!
           as RenderBox;
-  final center = overlay.globalToLocal(globalCenter);
+  final source = DialogSource.of(context, labelBounds)!;
+  final center = overlay.globalToLocal(source.bounds.center);
   var value = part.size[axis.index], valid = true;
-  return showGeneralDialog<double>(
+  return showDeskDialog<double>(
+    source: source,
+    useSafeArea: false,
     context: context,
     barrierDismissible: false,
     barrierColor: const Color(0x00000000),
-    transitionDuration: Duration.zero,
-    pageBuilder: (ctx, _, _) {
+    builder: (ctx) {
       void apply() {
         if (valid && value >= part.minimumSize(axis.index)) {
           Navigator.pop(ctx, value);
@@ -370,6 +363,7 @@ Future<double?> editDimensionLabel(
                         apply,
                   },
                   child: Semantics(
+                    key: DeskDialogRoute.surfaceKey(ctx),
                     label: axis.label,
                     child: ValueBox(
                       part.size[axis.index],

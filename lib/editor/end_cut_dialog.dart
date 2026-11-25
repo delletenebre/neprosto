@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/strings.dart';
@@ -12,6 +13,9 @@ import 'joint.dart';
 import 'model.dart';
 import 'palette.dart';
 import 'scene.dart';
+import 'step.dart';
+
+part 'saw_settings.dart';
 
 Future<void> showEndCuts(
   BuildContext context,
@@ -24,7 +28,7 @@ Future<void> showEndCuts(
     builder: (_) => _EndCutDialog(
       part,
       editor.camera,
-      editor.project.unit,
+      editor.lengthInput,
       end ??
           (part.startCut == (y: 0.0, z: 0.0) &&
               part.endCut != (y: 0.0, z: 0.0)),
@@ -40,10 +44,10 @@ Future<void> showEndCuts(
 }
 
 class _EndCutDialog extends StatefulWidget {
-  const _EndCutDialog(this.part, this.camera, this.unit, this.initialEnd);
+  const _EndCutDialog(this.part, this.camera, this.input, this.initialEnd);
   final Beam part;
   final Camera camera;
-  final LengthUnit unit;
+  final LengthInput input;
   final bool initialEnd;
   @override
   State<_EndCutDialog> createState() => _EndCutDialogState();
@@ -74,6 +78,7 @@ class _MarkField {
 
 class _EndCutDialogState extends State<_EndCutDialog> {
   late bool end = widget.initialEnd;
+  _SawType sawType = _SawType.miter;
   late final fields = [
     for (final cut in [widget.part.startCut, widget.part.endCut])
       (
@@ -124,13 +129,14 @@ class _EndCutDialogState extends State<_EndCutDialog> {
               ),
             ),
             SizedBox(
-              height: 78,
+              height: 94,
               child: CustomPaint(
                 painter: _MarkDiagram(
                   offset / f.span,
                   end,
                   colors,
                   DefaultTextStyle.of(context).style,
+                  context.strings.start,
                 ),
               ),
             ),
@@ -142,7 +148,7 @@ class _EndCutDialogState extends State<_EndCutDialog> {
             ),
             Text(
               context.strings.cutOffsetReadout(
-                '${widget.unit.format(offset)} ${widget.unit.symbol}',
+                '${widget.input.format(offset)} ${widget.input.unit.symbol}',
               ),
               style: TextStyle(fontSize: 12, color: colors.muted),
             ),
@@ -161,6 +167,7 @@ class _EndCutDialogState extends State<_EndCutDialog> {
     ];
     final draft = widget.part.copy(startCut: cuts.first, endCut: cuts.last);
     final part = draft.size.x >= draft.minimumLength ? draft : null;
+    final saw = part == null ? null : sawAngles(part, end);
     return DeskDialog(
       title: Text(strings.endCutsTitle),
       maxWidth: 540,
@@ -199,66 +206,38 @@ class _EndCutDialogState extends State<_EndCutDialog> {
                           selection: {},
                           dimensions: false,
                         ),
-                        foregroundPainter: EndFaceOutline(
+                        foregroundPainter: _PreviewEndOutline(
                           part,
                           end,
                           camera,
-                          colors.danger,
+                          colors,
+                          strings.start,
+                          DefaultTextStyle.of(context).style,
                         ),
                       );
                     },
                   ),
           ),
-          LayoutBuilder(
-            builder: (_, box) {
-              final face = marking(current.width, strings.faceMarkAngle);
-              final edge = marking(current.thickness, strings.edgeMarkAngle);
-              return box.maxWidth < 320
-                  ? Column(
-                      spacing: 8,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [face, edge],
-                    )
-                  : Row(
-                      spacing: 8,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: face),
-                        Expanded(child: edge),
-                      ],
-                    );
-            },
+          _diagramPair(
+            marking(current.width, strings.faceMarkAngle),
+            marking(current.thickness, strings.edgeMarkAngle),
           ),
-          Text(
-            strings.cutDiagramKey,
-            style: TextStyle(fontSize: 12, color: colors.muted),
-          ),
-          if (part != null)
-            Builder(
-              builder: (_) {
-                final saw = sawAngles(part, end);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 3,
-                  children: [
-                    Text(
-                      strings.flatSawSettings,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      strings.sawSettingValues(
-                        _direction(saw.miter),
-                        _direction(saw.bevel),
-                      ),
-                    ),
-                    Text(
-                      strings.sawDirections,
-                      style: TextStyle(fontSize: 12, color: colors.muted),
-                    ),
-                  ],
-                );
-              },
+          if (saw != null) ...[
+            const Divider(height: 1),
+            DeskSegments<_SawType>(sawType, {
+              _SawType.miter: strings.mitreSaw,
+              _SawType.handheld: strings.handheldSaw,
+              _SawType.table: strings.tableSaw,
+            }, (value) => setState(() => sawType = value)),
+            Text(
+              strings.sawStockPosition,
+              style: TextStyle(fontSize: 12, color: colors.muted),
             ),
+            _diagramPair(
+              _SawSetting(tool: sawType, blade: false, angle: saw.miter),
+              _SawSetting(tool: sawType, blade: true, angle: saw.bevel),
+            ),
+          ],
         ],
       ),
       leadingAction: DeskButton(
@@ -282,27 +261,128 @@ class _EndCutDialogState extends State<_EndCutDialog> {
       ],
     );
   }
+}
 
-  String _direction(double angle) {
-    final value = mm(angle.abs());
-    if (value == '0') return value;
-    return '${angle > 0 ? '→' : '←'} $value';
+Widget _diagramPair(Widget first, Widget second) => LayoutBuilder(
+  builder: (_, box) => box.maxWidth < 320
+      ? Column(
+          spacing: 8,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [first, second],
+        )
+      : Row(
+          spacing: 8,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: first),
+            Expanded(child: second),
+          ],
+        ),
+);
+
+class _PreviewEndOutline extends EndFaceOutline {
+  _PreviewEndOutline(
+    Beam part,
+    bool end,
+    Camera camera,
+    this.colors,
+    this.startLabel,
+    this.style,
+  ) : super(part, end, camera, colors.danger);
+  final EditorPalette colors;
+  final String startLabel;
+  final TextStyle style;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    super.paint(canvas, size);
+    final start = camera.project(beam.pointAt(Vector3(0, .5, .5)), size);
+    _drawStart(
+      canvas,
+      size,
+      start,
+      startLabel,
+      style,
+      colors,
+      labelToRight: start.dx > size.width / 2,
+    );
   }
+}
+
+void _drawStart(
+  Canvas canvas,
+  Size size,
+  Offset anchor,
+  String text,
+  TextStyle style,
+  EditorPalette colors, {
+  bool offscreen = false,
+  bool labelToRight = false,
+}) {
+  final label = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: style.copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: colors.ink,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout(maxWidth: size.width);
+  final labelX = labelToRight ? anchor.dx + 14 : anchor.dx - 14 - label.width;
+  final double left = labelX.clamp(
+    0.0,
+    math.max(0.0, size.width - label.width),
+  );
+  final at = Offset(left, size.height - label.height);
+  final box = at & label.size;
+  final pen = Paint()
+    ..color = colors.muted
+    ..strokeWidth = 1.2;
+  final elbow = anchor + Offset(labelToRight ? 7 : -7, 0);
+  canvas.drawLine(anchor, elbow, pen);
+  canvas.drawLine(
+    elbow,
+    Offset(labelToRight ? box.left : box.right, box.center.dy),
+    pen,
+  );
+  if (offscreen) {
+    canvas.drawLine(anchor, anchor + const Offset(4, -3), pen);
+    canvas.drawLine(anchor, anchor + const Offset(4, 3), pen);
+  } else {
+    canvas.drawCircle(anchor, 3.5, Paint()..color = colors.paper);
+    canvas.drawCircle(anchor, 2.3, Paint()..color = colors.ink);
+  }
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(box.inflate(1), const Radius.circular(2)),
+    Paint()..color = colors.paper,
+  );
+  label.paint(canvas, at);
+  label.dispose();
 }
 
 /// Both elevations use the same local length axis, increasing to the right.
 /// Shrink both axes equally on steep cuts so the drawn angle remains true.
 class _MarkDiagram extends CustomPainter {
-  const _MarkDiagram(this.slope, this.end, this.colors, this.labelStyle);
+  const _MarkDiagram(
+    this.slope,
+    this.end,
+    this.colors,
+    this.labelStyle,
+    this.startLabel,
+  );
   final double slope;
   final bool end;
   final EditorPalette colors;
   final TextStyle labelStyle;
+  final String startLabel;
 
   @override
   void paint(Canvas canvas, Size size) {
     final midX = size.width * (end ? .62 : .38);
-    final midY = size.height / 2;
+    final diagramHeight = size.height - 18;
+    final midY = diagramHeight / 2;
     final half = math.min(midY - 11, size.width * .27 / slope.abs());
     final top = Offset(midX + half * slope, midY - half);
     final bottom = Offset(midX - half * slope, midY + half);
@@ -335,7 +415,7 @@ class _MarkDiagram extends CustomPainter {
       ..strokeWidth = 1
       ..color = colors.muted;
     canvas.drawRect(board, pen);
-    for (double y = 3; y < size.height - 3; y += 6) {
+    for (double y = 3; y < diagramHeight - 3; y += 6) {
       canvas.drawLine(Offset(midX, y), Offset(midX, y + 3), pen);
     }
     pen
@@ -378,6 +458,16 @@ class _MarkDiagram extends CustomPainter {
     );
     label.paint(canvas, at);
     label.dispose();
+    _drawStart(
+      canvas,
+      size,
+      end ? Offset(1, board.bottom) : bottom,
+      startLabel,
+      labelStyle,
+      colors,
+      offscreen: end,
+      labelToRight: end,
+    );
   }
 
   @override
@@ -385,5 +475,6 @@ class _MarkDiagram extends CustomPainter {
       old.end != end ||
       old.slope != slope ||
       old.colors != colors ||
+      old.startLabel != startLabel ||
       old.labelStyle != labelStyle;
 }

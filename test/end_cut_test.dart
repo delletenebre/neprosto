@@ -19,11 +19,11 @@ void main() {
       endCut: (y: markingOffset(45, 40)!, z: markingOffset(-45, 20)!),
     );
     final saw = sawAngles(part, true);
-    expect(saw.miter, closeTo(45, 1e-10));
+    expect(saw.miter, closeTo(-45, 1e-10));
     expect(saw.bevel, closeTo(-35.26438968, 1e-8));
     final m = saw.miter * math.pi / 180, b = saw.bevel * math.pi / 180;
     final normal =
-        (part.along * math.cos(m) - part.across * math.sin(m)) * math.cos(b) -
+        (part.along * math.cos(m) + part.across * math.sin(m)) * math.cos(b) -
         part.up * math.sin(b);
     expect(normal.distanceTo(part.faceNormal(1)), lessThan(1e-10));
     expect(stockCut(part, true), '45° +Ш · 45° −Т');
@@ -69,6 +69,11 @@ void main() {
     );
     await t.pumpAndSettle();
     final dialog = find.byType(DeskDialog);
+    Finder readout(String text) =>
+        find.descendant(of: dialog, matching: find.text(text));
+    expect(readout('Поворот стола'), findsOneWidget);
+    expect(readout('Наклон диска'), findsOneWidget);
+    expect(readout('0°'), findsNWidgets(2));
     expect(
       t
           .widget<DeskSegments<bool>>(
@@ -84,6 +89,80 @@ void main() {
       find.descendant(of: dialog, matching: find.byType(EditableText)).first,
       '-45',
     );
+    await t.pump();
+    expect(readout('45° вправо'), findsOneWidget);
+    expect(readout('0°'), findsOneWidget);
+    final tilt = find
+        .descendant(of: dialog, matching: find.byType(EditableText))
+        .last;
+    await t.enterText(tilt, '45');
+    await t.pump();
+    expect(readout('35,26° вправо'), findsOneWidget);
+    final width = find
+        .descendant(of: dialog, matching: find.byType(EditableText))
+        .first;
+    await t.enterText(width, '45');
+    await t.enterText(tilt, '-45');
+    await t.pump();
+    expect(readout('45° влево'), findsOneWidget);
+    expect(readout('35,26° влево'), findsOneWidget);
+    for (final (tool, title, setup, view) in [
+      (
+        'Ручная циркулярная',
+        'Линия пропила',
+        '45° вправо',
+        'Сзади пилы по ходу реза',
+      ),
+      (
+        'Пильный стол',
+        'Поперечный упор',
+        '45° · правый край от себя',
+        'От переднего края стола',
+      ),
+      (
+        'Торцовочная пила',
+        'Поворот стола',
+        '45° влево',
+        'От рукоятки вдоль реза',
+      ),
+    ]) {
+      await t.tap(readout(tool));
+      await t.pumpAndSettle();
+      expect(readout(title), findsOneWidget);
+      expect(readout(setup), findsOneWidget);
+      expect(readout(view), findsOneWidget);
+      expect(readout('35,26° влево'), findsOneWidget);
+      expect(editor.canUndo, isFalse);
+    }
+    await t.enterText(width, '65');
+    await t.pump();
+    expect(readout('65° влево'), findsOneWidget);
+    expect(readout('Угол за пределами показанной шкалы'), findsNothing);
+    await t.enterText(width, '0');
+    final bladeCard = find
+        .ancestor(of: readout('Наклон диска'), matching: find.byType(Container))
+        .first;
+    final disc = find.descendant(
+      of: bladeCard,
+      matching: find.byType(CustomPaint),
+    );
+    for (final angle in [45.28, -45.28, 0.0]) {
+      await t.enterText(tilt, angle.toString());
+      await t.pump();
+      expect(
+        t.renderObject(disc),
+        paints
+          ..something(
+            (method, args) =>
+                method == #rotate &&
+                ((args.single as double) - angle * math.pi / 180).abs() < 1e-8,
+          )
+          ..path(),
+      );
+      expect(readout('Угол за пределами показанной шкалы'), findsNothing);
+    }
+    await t.enterText(width, '-45');
+    await t.enterText(tilt, '0');
     await t.pump();
     await t.tap(find.descendant(of: dialog, matching: find.text('Применить')));
     await t.pumpAndSettle();

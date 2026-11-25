@@ -13,8 +13,10 @@ typedef NewProjectChoice = ({Project? template, LengthUnit unit});
 
 Future<NewProjectChoice?> chooseProjectTemplate(
   BuildContext context,
-  LengthUnit unit,
-) => showDeskDialog<NewProjectChoice>(
+  LengthUnit unit, {
+  DialogSource? source,
+}) => showDeskDialog<NewProjectChoice>(
+  source: source,
   context: context,
   builder: (_) =>
       _TemplatePicker(unit == LengthUnit.inch ? unit : LengthUnit.millimeter),

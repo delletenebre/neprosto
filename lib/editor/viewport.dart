@@ -11,6 +11,7 @@ import 'package:material_ui/material_ui.dart';
 import 'contact.dart';
 import 'controller.dart';
 import 'drawing.dart';
+import 'dialog_motion.dart';
 import 'grid_painter.dart';
 import 'model.dart';
 import 'move_snap.dart';
@@ -20,6 +21,7 @@ import 'scene.dart';
 import 'stock_sketch.dart';
 import 'size_dialog.dart';
 import 'stock_axis.dart';
+import 'step.dart';
 import 'view_cube.dart';
 
 class DrawingViewport extends StatefulWidget {
@@ -47,6 +49,17 @@ class DrawingViewportState extends State<DrawingViewport> {
       .entries
       .where((item) => item.value.inflate(2).contains(pos))
       .firstOrNull;
+  DialogSource? partDialogSource(Beam? part) {
+    if (part == null) return null;
+    final bounds = scene.faces
+        .where((face) => face.beam.id == part.id)
+        .map((face) => face.bounds)
+        .fold<Rect?>(null, (rect, face) => rect?.expandToInclude(face) ?? face);
+    return bounds == null
+        ? null
+        : DialogSource.of(context, bounds.intersect(Offset.zero & size));
+  }
+
   int buttons = 0;
   Project? before;
   Set<int> moving = {};
@@ -260,7 +273,7 @@ class DrawingViewportState extends State<DrawingViewport> {
   }
 
   Anchor? facePoint(Offset at, SceneFace face) {
-    final point = e.camera.onPlane(at, size, face.plane);
+    final point = scene.pointOnFace(at, face);
     return point == null
         ? null
         : Anchor(
@@ -426,11 +439,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     }
     final point = e.camera.onPlane(pos, size, plane);
     if (point == null) return null;
-    return Anchor(
-      e.step.enabled
-          ? plane.quantize(point, e.step.millimeters(e.project.unit))
-          : point,
-    );
+    return Anchor(plane.quantize(point, scene.input.stepMm));
   }
 
   StockSketch beginSketch(Anchor start) {
@@ -463,7 +472,9 @@ class DrawingViewportState extends State<DrawingViewport> {
         ? e.plane
         : e.plane.through(first.resolve(e.project));
     final point = e.camera.onPlane(pos, size, plane);
-    return point == null ? null : Anchor(point);
+    return point == null
+        ? null
+        : Anchor(plane.quantize(point, scene.input.stepMm));
   }
 
   void clickTool(Offset pos) {
@@ -545,8 +556,8 @@ class DrawingViewportState extends State<DrawingViewport> {
           final units = e.project.unit;
           e.message = context.strings.sketchEndHint(
             part.name,
-            units.format(part.size.y),
-            units.format(part.size.z),
+            e.lengthInput.format(part.size.y),
+            e.lengthInput.format(part.size.z),
             units.symbol,
           );
         }
@@ -603,12 +614,11 @@ class DrawingViewportState extends State<DrawingViewport> {
         e.refresh();
         return;
       }
-      final box = context.findRenderObject()! as RenderBox;
       final value = await editDimensionLabel(
         context,
         part,
         label.key,
-        box.localToGlobal(label.value.center),
+        label.value,
       );
       if (mounted &&
           value != null &&
@@ -630,7 +640,12 @@ class DrawingViewportState extends State<DrawingViewport> {
       e.select(partAtPointer.id, individual: true);
     }
     final box = context.findRenderObject()! as RenderBox;
-    await showPartProperties(context, e, box.localToGlobal(at));
+    await showPartProperties(
+      context,
+      e,
+      box.localToGlobal(at),
+      source: partDialogSource(partAtPointer),
+    );
   }
 
   Beam newPart(Vector3 origin) {
@@ -647,9 +662,7 @@ class DrawingViewportState extends State<DrawingViewport> {
 
   Vector3? pointOnWorkPlane(Offset at) {
     final point = e.camera.onPlane(at, size, e.plane);
-    return point != null && e.step.enabled
-        ? e.plane.quantize(point, e.step.millimeters(e.project.unit))
-        : point;
+    return point == null ? null : e.plane.quantize(point, scene.input.stepMm);
   }
 
   void insertPart(Beam part) {
@@ -681,12 +694,24 @@ class DrawingViewportState extends State<DrawingViewport> {
                   )
             : newPart(e.plane.origin));
     final box = context.findRenderObject()! as RenderBox;
+    final preview = painted?.preview;
+    final previewBounds = preview == null
+        ? null
+        : (Path()..addPolygon([
+            for (final p in preview.corners) e.camera.project(p, size),
+          ], true));
     final part = await editPartSize(
       context,
       e,
       draft,
       box.localToGlobal(at),
       creating: true,
+      source: previewBounds == null
+          ? null
+          : DialogSource.of(
+              context,
+              previewBounds.getBounds().intersect(Offset.zero & size),
+            ),
     );
     if (!mounted || !identical(document, e.project)) return;
     e.hoveredSize = e.focusedSize = null;
@@ -788,11 +813,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     final target = e.camera.project(anchor, size) + pos - down!;
     final point = e.camera.onPlane(target, size, plane);
     if (point == null) return;
-    final free =
-        (e.step.enabled
-            ? plane.quantize(point, e.step.millimeters(initial.unit))
-            : point) -
-        anchor;
+    final free = plane.quantize(point, scene.input.stepMm) - anchor;
     var delta = free;
     moveGuides = [];
     e.hover = null;
@@ -814,7 +835,7 @@ class DrawingViewportState extends State<DrawingViewport> {
       final gap = moveGuides.map((g) => g.gap).nonNulls.firstOrNull;
       if (gap != null) {
         e.message = context.strings.equalGapValue(
-          initial.unit.format(gap),
+          e.lengthInput.format(gap),
           initial.unit.symbol,
         );
       } else if (moveGuides.isNotEmpty) {
@@ -893,6 +914,7 @@ class DrawingViewportState extends State<DrawingViewport> {
           e,
           ev.position,
           partId: hit?.beam.id,
+          source: partDialogSource(hit?.beam),
           facePlane: hit?.plane,
           end: switch (hit?.face) {
             0 => false,
@@ -988,6 +1010,7 @@ class DrawingViewportState extends State<DrawingViewport> {
         final c = e.camera;
         final sig = (
           e.project,
+          e.lengthInput,
           e.tool,
           e.referenceId,
           e.alignment,
@@ -1019,7 +1042,7 @@ class DrawingViewportState extends State<DrawingViewport> {
               swingingDoor.id,
             }, (_) => swingingDoor.swingDoor(swing));
           }
-          cached = Scene(document, c, size);
+          cached = Scene(document, c, size, input: e.lengthInput);
           signature = sig;
         }
         if (sceneChanged && e.tool == Tool.measure && hoverPosition != null) {

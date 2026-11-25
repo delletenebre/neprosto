@@ -35,6 +35,11 @@ class _AlignmentPanelState extends State<AlignmentPanel> {
     });
   }
 
+  void closePanel() {
+    discardInput();
+    e.setTool(Tool.select);
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = e.placement;
@@ -68,35 +73,12 @@ class _AlignmentPanelState extends State<AlignmentPanel> {
         : p.offset(selected, e.manualOffset);
     final useThickness = p?.alongThickness ?? false;
     final parts = e.project.visibleGeometry.beams;
-    return ColoredBox(
-      color: context.colors.panel,
-      child: ListView(
-        primary: false,
-        padding: const EdgeInsets.all(15),
+    final form = SingleChildScrollView(
+      primary: false,
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.strings.alignment,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.strings.movingPart,
-            style: TextStyle(fontSize: 12, color: context.colors.muted),
-          ),
-          const SizedBox(height: controlGap),
-          partPicker(
-            title: context.strings.chooseThePartToMove,
-            selected: moving.id,
-            label: moving.name,
-            items: [for (final b in parts) (b.id, b.name)],
-            change: (id) {
-              if (id == moving.id) return;
-              discardInput();
-              e.select(id, individual: true);
-              e.beginAlignment();
-            },
-          ),
-          const SizedBox(height: 8),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -303,49 +285,95 @@ class _AlignmentPanelState extends State<AlignmentPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: controlGap),
-            Text(
-              valid
-                  ? context.strings.flushOffsetHint
-                  : context.strings.checkTheExpression,
-              style: TextStyle(
-                fontSize: 10.5,
-                color: valid ? context.colors.muted : context.colors.danger,
+            if (!valid) ...[
+              const SizedBox(height: controlGap),
+              Text(
+                context.strings.checkTheExpression,
+                style: TextStyle(fontSize: 10.5, color: context.colors.danger),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(6, 8, 6, 28),
+        decoration: BoxDecoration(
+          color: context.colors.panel,
+          border: Border.all(color: context.colors.line),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 5, 5, 5),
+              child: Row(
+                spacing: controlGap,
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.strings.alignment,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  DeskIcon(
+                    PhosphorIconsRegular.x,
+                    context.strings.close,
+                    closePanel,
+                    size: 14,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(child: form),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                spacing: controlGap,
+                children: [
+                  Expanded(
+                    child: DeskButton(
+                      plain: true,
+                      onPressed: closePanel,
+                      child: Text(context.strings.cancel),
+                    ),
+                  ),
+                  Expanded(
+                    child: DeskButton(
+                      primary: true,
+                      onPressed:
+                          valid &&
+                              e.hasPlacementChoice &&
+                              e.alignmentDelta.abs() > 1e-7
+                          ? () {
+                              discardInput();
+                              e.applyAlignment();
+                            }
+                          : null,
+                      child: Text(context.strings.apply),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Row(
-            spacing: controlGap,
-            children: [
-              Expanded(
-                child: DeskButton(
-                  plain: true,
-                  onPressed: () {
-                    discardInput();
-                    e.setTool(Tool.select);
-                  },
-                  child: Text(context.strings.cancel),
-                ),
-              ),
-              Expanded(
-                child: DeskButton(
-                  primary: true,
-                  onPressed:
-                      valid &&
-                          e.hasPlacementChoice &&
-                          e.alignmentDelta.abs() > 1e-7
-                      ? () {
-                          discardInput();
-                          e.applyAlignment();
-                        }
-                      : null,
-                  child: Text(context.strings.apply),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -356,7 +384,7 @@ class _AlignmentPanelState extends State<AlignmentPanel> {
     required int? selected,
     required List<(int, String)> items,
     required ValueChanged<int> change,
-    Color? marker,
+    required Color marker,
   }) => DeskMenu<int>(
     title: title,
     selected: selected,
@@ -373,12 +401,11 @@ class _AlignmentPanelState extends State<AlignmentPanel> {
       child: Row(
         spacing: controlGap,
         children: [
-          if (marker != null)
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: marker, shape: BoxShape.circle),
-            ),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: marker, shape: BoxShape.circle),
+          ),
           Expanded(
             child: Text(
               label,

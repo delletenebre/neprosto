@@ -15,6 +15,7 @@ class ProjectTabBar extends StatefulWidget {
     required this.active,
     required this.select,
     required this.create,
+    this.newProjectButton,
     required this.close,
     required this.menuItems,
     required this.onMenuAction,
@@ -24,6 +25,7 @@ class ProjectTabBar extends StatefulWidget {
   final ProjectTab active;
   final ValueChanged<ProjectTab> select, close;
   final VoidCallback create;
+  final Key? newProjectButton;
   final List<(String, String)> menuItems;
   final void Function(String action, ProjectTab tab) onMenuAction;
 
@@ -56,11 +58,13 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
   }
 
   Future<void> showTabMenu(ProjectTab tab, Offset position) async {
+    final source = DialogSource.of(GlobalObjectKey(tab).currentContext);
     final index = await showDeskPopup(
       context,
       position,
       title: tab.committed.name,
       showTitle: true,
+      source: source,
       rows: [
         DeskPopupRow(context.strings.rename, symbol: 'pencil'),
         DeskPopupRow(
@@ -71,7 +75,10 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
       ],
     );
     if (!mounted || index == null || !widget.tabs.contains(tab)) return;
-    widget.onMenuAction(index == 0 ? 'rename' : 'close', tab);
+    DialogSource.invoke(
+      source,
+      () => widget.onMenuAction(index == 0 ? 'rename' : 'close', tab),
+    );
   }
 
   Widget tabButton(ProjectTab tab, {double? width}) {
@@ -264,6 +271,7 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
             CupertinoIcons.plus,
             context.strings.newProject,
             widget.create,
+            key: widget.newProjectButton,
             borderRadius: tabRadius,
             size: macControls ? 15 : 17,
           ),
@@ -288,7 +296,8 @@ class _MacTabCloseButton extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 29, maxHeight: 28),
         child: m.TextButton(
-          onPressed: onPressed,
+          onPressed: () =>
+              DialogSource.invoke(DialogSource.of(context), onPressed),
           style:
               m.TextButton.styleFrom(
                 minimumSize: const Size.square(16),

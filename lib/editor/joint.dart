@@ -21,13 +21,13 @@ double? markingOffset(double degrees, double span) {
   return offset.abs() <= Beam.maxCutOffset ? offset : null;
 }
 
-/// Workpiece lying flat with its length running from left to right. The
-/// bevel is measured in a plane perpendicular to the rotated blade trace.
+/// Stock lies flat with its start on the operator's left. Positive angles
+/// move the front miter handle or the top of the blade to the operator's right.
 ({double miter, double bevel}) sawAngles(Beam b, bool end) {
   final cut = end ? b.endCut : b.startCut;
   final slope = cut.y / b.size.y;
   return (
-    miter: markingAngle(cut.y, b.size.y),
+    miter: -markingAngle(cut.y, b.size.y),
     bevel: markingAngle(cut.z / b.size.z, math.sqrt(1 + slope * slope)),
   );
 }

@@ -197,41 +197,59 @@ abstract class AppLocalizations {
   /// **'+Ш'**
   String get positiveWidth;
 
-  /// No description provided for @flushOffsetHint.
-  ///
-  /// In ru, this message translates to:
-  /// **'0 — заподлицо, минус — выступ'**
-  String get flushOffsetHint;
-
   /// No description provided for @xWidth.
   ///
   /// In ru, this message translates to:
   /// **'X · ширина'**
   String get xWidth;
 
-  /// No description provided for @xyTop.
+  /// No description provided for @horizontalPlane.
   ///
   /// In ru, this message translates to:
-  /// **'XY · сверху'**
-  String get xyTop;
+  /// **'Горизонтальная'**
+  String get horizontalPlane;
 
-  /// No description provided for @xzFront.
+  /// No description provided for @workPlanePurpose.
   ///
   /// In ru, this message translates to:
-  /// **'XZ · спереди'**
-  String get xzFront;
+  /// **'Где строить и перемещать детали?'**
+  String get workPlanePurpose;
+
+  /// No description provided for @horizontalPlaneExample.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как полка или столешница'**
+  String get horizontalPlaneExample;
+
+  /// No description provided for @frontPlaneExample.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как дверца шкафа'**
+  String get frontPlaneExample;
+
+  /// No description provided for @sidePlaneExample.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как боковина шкафа'**
+  String get sidePlaneExample;
+
+  /// No description provided for @partFacePlane.
+  ///
+  /// In ru, this message translates to:
+  /// **'По грани детали'**
+  String get partFacePlane;
+
+  /// No description provided for @workPlaneNeedsPart.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нужна видимая деталь на чертеже'**
+  String get workPlaneNeedsPart;
 
   /// No description provided for @yDepth.
   ///
   /// In ru, this message translates to:
   /// **'Y · глубина'**
   String get yDepth;
-
-  /// No description provided for @yzSide.
-  ///
-  /// In ru, this message translates to:
-  /// **'YZ · сбоку'**
-  String get yzSide;
 
   /// No description provided for @zHeight.
   ///
@@ -499,7 +517,7 @@ abstract class AppLocalizations {
   /// No description provided for @selectWorkPlaneFace.
   ///
   /// In ru, this message translates to:
-  /// **'Выберите грань для рабочей плоскости'**
+  /// **'Щёлкните по нужной поверхности детали на чертеже'**
   String get selectWorkPlaneFace;
 
   /// No description provided for @chooseParallelShelf.
@@ -562,23 +580,11 @@ abstract class AppLocalizations {
   /// **'Выбрать все детали'**
   String get selectAllParts;
 
-  /// No description provided for @selectFace.
-  ///
-  /// In ru, this message translates to:
-  /// **'Выбрать грань…'**
-  String get selectFace;
-
   /// No description provided for @chooseReferenceFromList.
   ///
   /// In ru, this message translates to:
   /// **'Выбрать опорную деталь из списка'**
   String get chooseReferenceFromList;
-
-  /// No description provided for @chooseThePartToMove.
-  ///
-  /// In ru, this message translates to:
-  /// **'Выбрать перемещаемую деталь'**
-  String get chooseThePartToMove;
 
   /// No description provided for @alignment.
   ///
@@ -981,6 +987,18 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Меню действий'**
   String get actionsMenu;
+
+  /// No description provided for @precision.
+  ///
+  /// In ru, this message translates to:
+  /// **'Точность'**
+  String get precision;
+
+  /// No description provided for @editingIncrement.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шаг редактирования'**
+  String get editingIncrement;
 
   /// No description provided for @measurementUnits.
   ///
@@ -1521,12 +1539,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Поставить по опоре · {shortcut}'**
   String anchorShortcut(Object shortcut);
-
-  /// No description provided for @movingPart.
-  ///
-  /// In ru, this message translates to:
-  /// **'Перемещаемая деталь'**
-  String get movingPart;
 
   /// No description provided for @movementAndRuler.
   ///
@@ -3045,6 +3057,18 @@ abstract class AppLocalizations {
   /// **'Добавить отверстие'**
   String get addHole;
 
+  /// No description provided for @holeName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название отверстия'**
+  String get holeName;
+
+  /// No description provided for @showHoleNumbers.
+  ///
+  /// In ru, this message translates to:
+  /// **'Показать номера на схеме'**
+  String get showHoleNumbers;
+
   /// No description provided for @holeDiameter.
   ///
   /// In ru, this message translates to:
@@ -3164,6 +3188,36 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Дверца вниз · петли снизу'**
   String get dropDownDoor;
+
+  /// No description provided for @hingesLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'Петли слева'**
+  String get hingesLeft;
+
+  /// No description provided for @hingesRight.
+  ///
+  /// In ru, this message translates to:
+  /// **'Петли справа'**
+  String get hingesRight;
+
+  /// No description provided for @hingesTop.
+  ///
+  /// In ru, this message translates to:
+  /// **'Петли сверху'**
+  String get hingesTop;
+
+  /// No description provided for @hingesBottom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Петли снизу'**
+  String get hingesBottom;
+
+  /// No description provided for @chooseHingeEdge.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на край дверцы'**
+  String get chooseHingeEdge;
 
   /// No description provided for @doorAngle.
   ///
@@ -3531,29 +3585,119 @@ abstract class AppLocalizations {
   /// **'Разметка по толщине'**
   String get edgeMarkAngle;
 
-  /// No description provided for @cutDiagramKey.
-  ///
-  /// In ru, this message translates to:
-  /// **'Пунктир — прямой рез (0°), штриховка — отход. На обеих схемах начало детали слева.'**
-  String get cutDiagramKey;
-
   /// No description provided for @cutOffsetReadout.
   ///
   /// In ru, this message translates to:
   /// **'Смещение {distance}'**
   String cutOffsetReadout(String distance);
 
-  /// No description provided for @flatSawSettings.
+  /// No description provided for @mitreSaw.
   ///
   /// In ru, this message translates to:
-  /// **'Торцовочная пила · деталь плашмя, начало слева'**
-  String get flatSawSettings;
+  /// **'Торцовочная пила'**
+  String get mitreSaw;
 
-  /// No description provided for @sawSettingValues.
+  /// No description provided for @handheldSaw.
   ///
   /// In ru, this message translates to:
-  /// **'Поворот стола {miter}°   ·   Наклон диска {bevel}°'**
-  String sawSettingValues(String miter, String bevel);
+  /// **'Ручная циркулярная'**
+  String get handheldSaw;
+
+  /// No description provided for @tableSaw.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пильный стол'**
+  String get tableSaw;
+
+  /// No description provided for @sawCutLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Линия пропила'**
+  String get sawCutLine;
+
+  /// No description provided for @sawCrosscutFence.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поперечный упор'**
+  String get sawCrosscutFence;
+
+  /// No description provided for @sawMiterPlan.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сверху · рукоятка снизу'**
+  String get sawMiterPlan;
+
+  /// No description provided for @sawHandPlan.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сверху · ход пилы'**
+  String get sawHandPlan;
+
+  /// No description provided for @sawTablePlan.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сверху · подача от себя'**
+  String get sawTablePlan;
+
+  /// No description provided for @sawMiterSight.
+  ///
+  /// In ru, this message translates to:
+  /// **'От рукоятки вдоль реза'**
+  String get sawMiterSight;
+
+  /// No description provided for @sawHandSight.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сзади пилы по ходу реза'**
+  String get sawHandSight;
+
+  /// No description provided for @sawTableSight.
+  ///
+  /// In ru, this message translates to:
+  /// **'От переднего края стола'**
+  String get sawTableSight;
+
+  /// No description provided for @sawFenceNear.
+  ///
+  /// In ru, this message translates to:
+  /// **'{angle}° · правый край к себе'**
+  String sawFenceNear(String angle);
+
+  /// No description provided for @sawFenceFar.
+  ///
+  /// In ru, this message translates to:
+  /// **'{angle}° · правый край от себя'**
+  String sawFenceFar(String angle);
+
+  /// No description provided for @sawStockPosition.
+  ///
+  /// In ru, this message translates to:
+  /// **'Деталь плашмя, начало слева'**
+  String get sawStockPosition;
+
+  /// No description provided for @sawTableRotation.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поворот стола'**
+  String get sawTableRotation;
+
+  /// No description provided for @sawBladeTilt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наклон диска'**
+  String get sawBladeTilt;
+
+  /// No description provided for @sawAngleLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'{angle}° влево'**
+  String sawAngleLeft(String angle);
+
+  /// No description provided for @sawAngleRight.
+  ///
+  /// In ru, this message translates to:
+  /// **'{angle}° вправо'**
+  String sawAngleRight(String angle);
 
   /// No description provided for @resetEndCut.
   ///
@@ -3572,12 +3716,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'К продольной кромке {angle}°'**
   String angleToLongEdge(String angle);
-
-  /// No description provided for @sawDirections.
-  ///
-  /// In ru, this message translates to:
-  /// **'Стрелки показывают, куда смещены линия реза у упора и верх диска.'**
-  String get sawDirections;
 
   /// No description provided for @rabbetTitle.
   ///

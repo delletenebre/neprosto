@@ -18,6 +18,7 @@ enum Tool { select, move, beam, ruler, measure, face, rotate, align, gap }
 class Editor extends ChangeNotifier {
   Project project;
   EditStep step = EditStep();
+  LengthInput get lengthInput => step.input(project.unit);
   EditorHotkeys hotkeys = EditorHotkeys();
   void Function(Project)? onDocumentChange;
   Set<int> selection = {};
@@ -35,6 +36,7 @@ class Editor extends ChangeNotifier {
   bool snapByDefault = true;
   bool dimensionsByDefault = true;
   bool showHiddenOutlines = false;
+  bool showHoleNumbers = true;
   Project get framedProject =>
       showHiddenOutlines ? project : project.visibleGeometry;
   bool dimensionTabHeld = false;

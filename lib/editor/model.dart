@@ -28,9 +28,12 @@ enum LengthUnit {
   final double factor;
   final int precision;
   const LengthUnit(this.factor, this.precision);
-  String format(double internal) {
+  String format(double internal, {int? digits}) {
     final n = internal / factor;
-    final v = n.toStringAsFixed(precision).replaceFirst(RegExp(r'\.?0+$'), '');
+    final fixed = n.toStringAsFixed(digits ?? precision);
+    final v = fixed.contains('.')
+        ? fixed.replaceFirst(RegExp(r'\.?0+$'), '')
+        : fixed;
     return v == '-0' || v.isEmpty ? '0' : v;
   }
 

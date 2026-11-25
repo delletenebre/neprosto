@@ -20,41 +20,43 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
     show PhosphorIconsRegular;
 
 void main() {
-  testWidgets('Double-clicking a parts tree row edits only that part', (
-    t,
-  ) async {
-    await t.binding.setSurfaceSize(const Size(1200, 780));
-    addTearDown(() => t.binding.setSurfaceSize(null));
-    final project = Project.bench().edit({1, 2}, (b) => b.copy(group: 1));
-    final editor = Editor(project);
-    await t.pumpWidget(NeprostoApp(editor: editor));
-    await t.pumpAndSettle();
+  testWidgets(
+    'Double-click centers a hidden row only when outlines are shown',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1200, 780));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final project = Project.bench().edit({2}, (b) => b.copy(hidden: true));
+      final editor = Editor(project)..select(1);
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
 
-    final row = find.descendant(
-      of: find.byType(PartsPanel),
-      matching: find.text(project.byId[2]!.name),
-    );
-    final name = find.byKey(const ValueKey('part-dialog-name'));
-    final at = t.getCenter(row);
-    final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: at);
-    addTearDown(mouse.removePointer);
-    await t.tapAt(at, kind: PointerDeviceKind.mouse);
-    await t.pump();
-    expect(editor.selection, {1, 2});
-    expect(name, findsNothing);
-
-    await t.pump(kDoubleTapMinTime);
-    await t.tapAt(at, kind: PointerDeviceKind.mouse);
-    await t.pumpAndSettle();
-    expect(editor.selection, {2});
-    expect(t.widget<DeskTextField>(name).initialValue, project.byId[2]!.name);
-    await t.enterText(name, 'Новая планка');
-    await t.tap(find.text('Применить'));
-    await t.pumpAndSettle();
-    expect(editor.project.byId[2]!.name, 'Новая планка');
-    expect(editor.project.byId[1], same(project.byId[1]));
-  });
+      final row = find.descendant(
+        of: find.byType(PartsPanel),
+        matching: find.text(project.byId[2]!.name),
+      );
+      final size = t.getSize(find.byKey(const Key('drawing')));
+      final middle = project.byId[2]!.pointAt(Vector3.all(.5));
+      final before = editor.camera.project(middle, size);
+      expect(before, isNot(size.center(Offset.zero)));
+      for (final outlines in [false, true]) {
+        editor.showHiddenOutlines = outlines;
+        editor.refresh();
+        await t.pumpAndSettle();
+        await t.tap(row, kind: PointerDeviceKind.mouse);
+        await t.pump(kDoubleTapMinTime);
+        await t.tap(row, kind: PointerDeviceKind.mouse);
+        await t.pumpAndSettle();
+        final expected = outlines ? size.center(Offset.zero) : before;
+        expect(
+          (editor.camera.project(middle, size) - expected).distance,
+          lessThan(.001),
+        );
+        expect(editor.selection, {1});
+        expect(editor.project, same(project));
+        expect(find.byType(DeskDialog), findsNothing);
+      }
+    },
+  );
 
   testWidgets(
     'Only user groups can be renamed and collapse by group ID',
@@ -552,7 +554,7 @@ void main() {
   });
 
   testWidgets(
-    'Parts list groups equal blanks, separates cuts and renames individual parts',
+    'Parts list shows exact names, stock dimensions and quantities in flat rows',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1320, 820));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -568,6 +570,8 @@ void main() {
         Project('Шкаф', [
           beam,
           beam.copy(id: 2, name: 'Полка 2', origin: Vector3(0, 0, 100)),
+          beam.copy(id: 4, holes: [PanelHole(40, 20, 6)]),
+          beam.copy(id: 5, size: Vector3(720, 80, 15)),
           beam.copy(
             id: 3,
             name: 'Скос',
@@ -584,22 +588,23 @@ void main() {
         of: find.byType(PartsList),
         matching: find.text(text),
       );
-      expect(inside('620'), findsOneWidget);
-      expect(inside('2'), findsOneWidget);
-      await t.tap(inside('Полка'));
-      await t.pumpAndSettle();
-      await t.tap(inside('Полка 2'));
-      await t.pumpAndSettle();
-      final rename = find.byKey(const ValueKey('rename-field'));
-      await t.enterText(
-        find.descendant(of: rename, matching: find.byType(EditableText)),
-        'Верхняя полка',
+      Finder partRow(String name, String length) => find.ancestor(
+        of: inside(name),
+        matching: find.ancestor(of: inside(length), matching: find.byType(Row)),
       );
-      await t.testTextInput.receiveAction(TextInputAction.done);
-      await t.pumpAndSettle();
-      expect(inside('Верхняя полка'), findsOneWidget);
-      final loaded = Project.decode(e.project.encode());
-      expect(loaded.byId[2]!.name, 'Верхняя полка');
+      final repeated = partRow('Полка 1', '600');
+      expect(inside('Полка 1'), findsNWidgets(2));
+      expect(partRow('Полка 1', '720'), findsOneWidget);
+      expect(partRow('Полка 2', '600'), findsOneWidget);
+      expect(partRow('Скос', '620'), findsOneWidget);
+      expect(
+        find.descendant(of: repeated, matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(of: inside('Полка 1'), matching: find.byType(DeskButton)),
+        findsNothing,
+      );
       const channel = MethodChannel('plugins.flutter.io/file_selector');
       final messenger = t.binding.defaultBinaryMessenger;
       final calls = <MethodCall>[];
@@ -619,9 +624,10 @@ void main() {
         of: find.byType(DeskSearchField),
         matching: find.byType(EditableText),
       );
-      await t.enterText(search, 'Верхняя');
+      await t.enterText(search, 'Полка 1');
       await t.pumpAndSettle();
-      expect(find.textContaining('Найдено 1 из 3'), findsOneWidget);
+      expect(find.textContaining('Найдено 3 из 5'), findsOneWidget);
+      expect(inside('Полка 2'), findsNothing);
       await t.enterText(search, 'Несуществующая');
       await t.pumpAndSettle();
       final exportButton = find.ancestor(
@@ -705,7 +711,9 @@ void main() {
       await mouse.addPointer();
       await mouse.moveTo(destination);
       await t.pump();
-      final expected = part.origin + (to - from);
+      final roundedFrom = Vector3(57, 33, 70);
+      final roundedTo = snap ? to : Vector3(410, 167, 130);
+      final expected = part.origin + (roundedTo - roundedFrom);
       expect(e.preview!.origin.distanceTo(expected), lessThan(.0001));
       await mouse.removePointer();
       await t.tapAt(destination);
@@ -821,7 +829,8 @@ void main() {
     await t.pumpAndSettle();
     final moved = painter().positionGuide!;
     expect(moved.axis, 1);
-    expect(moved.origin.distanceTo(low + axis(1)), lessThan(.001));
+    final expected = low.clone()..y = low.y.roundToDouble() + 1;
+    expect(moved.origin.distanceTo(expected), lessThan(.001));
   });
 
   testWidgets(
@@ -986,11 +995,27 @@ void main() {
       expect(find.text('Выравнивание'), findsNothing);
       expect(find.text('Перемещаемая деталь'), findsNothing);
       expect(find.text('Размеры детали'), findsOneWidget);
+      final positionField = find.byKey(const Key('position-0'));
+      final positionRect = t.getRect(positionField.hitTestable());
       await t.tap(find.text('Выровнять по опоре…'));
       await t.pumpAndSettle();
       expect(e.tool, Tool.align);
       expect(find.text('Выравнивание'), findsOneWidget);
-      expect(find.text('Размеры детали'), findsNothing);
+      expect(find.text('Размеры детали'), findsOneWidget);
+      expect(t.getRect(positionField), positionRect);
+      expect(
+        positionRect.top,
+        greaterThan(t.getRect(find.text('Применить')).bottom),
+      );
+      expect(positionField.hitTestable(), findsNothing);
+      final positionInput = find.descendant(
+        of: positionField,
+        matching: find.byType(EditableText),
+      );
+      expect(
+        t.widget<EditableText>(positionInput).focusNode.canRequestFocus,
+        isFalse,
+      );
       final pickButton = find.ancestor(
         of: find.text('На чертеже'),
         matching: find.byType(DeskButton),
@@ -1065,7 +1090,47 @@ void main() {
   );
 
   testWidgets(
-    'The reference and moving part are explicit and offsets are previewed before applying',
+    'Closing the compact alignment panel discards the preview and returns to part properties',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(980, 350));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final original = Project.bench();
+      final e = Editor(original)..select(9);
+      await t.pumpWidget(NeprostoApp(editor: e));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Выровнять по опоре…'));
+      await t.pumpAndSettle();
+      final close = find.descendant(
+        of: find.byType(Inspector),
+        matching: find.byTooltip('Закрыть'),
+      );
+      final apply = find.text('Применить');
+      final closePosition = t.getCenter(close);
+      expect(
+        closePosition.dx,
+        greaterThan(t.getRect(find.text('Выравнивание')).right),
+      );
+      final applyPosition = t.getCenter(apply);
+      final offset = find.byKey(const Key('placement-offset'));
+      await t.ensureVisible(offset);
+      await t.enterText(offset, '27');
+      await t.pumpAndSettle();
+      expect(e.displayed.byId[9]!.origin, isNot(original.byId[9]!.origin));
+      expect(t.getCenter(close.hitTestable()), closePosition);
+      expect(t.getCenter(apply.hitTestable()), applyPosition);
+      await t.tap(close);
+      await t.pumpAndSettle();
+      expect(find.text('Выравнивание'), findsNothing);
+      expect(find.text('Выровнять по опоре…'), findsOneWidget);
+      expect(e.tool, Tool.select);
+      expect(e.single?.id, 9);
+      expect(e.displayed, same(original));
+      expect(e.canUndo, isFalse);
+    },
+  );
+
+  testWidgets(
+    'Alignment previews offsets and moves only the selected part',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1320, 850));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -1075,6 +1140,8 @@ void main() {
       final before = e.project;
       await t.tap(find.text('Выровнять по опоре…'));
       await t.pumpAndSettle();
+      expect(find.text('Перемещаемая деталь'), findsNothing);
+      expect(find.byTooltip('Выбрать перемещаемую деталь'), findsNothing);
       await t.tap(find.byTooltip('Выбрать опорную деталь из списка'));
       await t.pumpAndSettle();
       await t.tap(find.text('Ножка 2').last);
@@ -1108,11 +1175,7 @@ void main() {
         t.getRect(offsetBox).left - t.getRect(offsetLabel).right,
         greaterThanOrEqualTo(6),
       );
-      expect(
-        t.getRect(find.textContaining('заподлицо')).top -
-            t.getRect(offsetBox).bottom,
-        greaterThanOrEqualTo(6),
-      );
+      expect(find.text('0 — заподлицо, минус — выступ'), findsNothing);
       expect(e.displayed, same(before));
       expect(e.canUndo, isFalse);
       final field = find.descendant(
@@ -1121,11 +1184,12 @@ void main() {
       );
       await t.enterText(field, '-25/2');
       await t.pumpAndSettle();
-      expect(e.manualOffset, -12.5);
+      expect(e.manualOffset, -13);
       expect(e.project, same(before));
       final expected = e.displayed.byId[9]!.origin;
       await t.enterText(field, '8/0');
       await t.pumpAndSettle();
+      expect(find.text('Проверьте выражение'), findsOneWidget);
       expect(
         t
             .widget<DeskButton>(
@@ -1142,14 +1206,16 @@ void main() {
       await t.tap(find.text('Применить'));
       await t.pumpAndSettle();
       expect(e.single!.origin, expected);
+      expect(e.single!.id, 9);
+      for (final part in before.beams.where((part) => part.id != 9)) {
+        expect(e.project.byId[part.id]!.origin, part.origin);
+      }
       expect(e.suggestedPlacement?.reference.id, 6);
-      await t.tap(find.text('Выровнять по опоре…'));
-      await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Выбрать перемещаемую деталь'));
-      await t.pumpAndSettle();
-      await t.tap(find.text('Ножка 1').last);
+      await t.tap(find.text('Ножка 1').first);
       await t.pumpAndSettle();
       expect(e.single?.id, 5);
+      await t.tap(find.text('Выровнять по опоре…'));
+      await t.pumpAndSettle();
       // A post's width is along X, so its controls show left and right edges.
       await t.tap(find.text('По ширине'));
       await t.pumpAndSettle();
@@ -1975,13 +2041,16 @@ void main() {
       await t.pumpAndSettle();
       expect(e.single!.size.y, closeTo(12.7, 1e-9));
       expect(t.widget<DeskTextField>(width).controller!.text, '0.5');
-      await t.tap(find.text('Шаг · 0.0625'));
+      await t.tap(find.text('Шаг · 1/16″'));
       await t.pumpAndSettle();
       final step = find.descendant(
         of: find.byType(DeskDialog),
         matching: find.byType(DeskTextField),
       );
-      await t.enterText(step, '1/4');
+      await t.enterText(step, '0.25');
+      await t.testTextInput.receiveAction(TextInputAction.done);
+      await t.pumpAndSettle();
+      expect(t.widget<DeskTextField>(step).controller!.text, '1/4');
       await t.tap(find.text('Готово'));
       await t.pumpAndSettle();
       expect(e.step.value(LengthUnit.inch), .25);
@@ -1992,7 +2061,7 @@ void main() {
       await t.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await t.pumpAndSettle();
       expect(e.single!.size.y, closeTo(19.05, 1e-8));
-      await t.tap(find.text('Шаг · 0.25'));
+      await t.tap(find.text('Шаг · 1/4″'));
       await t.pumpAndSettle();
       await t.tap(find.byType(DeskSwitch).last);
       await t.pumpAndSettle();
@@ -2278,7 +2347,7 @@ void main() {
     await t.binding.setSurfaceSize(const Size(1260, 800));
     addTearDown(() => t.binding.setSurfaceSize(null));
     final project = Project.bench().edit({1, 5}, (b) => b.copy(group: 1));
-    final e = Editor(project)..select(2);
+    final e = Editor(project)..selectAll();
     await t.pumpWidget(NeprostoApp(editor: e));
     await t.pumpAndSettle();
     final part = e.project.byId[5]!;
@@ -2289,14 +2358,21 @@ void main() {
     await mouse.moveTo(t.getCenter(row));
     await t.pumpAndSettle();
     final scale = e.camera.scale;
-    await t.tap(
+    expect(
       find.descendant(
         of: row,
         matching: find.byIcon(PhosphorIconsRegular.crosshair),
       ),
+      findsNothing,
     );
+    await t.tap(row, kind: PointerDeviceKind.mouse);
+    await t.pump(kDoubleTapMinTime);
+    expect(e.selection, {1, 5});
+    expect(e.camera.scale, scale);
+    await t.tap(row, kind: PointerDeviceKind.mouse);
     await t.pumpAndSettle();
     expect(e.selection, {part.id});
+    expect(find.byType(DeskDialog), findsNothing);
     final size = t.getSize(find.byKey(const Key('drawing')));
     final middle = e.camera.project(part.pointAt(Vector3.all(.5)), size);
     expect((middle - size.center(Offset.zero)).distance, lessThan(.001));

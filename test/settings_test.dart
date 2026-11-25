@@ -181,25 +181,43 @@ void main() {
             .value,
         LengthUnit.centimeter,
       );
+      expect(find.text('1/16″'), findsNothing);
       await tap('Дюймы');
-      expect(stepText(), '0.0625');
-      await t.enterText(field, '1/4');
+      expect(stepText(), '1/16');
+      expect(
+        t.getBottomLeft(find.text('Шаг редактирования')).dy,
+        lessThan(t.getTopLeft(find.text('1/100″')).dy),
+      );
+      await tap('1/32″');
+      expect(stepText(), '1/32');
+      await tap('Шаг редактирования');
+      expect(field, findsNothing);
+      expect(find.text('1/100″'), findsNothing);
+      expect(find.text('1/32″'), findsNothing);
+      await tap('Шаг редактирования');
+      expect(stepText(), '1/32');
+      await tap('1/16″');
+      expect(stepText(), '1/16');
+      await tap('1/100″');
+      expect(stepText(), '1/100');
       await tap('Отмена');
       expect(editor.project, same(project));
       expect(editor.step.value(LengthUnit.inch), 1 / 16);
 
       await tap('Шаг · 1');
       await tap('Миллиметры');
+      await tap('0.1 мм');
+      expect(stepText(), '0.1');
       await t.enterText(field, '5');
       await tap('Дюймы');
-      await t.enterText(field, '1/8');
+      await tap('1/8″');
       await tap('Миллиметры');
       expect(stepText(), '5');
       await tap('Дюймы');
-      expect(stepText(), '0.125');
+      expect(stepText(), '1/8');
       await tap('Готово');
       expect(find.byTooltip('″'), findsOneWidget);
-      expect(find.text('Шаг · 0.125'), findsOneWidget);
+      expect(find.text('Шаг · 1/8″'), findsOneWidget);
       expect(editor.step.value(LengthUnit.millimeter), 5);
       expect(editor.project.unit, LengthUnit.inch);
       expect(editor.project.beams.first.size, project.beams.first.size);

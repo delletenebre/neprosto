@@ -19,6 +19,7 @@ Future<void> showDrawingMenu(
   Editor editor,
   Offset position, {
   int? partId,
+  DialogSource? source,
   WorkPlane? facePlane,
   bool? end,
   VoidCallback? addHere,
@@ -237,6 +238,7 @@ Future<void> showDrawingMenu(
     title: heading,
     rows: rows,
     showTitle: true,
+    source: source,
   );
   if (index == null ||
       !context.mounted ||
@@ -245,5 +247,5 @@ Future<void> showDrawingMenu(
     return;
   }
   editor.setTool(Tool.select);
-  actions[index]();
+  DialogSource.invoke(source, actions[index]);
 }

@@ -16,6 +16,7 @@ import 'arithmetic.dart';
 import 'model.dart';
 import 'controller.dart';
 import 'stock_axis.dart';
+import 'step.dart';
 
 const double inspectorFieldWidth = 92;
 
@@ -117,14 +118,101 @@ Widget sectionTitle(String label, {Widget? trailing}) => Row(
 );
 
 class Units extends InheritedWidget {
-  const Units(this.unit, this.step, {super.key, required super.child});
-  final double? step;
-  final LengthUnit unit;
-  static LengthUnit of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<Units>()?.unit ??
-      LengthUnit.millimeter;
+  const Units(this.input, {super.key, required super.child});
+  final LengthInput input;
+  static LengthInput of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<Units>()?.input ??
+      (unit: LengthUnit.millimeter, increment: null);
   @override
-  bool updateShouldNotify(Units old) => old.unit != unit || old.step != step;
+  bool updateShouldNotify(Units old) => old.input != input;
+}
+
+/// Keeps untouched geometry exact while its text is shown at editing precision.
+class LengthEditingController extends TextEditingController {
+  LengthEditingController(this.input, double? value)
+    : _original = value,
+      super(text: value == null ? '' : input.format(value));
+
+  final LengthInput input;
+  double? _original;
+  double? get millimeters => _original ?? input.parse(text);
+  void edited() => _original = null;
+
+  void setMillimeters(double? mm) {
+    _original = mm;
+    text = mm == null ? '' : input.format(mm);
+  }
+}
+
+class DraftLengthField extends StatefulWidget {
+  const DraftLengthField(this.controller, this.changed, {super.key});
+  final LengthEditingController controller;
+  final VoidCallback changed;
+  @override
+  State<DraftLengthField> createState() => _DraftLengthFieldState();
+}
+
+class _DraftLengthFieldState extends State<DraftLengthField> {
+  final focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    focus.addListener(normalize);
+    focus.onKeyEvent = (_, event) {
+      final field = widget.controller;
+      final step = field.input.stepMm, value = field.millimeters;
+      if (event is KeyUpEvent || step == null || value == null) {
+        return KeyEventResult.ignored;
+      }
+      final key = event.logicalKey;
+      if (key != LogicalKeyboardKey.arrowUp &&
+          key != LogicalKeyboardKey.arrowDown) {
+        return KeyEventResult.ignored;
+      }
+      field.setMillimeters(
+        field.input.round(
+          value + (key == LogicalKeyboardKey.arrowUp ? step : -step),
+        ),
+      );
+      widget.changed();
+      return KeyEventResult.handled;
+    };
+  }
+
+  void normalize() {
+    final field = widget.controller;
+    if (focus.hasFocus) return;
+    if (field.millimeters case final mm?) {
+      field.setMillimeters(mm);
+    }
+  }
+
+  @override
+  void dispose() {
+    focus.removeListener(normalize);
+    focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => DeskTextField(
+    controller: widget.controller,
+    focusNode: focus,
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    onChanged: (_) {
+      widget.controller.edited();
+      widget.changed();
+    },
+    onSubmitted: (_) => focus.unfocus(),
+    suffix: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      child: Text(
+        widget.controller.input.unit.symbol,
+        style: TextStyle(fontSize: 12, color: context.colors.muted),
+      ),
+    ),
+  );
 }
 
 class ValueBox extends StatefulWidget {
@@ -133,6 +221,7 @@ class ValueBox extends StatefulWidget {
     this.changed, {
     super.key,
     this.unit,
+    this.formatValue,
     this.signed = false,
     this.live = false,
     this.autofocus = false,
@@ -145,6 +234,7 @@ class ValueBox extends StatefulWidget {
   });
   final double? value;
   final String? unit, placeholder;
+  final String Function(double)? formatValue;
   final bool signed, live, autofocus, enabled;
   final VoidCallback? onSubmitted, onCleared;
   final ValueChanged<bool>? onValidityChanged;
@@ -156,28 +246,29 @@ class ValueBox extends StatefulWidget {
 
 class _ValueBoxState extends State<ValueBox> {
   final text = TextEditingController();
-  LengthUnit units = LengthUnit.millimeter;
-  String format(double? n) => n == null
-      ? ''
-      : widget.unit == null
-      ? units.format(n)
-      : mm(n);
+  LengthInput input = (unit: LengthUnit.millimeter, increment: null);
+  bool edited = false;
+  String format(double? n) {
+    if (n == null) return '';
+    if (widget.formatValue case final formatter?) return formatter(n);
+    return widget.unit == null ? input.format(n) : mm(n);
+  }
+
   bool get cleared => widget.onCleared != null && text.text.trim().isEmpty;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final scope = context.dependOnInheritedWidgetOfExactType<Units>();
-    final next = scope?.unit ?? LengthUnit.millimeter;
-    increment = widget.unit == null ? scope?.step : 1;
-    if (text.text.isEmpty || next != units) {
-      units = next;
+    final next = Units.of(context);
+    if (text.text.isEmpty || next != input) {
+      input = next;
+      edited = false;
       text.text = format(widget.value);
     }
   }
 
   final focus = FocusNode();
-  double? increment;
   KeyEventResult arrow(FocusNode node, KeyEvent ev) {
+    final increment = widget.unit == null ? input.stepMm : 1.0;
     if (!widget.enabled || ev is KeyUpEvent || increment == null) {
       return KeyEventResult.ignored;
     }
@@ -189,7 +280,8 @@ class _ValueBoxState extends State<ValueBox> {
     if (dir == 0) return KeyEventResult.ignored;
     final base = parse(text.text) ?? widget.value;
     if (base == null) return KeyEventResult.ignored;
-    final n = base + dir * increment!;
+    final sum = base + dir * increment;
+    final n = widget.unit == null ? input.round(sum) : sum;
     if (widget.signed || n > 0) {
       text.text = format(n);
       text.selection = TextSelection(
@@ -223,17 +315,15 @@ class _ValueBoxState extends State<ValueBox> {
   }
 
   double? parse(String s) {
-    final result = calculate(s);
-    final n = result == null
-        ? null
-        : result * (widget.unit == null ? units.factor : 1);
+    final n = widget.unit == null ? input.parse(s) : calculate(s);
     return n != null && n.isFinite && n.abs() <= 1e8 && (widget.signed || n > 0)
         ? n
         : null;
   }
 
   void _commit() {
-    if (text.text == format(widget.value)) return;
+    if (!edited && text.text == format(widget.value)) return;
+    edited = false;
     if (!widget.enabled) {
       text.text = format(widget.value);
       return;
@@ -286,21 +376,21 @@ class _ValueBoxState extends State<ValueBox> {
           focus.unfocus();
         }
       },
-      onChanged: widget.live
-          ? (s) {
-              final n = parse(s);
-              if (cleared) {
-                widget.onCleared!();
-              } else if (n != null) {
-                widget.changed(n);
-              }
-              widget.onValidityChanged?.call(cleared || n != null);
-            }
-          : null,
+      onChanged: (s) {
+        edited = true;
+        if (!widget.live) return;
+        final n = parse(s);
+        if (cleared) {
+          widget.onCleared!();
+        } else if (n != null) {
+          widget.changed(n);
+        }
+        widget.onValidityChanged?.call(cleared || n != null);
+      },
       suffix: Padding(
         padding: const EdgeInsets.only(right: 6),
         child: Text(
-          widget.unit ?? units.symbol,
+          widget.unit ?? input.unit.symbol,
           style: TextStyle(
             fontSize: 10,
             color: widget.enabled

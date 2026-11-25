@@ -12,6 +12,7 @@ import 'package:neprosto/editor/grid_visibility.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/editor/view_cube.dart';
+import 'package:neprosto/editor/work_plane_picker.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
@@ -211,6 +212,75 @@ void main() {
       await t.pumpAndSettle();
       expect(e.gridVisibility.automatic, isTrue);
       expect(e.gridVisibility.planes, {GridPlane.yz});
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
+
+  testWidgets(
+    'Work plane examples select the matching plane or a face in the drawing',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1260, 800));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final e = Editor(Project.bench());
+      await t.pumpWidget(NeprostoApp(editor: e));
+      await t.pumpAndSettle();
+      final picker = find.byType(WorkPlanePicker);
+      Future<void> open() async {
+        await t.tap(picker);
+        await t.pumpAndSettle();
+      }
+
+      for (final (example, title, axes) in [
+        ('Как дверца шкафа', 'Фронтальная', 'XZ'),
+        ('Как боковина шкафа', 'Боковая', 'YZ'),
+        ('Как полка или столешница', 'Горизонтальная', 'XY'),
+      ]) {
+        await open();
+        expect(find.text(axes), findsOneWidget);
+        await t.tap(find.text(example));
+        await t.pumpAndSettle();
+        expect(e.plane.name, axes);
+        expect(
+          find.descendant(of: picker, matching: find.textContaining(title)),
+          findsOneWidget,
+        );
+      }
+
+      await open();
+      await t.tap(find.text('По грани детали'));
+      await t.pumpAndSettle();
+      expect(e.tool, Tool.face);
+      expect(e.plane.name, 'XY');
+      final drawing = find.byKey(const Key('drawing'));
+      final part = e.project.beams.first;
+      final point = e.camera.project(
+        part.pointAt(Vector3.all(.5)),
+        t.getSize(drawing),
+      );
+      await t.tapAt(t.getTopLeft(drawing) + point);
+      await t.pumpAndSettle();
+      expect(e.tool, Tool.select);
+      expect(e.plane.name, 'Грань');
+      expect(
+        find.descendant(
+          of: picker,
+          matching: find.textContaining('По грани детали'),
+        ),
+        findsOneWidget,
+      );
+
+      e.setPartsHidden(e.project.byId.keys.toSet(), true);
+      await t.pumpAndSettle();
+      await open();
+      final unavailable = find.text('Нужна видимая деталь на чертеже');
+      expect(unavailable, findsOneWidget);
+      await t.tap(unavailable);
+      await t.pumpAndSettle();
+      expect(unavailable, findsOneWidget);
+      expect(e.tool, Tool.select);
     },
     variant: TargetPlatformVariant({
       TargetPlatform.macOS,

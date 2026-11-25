@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:excel/excel.dart' show Excel;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,6 +9,7 @@ import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
 import 'package:neprosto/editor/scene.dart';
+import 'package:neprosto/editor/step.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
@@ -121,8 +124,10 @@ void main() {
     (t) async {
       await t.binding.setSurfaceSize(const Size(1320, 880));
       addTearDown(() => t.binding.setSurfaceSize(null));
-      final e = Editor(Project('', [blank], [], LengthUnit.centimeter))
-        ..select(blank.id, individual: true);
+      final shelf = blank.copy(size: Vector3(1200, 600, 20));
+      final e = Editor(Project('', [shelf], [], LengthUnit.centimeter))
+        ..step = EditStep(enabled: false)
+        ..select(shelf.id, individual: true);
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
       final dialog = find.byType(DeskDialog);
@@ -158,6 +163,21 @@ void main() {
           null;
 
       await open();
+      final diagram = t.getRect(find.byKey(const ValueKey('rabbet-section')));
+      expect(diagram.height, lessThanOrEqualTo(56));
+      for (final edge in RabbetEdge.values) {
+        final marker = find.bySemanticsLabel(edge.label);
+        expect(find.text(edge.label), findsNothing);
+        final bounds = t.getRect(marker);
+        expect(bounds.center.dx > diagram.center.dx, edge.right);
+        expect(bounds.center.dy < diagram.center.dy, edge.top);
+        await t.tap(marker);
+        await t.pumpAndSettle();
+        expect(
+          t.getSemantics(marker).flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+      }
       await enter(0, '1,2');
       expect(getEnabled(), isFalse);
       await enter(1, '2');
@@ -165,12 +185,11 @@ void main() {
       await enter(1, '0,8');
       expect(getEnabled(), isTrue);
       await action('Отмена');
-      expect(e.single, same(blank));
+      expect(e.single, same(shelf));
       await open();
       await enter(0, '1,2');
       await enter(1, '0,8');
-      final diagram = t.getRect(find.byKey(const ValueKey('rabbet-section')));
-      await t.tapAt(diagram.center + const Offset(25, 20));
+      await t.tapAt(Offset.lerp(diagram.center, diagram.bottomRight, .5)!);
       await t.pumpAndSettle();
       await enter(0, '1/2');
       await enter(1, '0,5');
@@ -180,11 +199,12 @@ void main() {
         RabbetEdge.bottomRight: (width: 5, depth: 5),
       });
       e.undo();
-      expect(e.single, same(blank));
+      expect(e.single, same(shelf));
       e.redo();
       await t.pumpAndSettle();
       await open();
-      await action('Верхнее левое');
+      await t.tap(find.bySemanticsLabel('Верхнее левое'));
+      await t.pumpAndSettle();
       await action('Убрать фальц');
       await action('Применить');
       expect(e.single!.rabbets.keys, [RabbetEdge.bottomRight]);

@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart'
+    show listEquals, precisionErrorTolerance;
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/strings.dart';
-import 'arithmetic.dart';
+import 'controls.dart';
 import 'controller.dart';
 import 'desk_text_field.dart';
+import 'step.dart';
 import 'desktop.dart';
 import 'model.dart';
 import 'palette.dart';
@@ -18,7 +21,7 @@ Future<void> showPanelHoles(
 ) async {
   final holes = await showDeskDialog<List<PanelHole>>(
     context: context,
-    builder: (_) => _HoleDialog(part, editor.project.unit),
+    builder: (_) => _HoleDialog(part, editor),
   );
   if (holes != null &&
       context.mounted &&
@@ -29,27 +32,31 @@ Future<void> showPanelHoles(
 }
 
 class _HoleDraft {
-  _HoleDraft(this.original, this.unit)
-    : fromEnd = original.fromEnd,
+  _HoleDraft(this.original, this.input)
+    : name = original.name,
+      fromEnd = original.fromEnd,
       fromFar = original.fromFarEdge,
       blind = original.depth != null,
       back = original.back;
   final PanelHole original;
-  final LengthUnit unit;
+  final LengthInput input;
+  String name;
   bool fromEnd, fromFar, blind, back;
-  TextEditingController field(double n) =>
-      TextEditingController(text: unit.format(n));
-  late final x = field(original.x),
-      y = field(original.y),
-      diameter = field(original.diameter),
-      depth = field(original.depth ?? 12);
-  double? read(TextEditingController field, double initial) {
-    if (field.text == unit.format(initial)) return initial;
-    final n = calculate(field.text);
-    return n == null ? null : n * unit.factor;
-  }
+  late final x = LengthEditingController(input, original.x),
+      y = LengthEditingController(input, original.y),
+      diameter = LengthEditingController(input, original.diameter),
+      depth = LengthEditingController(input, original.depth ?? 12);
+  // Keep a drawable footprint while a field contains an unfinished expression.
+  late double previewX = x.millimeters ?? original.x,
+      previewY = y.millimeters ?? original.y,
+      previewDiameter = original.diameter;
 
-  late double referenceX = original.x, referenceY = original.y;
+  void updatePreview() {
+    previewX = x.millimeters ?? previewX;
+    previewY = y.millimeters ?? previewY;
+    final value = diameter.millimeters;
+    if (value != null && value > 0) previewDiameter = value;
+  }
 
   void setReference({
     required bool end,
@@ -57,28 +64,28 @@ class _HoleDraft {
     required Vector3 size,
   }) {
     if (end != fromEnd) {
-      final value = read(x, referenceX);
+      final value = x.millimeters;
+      previewX = size.x - (value ?? previewX);
       if (value != null) {
-        referenceX = size.x - value;
-        x.text = unit.format(referenceX);
+        x.setMillimeters(previewX);
       }
       fromEnd = end;
     }
     if (far != fromFar) {
-      final value = read(y, referenceY);
+      final value = y.millimeters;
+      previewY = size.y - (value ?? previewY);
       if (value != null) {
-        referenceY = size.y - value;
-        y.text = unit.format(referenceY);
+        y.setMillimeters(previewY);
       }
       fromFar = far;
     }
   }
 
   PanelHole? get hole {
-    final a = read(x, referenceX),
-        b = read(y, referenceY),
-        d = read(diameter, original.diameter),
-        z = read(depth, original.depth ?? 12);
+    final a = x.millimeters,
+        b = y.millimeters,
+        d = diameter.millimeters,
+        z = depth.millimeters;
     if (a == null || b == null || d == null || (blind && z == null)) {
       return null;
     }
@@ -86,6 +93,7 @@ class _HoleDraft {
       a,
       b,
       d,
+      name: name,
       depth: blind ? z : null,
       back: blind && back,
       fromEnd: fromEnd,
@@ -101,24 +109,44 @@ class _HoleDraft {
 }
 
 class _HoleDialog extends StatefulWidget {
-  const _HoleDialog(this.part, this.unit);
+  _HoleDialog(this.part, this.editor) : input = editor.lengthInput;
   final Beam part;
-  final LengthUnit unit;
+  final Editor editor;
+  final LengthInput input;
   @override
   State<_HoleDialog> createState() => _HoleDialogState();
 }
 
 class _HoleDialogState extends State<_HoleDialog> {
   late final drafts = [
-    for (final h in widget.part.holes) _HoleDraft(h, widget.unit),
+    for (final h in widget.part.holes) _HoleDraft(h, widget.input),
   ];
+  final listScroll = ScrollController();
   int selected = 0;
   late bool viewBack = current?.blind == true ? current!.back : !upright;
   bool get flipped => viewBack == upright;
   void selectHole(int index) {
     selected = index;
     if (current?.blind == true) viewBack = current!.back;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !listScroll.hasClients) return;
+      final position = listScroll.position;
+      final top = rowHeight * selected;
+      final bottom = top + rowHeight;
+      if (top < position.pixels) {
+        listScroll.jumpTo(top);
+      } else if (bottom > position.pixels + position.viewportDimension) {
+        listScroll.jumpTo(
+          math.min(
+            position.maxScrollExtent,
+            bottom - position.viewportDimension,
+          ),
+        );
+      }
+    });
   }
+
+  double get rowHeight => 14 + MediaQuery.textScalerOf(context).scale(14) * 3;
 
   _HoleDraft? get current => drafts.elementAtOrNull(selected);
   Vector3 get size => widget.part.size;
@@ -129,6 +157,7 @@ class _HoleDialogState extends State<_HoleDialog> {
 
   @override
   void dispose() {
+    listScroll.dispose();
     for (final draft in drafts) {
       draft.dispose();
     }
@@ -190,15 +219,15 @@ class _HoleDialogState extends State<_HoleDialog> {
       }
     }
     final h = PanelHole(
-      lineAlongWidth ? inset : position,
-      lineAlongWidth ? position : inset,
+      widget.input.round(lineAlongWidth ? inset : position),
+      widget.input.round(lineAlongWidth ? position : inset),
       diameter,
       fromEnd: lineAlongWidth && far,
       fromFarEdge: !lineAlongWidth && far,
       depth: depth,
       back: back,
     );
-    drafts.add(_HoleDraft(h, widget.unit));
+    drafts.add(_HoleDraft(h, widget.input));
     selectHole(drafts.length - 1);
   }
 
@@ -208,27 +237,22 @@ class _HoleDialogState extends State<_HoleDialog> {
     spacing: 5,
     children: [
       Text(label, style: TextStyle(fontSize: 12, color: context.colors.muted)),
-      child,
+      ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: child,
+      ),
     ],
   );
 
-  Widget number(String label, String key, TextEditingController controller) =>
+  Widget number(String label, String key, LengthEditingController controller) =>
       labeled(
         label,
         Semantics(
           label: label,
-          child: DeskTextField(
+          child: DraftLengthField(
+            controller,
+            () => setState(current!.updatePreview),
             key: ValueKey(key),
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            suffix: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 7),
-              child: Text(
-                widget.unit.symbol,
-                style: TextStyle(fontSize: 12, color: context.colors.muted),
-              ),
-            ),
-            onChanged: (_) => setState(() {}),
           ),
         ),
       );
@@ -287,7 +311,7 @@ class _HoleDialogState extends State<_HoleDialog> {
     );
   }
 
-  Widget diagram(double angle) {
+  Widget diagram(double angle, Set<int> invalid) {
     final s = context.strings;
     final part = widget.part;
     final horizontalAxis = upright ? part.across : part.along;
@@ -362,8 +386,12 @@ class _HoleDialogState extends State<_HoleDialog> {
           width: rect.width * cosine.abs(),
           height: rect.height,
         );
-        Offset center(PanelHole h) {
-          final x = h.centerX(size), y = h.centerY(size);
+        Offset center(_HoleDraft draft) {
+          // Pin an off-panel centre to its edge so it can still be picked.
+          final x = (draft.fromEnd ? size.x - draft.previewX : draft.previewX)
+              .clamp(0.0, size.x);
+          final y = (draft.fromFar ? size.y - draft.previewY : draft.previewY)
+              .clamp(0.0, size.y);
           return Offset(
             faceRect.center.dx +
                 ((upright ? y : x) - width / 2) * scale * cosine,
@@ -371,31 +399,48 @@ class _HoleDialogState extends State<_HoleDialog> {
           );
         }
 
-        final marks = [for (final d in drafts) d.hole];
-        int? hit(Offset at) {
-          for (var i = marks.length - 1; i >= 0; i--) {
-            final h = marks[i];
-            if (h != null &&
-                (h.depth == null || h.back == back) &&
-                (center(h) - at).distance <=
-                    math.max(6, h.diameter * scale / 2)) {
-              return i;
-            }
-          }
-          return null;
-        }
+        final marks = <_HoleMark>[
+          for (final (i, d) in drafts.indexed)
+            if (!d.blind || d.back == back)
+              (
+                index: i,
+                center: center(d),
+                radius: math.min(
+                  d.previewDiameter * scale / 2,
+                  box.biggest.shortestSide / 2,
+                ),
+                selected: i == selected,
+                blind: d.blind,
+                invalid: invalid.contains(i),
+              ),
+        ];
+        final painter = _HoleDiagram(
+          faceRect,
+          faceShift * 2,
+          cosine.abs(),
+          context.colors,
+          current == null ? null : origin(current!, cosine < 0),
+          marks,
+        );
 
         void place(Offset at) {
           if (current == null) add();
           final d = current!;
-          final horizontal =
-              ((at.dx - faceRect.center.dx) / (scale * cosine) + width / 2)
-                  .clamp(0.0, width);
-          final vertical = ((rect.bottom - at.dy) / scale).clamp(0.0, height);
+          // Global-to-local pointer conversion can shift an exact centre click
+          // by a fraction of a pixel and round a half-step the other way.
+          double coordinate(double pixels, double pixelsPerMm, double extent) {
+            if (pixels.abs() < precisionErrorTolerance) return extent / 2;
+            return (extent / 2 + pixels / pixelsPerMm).clamp(0.0, extent);
+          }
+
+          final delta = at - faceRect.center;
+          final horizontal = coordinate(delta.dx, scale * cosine, width);
+          final vertical = coordinate(-delta.dy, scale, height);
           final x = upright ? vertical : horizontal,
               y = upright ? horizontal : vertical;
-          d.x.text = widget.unit.format(d.fromEnd ? size.x - x : x);
-          d.y.text = widget.unit.format(d.fromFar ? size.y - y : y);
+          d.x.setMillimeters(widget.input.round(d.fromEnd ? size.x - x : x));
+          d.y.setMillimeters(widget.input.round(d.fromFar ? size.y - y : y));
+          d.updatePreview();
         }
 
         return Stack(
@@ -403,12 +448,13 @@ class _HoleDialogState extends State<_HoleDialog> {
           children: [
             GestureDetector(
               key: const ValueKey('hole-diagram'),
-              behavior: HitTestBehavior.opaque,
+              dragStartBehavior: DragStartBehavior.down,
               onTapUp: (event) {
-                if (!settled || !faceRect.contains(event.localPosition)) {
+                if (!settled) return;
+                final i = painter.holeAt(event.localPosition);
+                if (i == null && !faceRect.contains(event.localPosition)) {
                   return;
                 }
-                final i = hit(event.localPosition);
                 setState(() {
                   if (i == null) {
                     place(event.localPosition);
@@ -418,40 +464,19 @@ class _HoleDialogState extends State<_HoleDialog> {
                 });
               },
               onPanStart: (event) {
-                if (!settled || !faceRect.contains(event.localPosition)) {
-                  return;
-                }
-                setState(() {
-                  selectHole(hit(event.localPosition) ?? selected);
-                });
+                if (!settled) return;
+                final i = painter.holeAt(event.localPosition);
+                if (i != null) setState(() => selectHole(i));
               },
               onPanUpdate: (event) {
                 if (settled && faceRect.contains(event.localPosition)) {
                   setState(() => place(event.localPosition));
                 }
               },
-              child: CustomPaint(
-                painter: _HoleDiagram(
-                  faceRect,
-                  faceShift * 2,
-                  cosine.abs(),
-                  context.colors,
-                  current == null ? null : origin(current!, cosine < 0),
-                  [
-                    for (final (i, h) in marks.indexed)
-                      if (h != null &&
-                          h.fits(size) &&
-                          (h.depth == null || h.back == back))
-                        (
-                          center: center(h),
-                          radius: h.diameter * scale / 2,
-                          selected: i == selected,
-                          blind: h.depth != null,
-                        ),
-                  ],
-                ),
-              ),
+              child: CustomPaint(painter: painter),
             ),
+            if (settled && widget.editor.showHoleNumbers)
+              ...holeNumbers(marks, faceRect, box.biggest),
             Positioned(
               left: 4,
               right: 4,
@@ -490,8 +515,91 @@ class _HoleDialogState extends State<_HoleDialog> {
     );
   }
 
-  Widget preview(double height) {
+  Iterable<Widget> holeNumbers(
+    List<_HoleMark> marks,
+    Rect face,
+    Size viewport,
+  ) sync* {
+    final fontSize = MediaQuery.textScalerOf(context).scale(11);
+    final occupied = [
+      for (final m in marks)
+        Rect.fromCircle(center: m.center, radius: math.max(6.0, m.radius)),
+    ];
+    for (final mark in marks) {
+      final number = '${mark.index + 1}';
+      final height = fontSize + 7;
+      final width = math.max(height, number.length * fontSize * .75 + 8);
+      final gap = math.max(6.0, mark.radius) + 2;
+      // Prefer a free spot on the panel, close to the hole. Near an edge or
+      // in a row of closely spaced holes, try the other sides first.
+      late Rect label;
+      var bestScore = double.infinity;
+      for (final side in const [
+        Alignment.centerRight,
+        Alignment.centerLeft,
+        Alignment.topCenter,
+        Alignment.bottomCenter,
+        Alignment.topRight,
+        Alignment.bottomLeft,
+        Alignment.topLeft,
+        Alignment.bottomRight,
+      ]) {
+        final x = mark.center.dx + side.x * (gap + width / 2) - width / 2;
+        final y = mark.center.dy + side.y * (gap + height / 2) - height / 2;
+        final candidate = Rect.fromLTWH(
+          x.clamp(0.0, math.max(0.0, viewport.width - width)),
+          y.clamp(0.0, math.max(0.0, viewport.height - height)),
+          width,
+          height,
+        );
+        var score = face.intersect(candidate) == candidate ? 0.0 : 1.0;
+        for (final obstacle in occupied) {
+          final overlap = candidate.intersect(obstacle);
+          if (!overlap.isEmpty) score += overlap.width * overlap.height;
+        }
+        if (score < bestScore) {
+          bestScore = score;
+          label = candidate;
+          if (score == 0) break;
+        }
+      }
+      occupied.add(label.inflate(2));
+      yield Positioned.fromRect(
+        rect: label,
+        child: Semantics(
+          selected: mark.selected,
+          child: DeskControl(
+            key: ValueKey('hole-number-${mark.index + 1}'),
+            outlined: true,
+            background: mark.selected
+                ? EditorPalette.highlight
+                : context.colors.field,
+            onPressed: () => setState(() => selectHole(mark.index)),
+            child: Text(
+              number,
+              semanticsLabel: context.strings.holeSelection(
+                mark.index + 1,
+                drafts.length,
+              ),
+              style: TextStyle(
+                fontSize: 11,
+                height: 1,
+                fontWeight: FontWeight.w600,
+                color: mark.selected
+                    ? EditorPalette.onHighlight
+                    : context.colors.ink,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget preview(double height, Set<int> invalid) {
     final s = context.strings;
+    void toggleNumbers(bool value) =>
+        setState(() => widget.editor.showHoleNumbers = value);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 8,
@@ -504,14 +612,46 @@ class _HoleDialogState extends State<_HoleDialog> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: context.colors.line),
           ),
-          child: MediaQuery.disableAnimationsOf(context)
-              ? diagram(flipped ? math.pi : 0)
-              : TweenAnimationBuilder<double>(
-                  tween: Tween(end: flipped ? math.pi : 0.0),
-                  duration: const Duration(milliseconds: 320),
-                  curve: Curves.easeInOut,
-                  builder: (_, angle, _) => diagram(angle),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 5, 8, 0),
+                child: MergeSemantics(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => toggleNumbers(!widget.editor.showHoleNumbers),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 6,
+                      children: [
+                        DeskSwitch(
+                          value: widget.editor.showHoleNumbers,
+                          onChanged: toggleNumbers,
+                        ),
+                        Flexible(
+                          child: Text(
+                            s.showHoleNumbers,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+              ),
+              Expanded(
+                child: MediaQuery.disableAnimationsOf(context)
+                    ? diagram(flipped ? math.pi : 0, invalid)
+                    : TweenAnimationBuilder<double>(
+                        tween: Tween(end: flipped ? math.pi : 0.0),
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeInOut,
+                        builder: (_, angle, _) => diagram(angle, invalid),
+                      ),
+              ),
+            ],
+          ),
         ),
         Text(
           s.holeDiagramHelp,
@@ -521,65 +661,197 @@ class _HoleDialogState extends State<_HoleDialog> {
     );
   }
 
-  Widget properties(int invalid) {
-    final s = context.strings, d = current;
+  Widget holeList(Set<int> invalid, {required bool compact}) {
+    final s = context.strings, colors = context.colors;
+    final list = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colors.field,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.line),
+      ),
+      child: drafts.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(s.noPanelHoles, textAlign: TextAlign.center),
+              ),
+            )
+          : ListView.builder(
+              controller: listScroll,
+              padding: EdgeInsets.zero,
+              itemExtent: rowHeight,
+              itemCount: drafts.length,
+              itemBuilder: (context, i) {
+                final draft = drafts[i];
+                final diameter = draft.diameter.millimeters;
+                final dimension = diameter == null
+                    ? '—'
+                    : '${widget.input.format(diameter)} ${widget.input.unit.symbol}';
+                final type = draft.blind
+                    ? '${s.blindHole} · ${draft.back ? s.faceB : s.faceA}'
+                    : s.throughHole;
+                final active = i == selected;
+                final title = draft.name.isEmpty ? 'Ø$dimension' : draft.name;
+                final details = draft.name.isEmpty
+                    ? type
+                    : 'Ø$dimension · $type';
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: active ? context.selectionFill : null,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          selected: active,
+                          child: DeskControl(
+                            onPressed: () => setState(() => selectHole(i)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    spacing: 5,
+                                    children: [
+                                      if (invalid.contains(i))
+                                        Tooltip(
+                                          message: s.invalidHole,
+                                          child: Icon(
+                                            Icons.warning_amber_rounded,
+                                            size: 16,
+                                            color: colors.danger,
+                                          ),
+                                        ),
+                                      Flexible(
+                                        child: Text(
+                                          '№ ${i + 1} · $title',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    details,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.15,
+                                      color: colors.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (active)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Center(
+                            child: DeskIcon(
+                              Icons.delete_outline,
+                              s.delete,
+                              () => setState(() {
+                                drafts.removeAt(i).dispose();
+                                selectHole(
+                                  math.max(0, math.min(i, drafts.length - 1)),
+                                );
+                              }),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 6,
+      children: [
+        Text(
+          '${s.panelHoles} (${drafts.length})',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        if (compact)
+          SizedBox(
+            height: rowHeight * drafts.length.clamp(1, 3) + 10,
+            child: list,
+          )
+        else
+          Expanded(child: list),
+      ],
+    );
+  }
+
+  Widget addButtons() => Wrap(
+    spacing: 6,
+    runSpacing: 4,
+    children: [
+      DeskButton(
+        onPressed: () => setState(() => add()),
+        icon: const Icon(Icons.add),
+        label: Text(context.strings.addHole),
+      ),
+      DeskButton(
+        plain: true,
+        onPressed: () => setState(() => add(cup: true)),
+        icon: const Icon(Icons.add),
+        label: Text(context.strings.cupHole),
+      ),
+    ],
+  );
+
+  Widget properties(_HoleDraft d, int? invalid) {
+    final s = context.strings;
     final separator = Divider(height: 1, color: context.colors.line);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       spacing: 14,
       children: [
-        if (d != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: DeskMenu<int>(
-                    title: s.holeSelection(selected + 1, drafts.length),
-                    selected: selected,
-                    items: [
-                      for (var i = 0; i < drafts.length; i++)
-                        (
-                          i,
-                          '№ ${i + 1} · Ø${drafts[i].diameter.text} ${widget.unit.symbol} · ${drafts[i].blind ? (drafts[i].back ? s.faceB : s.faceA) : s.throughHole}',
-                        ),
-                    ],
-                    change: (v) => setState(() => selectHole(v)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: 4,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            s.holeSelection(selected + 1, drafts.length),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.expand_more, size: 16),
-                      ],
-                    ),
-                  ),
+        offsets(d),
+        separator,
+        Row(
+          spacing: 12,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              flex: 3,
+              child: labeled(
+                s.drillingType,
+                DeskSegments(
+                  d.blind,
+                  {false: s.throughHole, true: s.blindHole},
+                  (v) => setState(() {
+                    d.blind = v;
+                    if (v) d.back = viewBack;
+                  }),
                 ),
               ),
-              DeskIcon(
-                Icons.delete_outline,
-                s.delete,
-                () => setState(() {
-                  drafts.removeAt(selected).dispose();
-                  selectHole(
-                    math.max(0, math.min(selected, drafts.length - 1)),
-                  );
-                }),
-              ),
-            ],
-          ),
-          separator,
-          offsets(d),
-          separator,
+            ),
+            Expanded(
+              flex: 2,
+              child: number(s.holeDiameter, 'hole-diameter', d.diameter),
+            ),
+          ],
+        ),
+        if (d.blind)
           Row(
             spacing: 12,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -587,81 +859,54 @@ class _HoleDialogState extends State<_HoleDialog> {
               Expanded(
                 flex: 3,
                 child: labeled(
-                  s.drillingType,
-                  DeskSegments(
-                    d.blind,
-                    {false: s.throughHole, true: s.blindHole},
-                    (v) => setState(() {
-                      d.blind = v;
-                      if (v) d.back = viewBack;
-                    }),
-                  ),
+                  s.drillingFace,
+                  DeskSegments(d.back, {
+                    false: s.faceA,
+                    true: s.faceB,
+                  }, (v) => setState(() => viewBack = d.back = v)),
                 ),
               ),
               Expanded(
                 flex: 2,
-                child: number(s.holeDiameter, 'hole-diameter', d.diameter),
+                child: number(s.rabbetDepth, 'hole-depth', d.depth),
               ),
             ],
           ),
-          if (d.blind)
-            Row(
-              spacing: 12,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: labeled(
-                    s.drillingFace,
-                    DeskSegments(d.back, {
-                      false: s.faceA,
-                      true: s.faceB,
-                    }, (v) => setState(() => viewBack = d.back = v)),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: number(s.rabbetDepth, 'hole-depth', d.depth),
-                ),
-              ],
-            ),
-          if (invalid >= 0)
-            Text(
-              '№ ${invalid + 1} · ${s.invalidHole}',
-              style: TextStyle(color: context.colors.danger),
-            ),
-          separator,
-        ] else
+        if (invalid != null)
           Text(
-            s.noPanelHoles,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            '№ ${invalid + 1} · ${s.invalidHole}',
+            style: TextStyle(color: context.colors.danger),
           ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            DeskButton(
-              onPressed: () => setState(() => add()),
-              icon: const Icon(Icons.add),
-              label: Text(s.addHole),
+        labeled(
+          s.holeName,
+          Semantics(
+            key: const ValueKey('hole-name'),
+            label: s.holeName,
+            child: DeskTextField(
+              key: ObjectKey(d),
+              initialValue: d.name,
+              placeholder: '№ ${selected + 1}',
+              onChanged: (value) => setState(() => d.name = value.trim()),
             ),
-            DeskButton(
-              onPressed: () => setState(() => add(cup: true)),
-              icon: const Icon(Icons.add),
-              label: Text(s.cupHole),
-            ),
-          ],
+          ),
         ),
       ],
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final s = context.strings, unit = widget.unit;
-    final invalid = drafts.indexWhere((d) => d.hole?.fits(size) != true);
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (_, constraints) => dialog(constraints.maxWidth));
+
+  Widget dialog(double windowWidth) {
+    final s = context.strings, unit = widget.input.unit;
+    final invalid = {
+      for (final (i, d) in drafts.indexed)
+        if (d.hole?.fits(size) != true) i,
+    };
+    final footerAdds = windowWidth >= 680;
     return DeskDialog(
-      maxWidth: 790,
+      maxWidth: 1030,
       title: Text(s.panelHoles),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -678,32 +923,70 @@ class _HoleDialogState extends State<_HoleDialog> {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               Text(
-                '${[size.x, size.y, size.z].map(unit.format).join(' × ')} ${unit.symbol}',
+                '${[size.x, size.y, size.z].map(widget.input.format).join(' × ')} ${unit.symbol}',
                 style: TextStyle(fontSize: 12, color: context.colors.muted),
               ),
             ],
           ),
           LayoutBuilder(
             builder: (context, box) {
-              if (box.maxWidth < 630) {
+              final d = current;
+              final wide = box.maxWidth >= 850;
+              final partPreview = preview(
+                wide
+                    ? 342
+                    : upright
+                    ? 245
+                    : 210,
+                invalid,
+              );
+              final form = d == null
+                  ? null
+                  : properties(
+                      d,
+                      invalid.contains(selected)
+                          ? selected
+                          : invalid.firstOrNull,
+                    );
+              if (!footerAdds) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   spacing: 14,
-                  children: [preview(upright ? 245 : 210), properties(invalid)],
+                  children: [
+                    holeList(invalid, compact: true),
+                    addButtons(),
+                    partPreview,
+                    ?form,
+                  ],
                 );
               }
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 20,
+                spacing: 16,
                 children: [
-                  Expanded(flex: 5, child: preview(342)),
-                  Expanded(flex: 6, child: properties(invalid)),
+                  SizedBox(
+                    width: wide ? 240 : 190,
+                    height: 342,
+                    child: holeList(invalid, compact: false),
+                  ),
+                  if (wide) ...[
+                    Expanded(flex: 5, child: partPreview),
+                    if (form != null) Expanded(flex: 6, child: form),
+                  ] else
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: 14,
+                        children: [partPreview, ?form],
+                      ),
+                    ),
                 ],
               );
             },
           ),
         ],
       ),
+      leadingAction: footerAdds ? addButtons() : null,
       actions: [
         DeskButton(
           plain: true,
@@ -712,7 +995,7 @@ class _HoleDialogState extends State<_HoleDialog> {
         ),
         DeskButton(
           primary: true,
-          onPressed: invalid >= 0
+          onPressed: invalid.isNotEmpty
               ? null
               : () => Navigator.pop(context, [for (final d in drafts) d.hole!]),
           child: Text(s.apply),
@@ -734,6 +1017,40 @@ class _CornerPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors, s = context.strings;
+    Widget corner(bool fromRight, bool fromTop) {
+      final selected = right == fromRight && top == fromTop;
+      final label =
+          '${fromRight ? s.fromRight : s.fromLeft} · ${fromTop ? s.fromTop : s.fromBottom}';
+      final diameter = selected ? 12.0 : 7.0;
+      return Positioned(
+        left: fromRight ? 34 : 0,
+        top: fromTop ? 0 : 26,
+        width: 34,
+        height: 26,
+        child: Tooltip(
+          message: label,
+          child: Semantics(
+            selected: selected,
+            child: DeskControl(
+              key: ValueKey('hole-origin-$fromRight-$fromTop'),
+              onPressed: () => onChanged(fromRight, fromTop),
+              child: Container(
+                width: diameter,
+                height: diameter,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? EditorPalette.highlight : colors.field,
+                  border: Border.all(
+                    color: selected ? colors.accent : colors.muted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       width: 68,
       height: 52,
@@ -748,49 +1065,22 @@ class _CornerPicker extends StatelessWidget {
               ),
             ),
           ),
-          for (final y in [true, false])
-            for (final x in [false, true])
-              Positioned(
-                left: x ? 34 : 0,
-                top: y ? 0 : 26,
-                width: 34,
-                height: 26,
-                child: Tooltip(
-                  message:
-                      '${x ? s.fromRight : s.fromLeft} · ${y ? s.fromTop : s.fromBottom}',
-                  child: Semantics(
-                    selected: right == x && top == y,
-                    label:
-                        '${x ? s.fromRight : s.fromLeft} · ${y ? s.fromTop : s.fromBottom}',
-                    child: DeskControl(
-                      key: ValueKey('hole-origin-$x-$y'),
-                      onPressed: () => onChanged(x, y),
-                      child: Container(
-                        width: right == x && top == y ? 12 : 7,
-                        height: right == x && top == y ? 12 : 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: right == x && top == y
-                              ? EditorPalette.highlight
-                              : colors.field,
-                          border: Border.all(
-                            color: right == x && top == y
-                                ? colors.accent
-                                : colors.muted,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+          for (final fromTop in [true, false])
+            for (final fromRight in [false, true]) corner(fromRight, fromTop),
         ],
       ),
     );
   }
 }
 
-typedef _HoleMark = ({Offset center, double radius, bool selected, bool blind});
+typedef _HoleMark = ({
+  int index,
+  Offset center,
+  double radius,
+  bool selected,
+  bool blind,
+  bool invalid,
+});
 
 class _HoleDiagram extends CustomPainter {
   _HoleDiagram(
@@ -806,6 +1096,24 @@ class _HoleDiagram extends CustomPainter {
   final EditorPalette colors;
   final ({bool right, bool top})? origin;
   final List<_HoleMark> marks;
+
+  int? holeAt(Offset at) {
+    int? nearest;
+    var closest = double.infinity;
+    for (final mark in marks.reversed) {
+      final distance = (mark.center - at).distance;
+      if (distance <= math.max(6.0, mark.radius) && distance < closest) {
+        nearest = mark.index;
+        closest = distance;
+      }
+    }
+    return nearest;
+  }
+
+  @override
+  bool hitTest(Offset position) =>
+      rect.contains(position) || holeAt(position) != null;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (shift.abs() > .01) {
@@ -836,7 +1144,11 @@ class _HoleDiagram extends CustomPainter {
         canvas.drawCircle(Offset(x, c.dy), 1.8, guide);
         canvas.drawCircle(Offset(c.dx, y), 1.8, guide);
       }
-      pen.color = m.selected ? colors.accent : colors.muted;
+      pen.color = m.invalid
+          ? colors.danger
+          : m.selected
+          ? colors.accent
+          : colors.muted;
       final r = math.max(2.0, m.radius);
       final oval = Rect.fromCenter(
         center: c,
@@ -845,7 +1157,12 @@ class _HoleDiagram extends CustomPainter {
       );
       canvas.drawOval(
         oval,
-        Paint()..color = m.blind ? colors.muted : colors.paper,
+        Paint()
+          ..color = m.invalid
+              ? colors.danger.withValues(alpha: .14)
+              : m.blind
+              ? colors.muted
+              : colors.paper,
       );
       canvas.drawOval(oval, pen);
       if (m.selected) {

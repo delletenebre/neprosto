@@ -4,11 +4,15 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'model.dart';
+import 'step.dart';
 
 class WorkPlane {
   final String name;
   String get displayName => switch (name) {
-    'Грань' => editorStrings.face,
+    'XY' => editorStrings.horizontalPlane,
+    'XZ' => editorStrings.frontPlane,
+    'YZ' => editorStrings.side,
+    'Грань' => editorStrings.partFacePlane,
     'Вертикаль' => editorStrings.vertical,
     _ => name,
   };
@@ -19,11 +23,12 @@ class WorkPlane {
   static WorkPlane xz() => WorkPlane('XZ', Vector3.zero(), axis(0), axis(2));
   static WorkPlane yz() => WorkPlane('YZ', Vector3.zero(), axis(1), axis(2));
   WorkPlane through(Vector3 p) => WorkPlane(name, p, u, v);
-  Vector3 quantize(Vector3 p, double step) {
+  Vector3 quantize(Vector3 p, double? step) {
+    if (step == null) return p;
     final d = p - origin;
     return origin +
-        u * ((d.dot(u) / step).round() * step) +
-        v * ((d.dot(v) / step).round() * step);
+        u * roundToIncrement(d.dot(u), step) +
+        v * roundToIncrement(d.dot(v), step);
   }
 }
 
@@ -354,11 +359,13 @@ enum SnapMode {
 
 class Scene {
   final Project project;
+  final LengthInput input;
   final Camera camera;
   final Size size;
   final List<SceneFace> faces = [];
-  Scene(Project document, this.camera, this.size)
-    : project = document.visibleGeometry {
+  Scene(Project document, this.camera, this.size, {LengthInput? input})
+    : input = input ?? (unit: document.unit, increment: null),
+      project = document.visibleGeometry {
     if (camera.perspective) {
       for (final b in project.beams) {
         for (final p in b.corners) {
@@ -498,6 +505,27 @@ class Scene {
     return nearest;
   }
 
+  Vector3? pointOnFace(Offset pos, SceneFace face) {
+    final plane = face.plane;
+    final raw = camera.onPlane(pos, size, plane);
+    if (raw == null || input.increment == null) return raw;
+    final point = plane.quantize(raw, input.stepMm);
+    final screen = camera.project(point, size);
+    // A rounded click must still belong to the face, including around cutouts.
+    if (face.path.contains(screen)) return point;
+    for (var i = 0; i < face.points.length; i++) {
+      if (segmentDistanceSquared(
+            screen,
+            face.points[i],
+            face.points[(i + 1) % face.points.length],
+          ) <
+          1e-10) {
+        return point;
+      }
+    }
+    return raw;
+  }
+
   RulerTarget? rulerTarget(
     Offset pos, {
     required bool sticky,
@@ -534,7 +562,7 @@ class Scene {
     }
     if (line != null) return line;
     if (surface == null) return null;
-    final p = camera.onPlane(pos, size, surface.plane);
+    final p = pointOnFace(pos, surface);
     if (p == null) return null;
     return (
       anchor: Anchor(
@@ -573,12 +601,18 @@ class Scene {
           return;
         }
       }
+      final along = b - a;
+      final length = along.length;
+      if (length == 0) return;
+      final direction = along / length;
+      final distanceAlong = input.round((p - a).dot(direction));
+      final point = a + direction * distanceAlong.clamp(0.0, length);
       best = (
         anchor: Anchor(
-          p,
+          point,
           face.beam.id,
           0,
-          face.beam.localAt(p),
+          face.beam.localAt(point),
           label,
           face.face,
         ),
@@ -619,7 +653,8 @@ class Scene {
     if (mode == SnapMode.surface) {
       for (final f in faces.reversed) {
         if (!eligible(f.beam.id) || !f.path.contains(pos)) continue;
-        final p = camera.onPlane(pos, size, f.plane)!;
+        final p = pointOnFace(pos, f);
+        if (p == null) continue;
 
         return Anchor(p, f.beam.id, 0, f.beam.localAt(p), 'Плоскость', f.face);
       }

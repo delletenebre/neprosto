@@ -60,22 +60,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get positiveWidth => '+W';
 
   @override
-  String get flushOffsetHint => 'Zero is flush; negative values overhang';
-
-  @override
   String get xWidth => 'X · width';
 
   @override
-  String get xyTop => 'XY · top';
+  String get horizontalPlane => 'Horizontal';
 
   @override
-  String get xzFront => 'XZ · front';
+  String get workPlanePurpose => 'Where do you want to draw and move parts?';
+
+  @override
+  String get horizontalPlaneExample => 'Like a shelf or tabletop';
+
+  @override
+  String get frontPlaneExample => 'Like a cabinet door';
+
+  @override
+  String get sidePlaneExample => 'Like the side of a cabinet';
+
+  @override
+  String get partFacePlane => 'On a part face';
+
+  @override
+  String get workPlaneNeedsPart => 'A visible part is needed in the drawing';
 
   @override
   String get yDepth => 'Y · depth';
-
-  @override
-  String get yzSide => 'YZ · side';
 
   @override
   String get zHeight => 'Z · height';
@@ -242,7 +251,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectTheSecondShelf => 'Select the second shelf';
 
   @override
-  String get selectWorkPlaneFace => 'Select a face for the work plane';
+  String get selectWorkPlaneFace =>
+      'Click the surface of a part in the drawing';
 
   @override
   String get chooseParallelShelf =>
@@ -281,13 +291,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectAllParts => 'Select all parts';
 
   @override
-  String get selectFace => 'Select face…';
-
-  @override
   String get chooseReferenceFromList => 'Choose a reference part from the list';
-
-  @override
-  String get chooseThePartToMove => 'Choose the part to move';
 
   @override
   String get alignment => 'Alignment';
@@ -522,6 +526,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get actionsMenu => 'Actions menu';
+
+  @override
+  String get precision => 'Precision';
+
+  @override
+  String get editingIncrement => 'Editing increment';
 
   @override
   String get measurementUnits => 'Measurement units';
@@ -814,9 +824,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String anchorShortcut(Object shortcut) {
     return 'Place against reference · $shortcut';
   }
-
-  @override
-  String get movingPart => 'Moving part';
 
   @override
   String get movementAndRuler => 'Movement and ruler';
@@ -1641,6 +1648,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addHole => 'Add hole';
 
   @override
+  String get holeName => 'Hole name';
+
+  @override
+  String get showHoleNumbers => 'Show numbers on the diagram';
+
+  @override
   String get holeDiameter => 'Diameter';
 
   @override
@@ -1701,6 +1714,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dropDownDoor => 'Drop-down door · bottom hinges';
+
+  @override
+  String get hingesLeft => 'Hinges on the left';
+
+  @override
+  String get hingesRight => 'Hinges on the right';
+
+  @override
+  String get hingesTop => 'Hinges at the top';
+
+  @override
+  String get hingesBottom => 'Hinges at the bottom';
+
+  @override
+  String get chooseHingeEdge => 'Select an edge of the door';
 
   @override
   String get doorAngle => 'Opening angle';
@@ -1895,20 +1923,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String get edgeMarkAngle => 'Mark across thickness';
 
   @override
-  String get cutDiagramKey =>
-      'Dashes show a square cut (0°). Hatching marks the waste. The start of the part is on the left in both views.';
-
-  @override
   String cutOffsetReadout(String distance) {
     return 'Offset $distance';
   }
 
   @override
-  String get flatSawSettings => 'Mitre saw · stock flat, start on the left';
+  String get mitreSaw => 'Mitre saw';
 
   @override
-  String sawSettingValues(String miter, String bevel) {
-    return 'Table rotation $miter°   ·   Blade tilt $bevel°';
+  String get handheldSaw => 'Handheld circular saw';
+
+  @override
+  String get tableSaw => 'Table saw';
+
+  @override
+  String get sawCutLine => 'Cut line';
+
+  @override
+  String get sawCrosscutFence => 'Miter gauge';
+
+  @override
+  String get sawMiterPlan => 'Top view · handle below';
+
+  @override
+  String get sawHandPlan => 'Top view · saw travel';
+
+  @override
+  String get sawTablePlan => 'Top view · feed away';
+
+  @override
+  String get sawMiterSight => 'From the handle along the cut';
+
+  @override
+  String get sawHandSight => 'From behind the saw along the cut';
+
+  @override
+  String get sawTableSight => 'From the front of the table';
+
+  @override
+  String sawFenceNear(String angle) {
+    return '$angle° · right end toward you';
+  }
+
+  @override
+  String sawFenceFar(String angle) {
+    return '$angle° · right end away';
+  }
+
+  @override
+  String get sawStockPosition => 'Stock flat, start on the left';
+
+  @override
+  String get sawTableRotation => 'Table rotation';
+
+  @override
+  String get sawBladeTilt => 'Blade tilt';
+
+  @override
+  String sawAngleLeft(String angle) {
+    return '$angle° left';
+  }
+
+  @override
+  String sawAngleRight(String angle) {
+    return '$angle° right';
   }
 
   @override
@@ -1922,10 +2000,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String angleToLongEdge(String angle) {
     return 'To the long edge $angle°';
   }
-
-  @override
-  String get sawDirections =>
-      'Arrows show the direction of the cut at the fence and of the tilt at the top of the blade.';
 
   @override
   String get rabbetTitle => 'Rabbets';

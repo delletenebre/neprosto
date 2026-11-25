@@ -9,6 +9,7 @@ import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/drawing.dart';
 import 'package:neprosto/editor/inspector.dart';
 import 'package:neprosto/editor/scene.dart';
+import 'package:neprosto/editor/work_plane_picker.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/palette.dart';
 import 'package:neprosto/editor/parts_panel.dart';
@@ -464,39 +465,72 @@ void main() {
   );
 
   testWidgets(
-    'Document actions stay together above the drawing at both window sizes',
+    'Drawing toolbar keeps related controls together when resized',
     (t) async {
       addTearDown(() => t.binding.setSurfaceSize(null));
       await t.binding.setSurfaceSize(const Size(1380, 800));
       await t.pumpWidget(NeprostoApp(editor: Editor(Project.bench())));
       await t.pumpAndSettle();
       final bar = find.byKey(const ValueKey('drawing-toolbar'));
-      for (final width in [1380.0, 880.0]) {
+      Finder control(String label) =>
+          find.descendant(of: bar, matching: find.byTooltip(label));
+
+      for (final width in [1380.0, 880.0, 790.0]) {
         await t.binding.setSurfaceSize(Size(width, 800));
         await t.pumpAndSettle();
-        final save = width == 1380
-            ? find.text('Сохранить')
-            : find.byTooltip('Сохранить');
-        final actions = [
-          find.byTooltip('Отменить'),
-          find.byTooltip('Повторить'),
+        final undo = control('Отменить'), redo = control('Повторить');
+        final save = control('Сохранить'), settings = control('Настройки');
+        final plane = find.descendant(
+          of: bar,
+          matching: find.byType(WorkPlanePicker),
+        );
+        final grid = control('Видимость сетки');
+        final zoomOut = control('Отдалить'), zoomIn = control('Приблизить');
+        for (final action in [
+          undo,
+          redo,
           save,
-          find.byTooltip('Настройки'),
-        ];
-        for (final action in actions) {
-          expect(find.descendant(of: bar, matching: action), findsOneWidget);
+          plane,
+          grid,
+          zoomOut,
+          zoomIn,
+          settings,
+        ]) {
+          expect(action.hitTestable(), findsOneWidget);
           expect(t.getRect(bar).contains(t.getCenter(action)), isTrue);
         }
-        final centers = actions.map(t.getCenter).toList();
-        for (var i = 1; i < centers.length; i++) {
-          expect(centers[i].dx, greaterThan(centers[i - 1].dx));
-          expect(centers[i].dy, closeTo(centers.first.dy, 2));
+        for (final (a, b) in [
+          (undo, redo),
+          (redo, save),
+          (plane, grid),
+          (zoomOut, zoomIn),
+        ]) {
+          final first = t.getRect(a), second = t.getRect(b);
+          expect(first.center.dy, closeTo(second.center.dy, 1));
+          expect(second.left - first.right, inInclusiveRange(0, toolbarGap));
         }
-        expect(
-          t.getCenter(find.byTooltip('Видимость сетки')).dx,
-          greaterThan(centers.last.dx),
-        );
-        expect(save.hitTestable(), findsOneWidget);
+        expect(t.getCenter(settings).dy, closeTo(t.getCenter(zoomIn).dy, 1));
+        expect(t.getRect(settings).right, closeTo(t.getRect(bar).right - 7, 1));
+        if (defaultTargetPlatform == TargetPlatform.macOS) {
+          final dividers = find.descendant(
+            of: bar,
+            matching: find.byType(VerticalDivider),
+          );
+          final select = find.descendant(
+            of: bar,
+            matching: find.byIcon(cu.CupertinoIcons.location_north),
+          );
+          final betweenGroups = t.getCenter(dividers.first);
+          expect(
+            betweenGroups.dx,
+            inExclusiveRange(t.getRect(save).right, t.getRect(select).left),
+          );
+          expect(betweenGroups.dy, closeTo(t.getCenter(select).dy, 1));
+        }
+        if (width == 1380) {
+          expect(t.getCenter(undo).dy, closeTo(t.getCenter(grid).dy, 1));
+          expect(t.getCenter(save).dx, lessThan(t.getCenter(plane).dx));
+        }
       }
     },
     variant: TargetPlatformVariant({

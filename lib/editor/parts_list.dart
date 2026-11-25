@@ -10,29 +10,26 @@ import 'controller.dart';
 import 'desktop.dart';
 import 'drawing.dart';
 import 'model.dart';
+import 'step.dart';
 import 'parts_workbook.dart';
 import 'storage.dart';
 
 class PartsList extends StatefulWidget {
-  const PartsList(this.editor, {required this.rename, super.key});
+  const PartsList(this.editor, {super.key});
   final Editor editor;
-  final Future<void> Function(Beam) rename;
   @override
   State<PartsList> createState() => _PartsListState();
 }
 
 class _PartsListState extends State<PartsList> {
   var query = '', column = 0, ascending = true;
-  final opened = <int>{};
   bool exporting = false;
   String? exportMessage;
 
-  Future<void> exportWorkbook(
-    Project project,
-    List<StockRow> entries, {
-    bool bazis = false,
-  }) async {
-    if (exporting || entries.isEmpty) return;
+  Future<void> exportWorkbook(Project project, {bool bazis = false}) async {
+    if (exporting) return;
+    final entries = rows(project, forExport: true);
+    if (entries.isEmpty) return;
     setState(() {
       exportMessage = null;
       exporting = true;
@@ -55,41 +52,55 @@ class _PartsListState extends State<PartsList> {
     }
   }
 
-  List<StockRow> rows(Project p) {
+  int sizeKey(double n) => (n * 1e6).round();
+
+  Record stockShape(Beam b) {
+    return (
+      sizeKey(b.size.x),
+      sizeKey(b.size.y),
+      sizeKey(b.size.z),
+      sizeKey(b.startCut.y),
+      sizeKey(b.startCut.z),
+      sizeKey(b.endCut.y),
+      sizeKey(b.endCut.z),
+      ([
+        for (final h in b.holes)
+          [
+            sizeKey(h.centerX(b.size)),
+            sizeKey(h.centerY(b.size)),
+            sizeKey(h.diameter),
+            if (h.depth != null) ...[sizeKey(h.depth!), h.back ? 1 : 0],
+          ].join(','),
+      ]..sort()).join('|'),
+      (
+        b.rabbets[RabbetEdge.topLeft],
+        b.rabbets[RabbetEdge.topRight],
+        b.rabbets[RabbetEdge.bottomLeft],
+        b.rabbets[RabbetEdge.bottomRight],
+      ),
+    );
+  }
+
+  List<StockRow> rows(Project p, {bool forExport = false}) {
     final groups = <Record, List<Beam>>{};
-    int key(double n) => (n * 1e6).round();
+    final search = query.trim().toLowerCase();
     for (final b in p.beams) {
-      if (!b.name.toLowerCase().contains(query.trim().toLowerCase())) continue;
-      final shape = (
-        key(b.size.x),
-        key(b.size.y),
-        key(b.size.z),
-        key(b.startCut.y),
-        key(b.startCut.z),
-        key(b.endCut.y),
-        key(b.endCut.z),
-        ([
-          for (final h in b.holes)
-            [
-              key(h.centerX(b.size)),
-              key(h.centerY(b.size)),
-              key(h.diameter),
-              if (h.depth != null) ...[key(h.depth!), h.back ? 1 : 0],
-            ].join(','),
-        ]..sort()).join('|'),
-        (
-          b.rabbets[RabbetEdge.topLeft],
-          b.rabbets[RabbetEdge.topRight],
-          b.rabbets[RabbetEdge.bottomLeft],
-          b.rabbets[RabbetEdge.bottomRight],
-        ),
-      );
-      (groups[shape] ??= []).add(b);
+      if (!b.name.toLowerCase().contains(search)) continue;
+      final key = forExport
+          ? stockShape(b)
+          : (
+              b.name,
+              sizeKey(blankLength(b)),
+              sizeKey(b.size.y),
+              sizeKey(b.size.z),
+            );
+      (groups[key] ??= []).add(b);
     }
+    String name(StockRow row) => forExport ? row.name : row.sample.name;
     final result = groups.values.map(StockRow.new).toList();
     result.sort((a, b) {
       final diff = column == 0
-          ? a.name.toLowerCase().compareTo(b.name.toLowerCase())
+          ? name(a).toLowerCase().compareTo(name(b).toLowerCase())
           : a.number(column).compareTo(b.number(column));
       if (diff == 0) return a.sample.id.compareTo(b.sample.id);
       return ascending ? diff : -diff;
@@ -98,7 +109,7 @@ class _PartsListState extends State<PartsList> {
   }
 
   Widget cell(int i, Widget child) => Expanded(
-    flex: const [32, 19, 14, 14, 12, 22][i],
+    flex: const [41, 19, 14, 14, 12][i],
     child: Align(
       alignment: i == 0 ? Alignment.centerLeft : Alignment.centerRight,
       child: child,
@@ -110,7 +121,7 @@ class _PartsListState extends State<PartsList> {
     listenable: widget.editor,
     builder: (_, _) {
       final p = widget.editor.project, unit = p.unit;
-      final entries = rows(p), cuts = p.beams.any((b) => b.bevelled);
+      final entries = rows(p);
       final count = query.trim().isEmpty
           ? context.strings.pieceCount(p.beams.length)
           : context.strings.searchMatches(
@@ -174,17 +185,6 @@ class _PartsListState extends State<PartsList> {
                         ),
                       ),
                     ),
-                  if (cuts)
-                    cell(
-                      5,
-                      Text(
-                        context.strings.ends,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
                 ],
               ),
               const Divider(height: 1),
@@ -197,115 +197,42 @@ class _PartsListState extends State<PartsList> {
                               : context.strings.noMatchingParts,
                         ),
                       )
-                    : ListView.builder(
+                    : ListView.separated(
                         itemCount: entries.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (_, i) {
-                          final r = entries[i],
-                              b = r.sample,
-                              multiple = r.parts.length > 1,
-                              expanded = opened.contains(b.id);
-                          return Column(
-                            children: [
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minHeight: 35,
-                                ),
-                                child: Row(
-                                  children: [
-                                    cell(
-                                      0,
-                                      DeskButton(
-                                        plain: true,
-                                        icon: Icon(
-                                          multiple
-                                              ? (expanded
-                                                    ? CupertinoIcons
-                                                          .chevron_down
-                                                    : CupertinoIcons
-                                                          .chevron_right)
-                                              : CupertinoIcons.pencil,
-                                          size: 13,
-                                        ),
-                                        onPressed: multiple
-                                            ? () => setState(() {
-                                                if (!opened.remove(b.id)) {
-                                                  opened.add(b.id);
-                                                }
-                                              })
-                                            : () => widget.rename(b),
-                                        label: Text(
-                                          r.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
-                                    for (var n = 1; n <= 4; n++)
-                                      cell(
-                                        n,
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 8,
-                                          ),
-                                          child: Text(
-                                            n == 4
-                                                ? '${r.parts.length}'
-                                                : unit.format(r.number(n)),
-                                            style: mono,
-                                          ),
-                                        ),
-                                      ),
-                                    if (cuts)
-                                      cell(
-                                        5,
-                                        Text(
-                                          b.bevelled
-                                              ? '${stockCut(b, false)} / ${stockCut(b, true)}'
-                                              : context.strings.square,
-                                          style: mono,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              if (b.rabbets.isNotEmpty)
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                      left: 12,
-                                      bottom: 4,
-                                    ),
-                                    child: Text(
-                                      '${context.strings.rabbetTitle} · ${stockRabbets(b, unit)}',
-                                      style: mono,
-                                    ),
-                                  ),
-                                ),
-                              if (multiple && expanded)
-                                for (final item in r.parts)
+                          final row = entries[i];
+                          return ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 32),
+                            child: Row(
+                              children: [
+                                cell(
+                                  0,
                                   Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      22,
-                                      2,
-                                      0,
-                                      2,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
                                     ),
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: DeskButton(
-                                        plain: true,
-                                        onPressed: () => widget.rename(item),
-                                        icon: const Icon(
-                                          CupertinoIcons.pencil,
-                                          size: 12,
-                                        ),
-                                        label: Text(item.name),
+                                    child: Text(row.sample.name),
+                                  ),
+                                ),
+                                for (var n = 1; n <= 4; n++)
+                                  cell(
+                                    n,
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Text(
+                                        n == 4
+                                            ? '${row.parts.length}'
+                                            : widget.editor.lengthInput.format(
+                                                row.number(n),
+                                              ),
+                                        style: mono,
                                       ),
                                     ),
                                   ),
-                              const Divider(height: 1),
-                            ],
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -322,13 +249,13 @@ class _PartsListState extends State<PartsList> {
           DeskButton(
             onPressed: entries.isEmpty || exporting
                 ? null
-                : () => exportWorkbook(p, entries, bazis: true),
+                : () => exportWorkbook(p, bazis: true),
             label: Text(context.strings.bazisExport),
           ),
           DeskButton(
             onPressed: entries.isEmpty || exporting
                 ? null
-                : () => exportWorkbook(p, entries),
+                : () => exportWorkbook(p),
             icon: const Icon(CupertinoIcons.square_arrow_up, size: 15),
             label: Text(context.strings.exportToExcel),
           ),

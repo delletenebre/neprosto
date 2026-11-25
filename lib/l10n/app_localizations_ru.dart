@@ -60,22 +60,31 @@ class AppLocalizationsRu extends AppLocalizations {
   String get positiveWidth => '+Ш';
 
   @override
-  String get flushOffsetHint => '0 — заподлицо, минус — выступ';
-
-  @override
   String get xWidth => 'X · ширина';
 
   @override
-  String get xyTop => 'XY · сверху';
+  String get horizontalPlane => 'Горизонтальная';
 
   @override
-  String get xzFront => 'XZ · спереди';
+  String get workPlanePurpose => 'Где строить и перемещать детали?';
+
+  @override
+  String get horizontalPlaneExample => 'Как полка или столешница';
+
+  @override
+  String get frontPlaneExample => 'Как дверца шкафа';
+
+  @override
+  String get sidePlaneExample => 'Как боковина шкафа';
+
+  @override
+  String get partFacePlane => 'По грани детали';
+
+  @override
+  String get workPlaneNeedsPart => 'Нужна видимая деталь на чертеже';
 
   @override
   String get yDepth => 'Y · глубина';
-
-  @override
-  String get yzSide => 'YZ · сбоку';
 
   @override
   String get zHeight => 'Z · высота';
@@ -242,7 +251,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectTheSecondShelf => 'Выберите вторую полку';
 
   @override
-  String get selectWorkPlaneFace => 'Выберите грань для рабочей плоскости';
+  String get selectWorkPlaneFace =>
+      'Щёлкните по нужной поверхности детали на чертеже';
 
   @override
   String get chooseParallelShelf =>
@@ -282,13 +292,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectAllParts => 'Выбрать все детали';
 
   @override
-  String get selectFace => 'Выбрать грань…';
-
-  @override
   String get chooseReferenceFromList => 'Выбрать опорную деталь из списка';
-
-  @override
-  String get chooseThePartToMove => 'Выбрать перемещаемую деталь';
 
   @override
   String get alignment => 'Выравнивание';
@@ -521,6 +525,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get actionsMenu => 'Меню действий';
+
+  @override
+  String get precision => 'Точность';
+
+  @override
+  String get editingIncrement => 'Шаг редактирования';
 
   @override
   String get measurementUnits => 'Единицы измерения';
@@ -817,9 +827,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String anchorShortcut(Object shortcut) {
     return 'Поставить по опоре · $shortcut';
   }
-
-  @override
-  String get movingPart => 'Перемещаемая деталь';
 
   @override
   String get movementAndRuler => 'Перемещение и линейка';
@@ -1643,6 +1650,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addHole => 'Добавить отверстие';
 
   @override
+  String get holeName => 'Название отверстия';
+
+  @override
+  String get showHoleNumbers => 'Показать номера на схеме';
+
+  @override
   String get holeDiameter => 'Диаметр';
 
   @override
@@ -1703,6 +1716,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get dropDownDoor => 'Дверца вниз · петли снизу';
+
+  @override
+  String get hingesLeft => 'Петли слева';
+
+  @override
+  String get hingesRight => 'Петли справа';
+
+  @override
+  String get hingesTop => 'Петли сверху';
+
+  @override
+  String get hingesBottom => 'Петли снизу';
+
+  @override
+  String get chooseHingeEdge => 'Нажмите на край дверцы';
 
   @override
   String get doorAngle => 'Угол открывания';
@@ -1897,21 +1925,70 @@ class AppLocalizationsRu extends AppLocalizations {
   String get edgeMarkAngle => 'Разметка по толщине';
 
   @override
-  String get cutDiagramKey =>
-      'Пунктир — прямой рез (0°), штриховка — отход. На обеих схемах начало детали слева.';
-
-  @override
   String cutOffsetReadout(String distance) {
     return 'Смещение $distance';
   }
 
   @override
-  String get flatSawSettings =>
-      'Торцовочная пила · деталь плашмя, начало слева';
+  String get mitreSaw => 'Торцовочная пила';
 
   @override
-  String sawSettingValues(String miter, String bevel) {
-    return 'Поворот стола $miter°   ·   Наклон диска $bevel°';
+  String get handheldSaw => 'Ручная циркулярная';
+
+  @override
+  String get tableSaw => 'Пильный стол';
+
+  @override
+  String get sawCutLine => 'Линия пропила';
+
+  @override
+  String get sawCrosscutFence => 'Поперечный упор';
+
+  @override
+  String get sawMiterPlan => 'Сверху · рукоятка снизу';
+
+  @override
+  String get sawHandPlan => 'Сверху · ход пилы';
+
+  @override
+  String get sawTablePlan => 'Сверху · подача от себя';
+
+  @override
+  String get sawMiterSight => 'От рукоятки вдоль реза';
+
+  @override
+  String get sawHandSight => 'Сзади пилы по ходу реза';
+
+  @override
+  String get sawTableSight => 'От переднего края стола';
+
+  @override
+  String sawFenceNear(String angle) {
+    return '$angle° · правый край к себе';
+  }
+
+  @override
+  String sawFenceFar(String angle) {
+    return '$angle° · правый край от себя';
+  }
+
+  @override
+  String get sawStockPosition => 'Деталь плашмя, начало слева';
+
+  @override
+  String get sawTableRotation => 'Поворот стола';
+
+  @override
+  String get sawBladeTilt => 'Наклон диска';
+
+  @override
+  String sawAngleLeft(String angle) {
+    return '$angle° влево';
+  }
+
+  @override
+  String sawAngleRight(String angle) {
+    return '$angle° вправо';
   }
 
   @override
@@ -1925,10 +2002,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String angleToLongEdge(String angle) {
     return 'К продольной кромке $angle°';
   }
-
-  @override
-  String get sawDirections =>
-      'Стрелки показывают, куда смещены линия реза у упора и верх диска.';
 
   @override
   String get rabbetTitle => 'Фальцевые срезы';

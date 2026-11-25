@@ -22,6 +22,7 @@ import 'drawing.dart';
 import 'finish_picker.dart';
 import 'model.dart';
 import 'stock_axis.dart';
+import 'step.dart';
 
 class Inspector extends StatelessWidget {
   final Editor e;
@@ -168,17 +169,25 @@ class Inspector extends StatelessWidget {
   Widget build(BuildContext context) {
     if (e.tool == Tool.move) return placementPanel(context);
     final part = e.single, selected = e.selected;
-    if (e.tool == Tool.align && part != null) {
-      return AlignmentPanel(e, key: ValueKey(part.id));
-    }
+    final alignmentPart = e.tool == Tool.align ? part : null;
+    final showSelectionActions = e.tool == Tool.select || alignmentPart != null;
     final rotatedPart = e.tool == Tool.rotate && part != null
         ? e.displayed.byId[part.id]
         : null;
     final bounds = selected.isEmpty
         ? null
         : Bounds3.points(selected.expand((b) => b.corners));
-    final title = part?.name ?? context.strings.selectedParts(selected.length);
-    return ColoredBox(
+    final title = Text(
+      part?.name ?? context.strings.selectedParts(selected.length),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -.5,
+      ),
+    );
+    final properties = ColoredBox(
       color: context.colors.panel,
       child: ListView(
         padding: EdgeInsets.zero,
@@ -194,35 +203,34 @@ class Inspector extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: context.colors.muted),
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    spacing: toolbarGap,
-                    children: [
-                      if (part?.hinge case final side?) DoorIcon(side),
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -.5,
-                          ),
+                  if (part == null)
+                    title
+                  else
+                    Tooltip(
+                      message: context.strings.renamePart,
+                      child: DeskControl(
+                        onPressed: rename,
+                        minimumSize: const Size(0, 26),
+                        padding: const EdgeInsetsDirectional.only(end: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: controlGap,
+                          children: [
+                            if (part.hinge case final side?) DoorIcon(side),
+                            Flexible(child: title),
+                            Icon(
+                              cu.CupertinoIcons.pencil,
+                              size: 14,
+                              color: context.colors.muted,
+                            ),
+                          ],
                         ),
                       ),
-                      if (part != null)
-                        iconAction(
-                          cu.CupertinoIcons.pencil,
-                          context.strings.renamePart,
-                          rename,
-                          size: 15,
-                        ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
-            if (e.tool == Tool.select && part != null && part.hinge != null)
+            if (showSelectionActions && part != null && part.hinge != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(15, 0, 15, 8),
                 child: DeskButton(
@@ -234,7 +242,7 @@ class Inspector extends StatelessWidget {
                   ),
                 ),
               ),
-            if (e.tool == Tool.select &&
+            if (showSelectionActions &&
                 part != null &&
                 e.project.visibleGeometry.beams.length > 1)
               Padding(
@@ -268,7 +276,7 @@ class Inspector extends StatelessWidget {
                 context.strings.edges(
                   (edgeLengths(
                     part,
-                  ).map(e.project.unit.format).toSet().toList()).join(' / '),
+                  ).map(e.lengthInput.format).toSet().toList()).join(' / '),
                   e.project.unit.symbol,
                 ),
                 style: mono,
@@ -605,6 +613,26 @@ class Inspector extends StatelessWidget {
             ], spacing: toolbarGap),
         ],
       ),
+    );
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ExcludeFocus(
+          excluding: alignmentPart != null,
+          child: ExcludeSemantics(
+            excluding: alignmentPart != null,
+            child: properties,
+          ),
+        ),
+        if (alignmentPart != null) ...[
+          ColoredBox(
+            color: Colors.black.withValues(
+              alpha: context.colors.isDark ? .38 : .23,
+            ),
+          ),
+          AlignmentPanel(e, key: ValueKey(alignmentPart.id)),
+        ],
+      ],
     );
   }
 }

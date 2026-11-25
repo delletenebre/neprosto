@@ -295,7 +295,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(linkedTab);
       await t.pumpAndSettle();
-      await t.tap(find.text('Сохранить'));
+      await t.tap(find.byTooltip('Сохранить'));
       await t.pumpAndSettle();
       expect(fileWrites.last, 'Не записывать');
       expect(linked.dirty, false);

@@ -9,6 +9,9 @@ import 'package:material_ui/material_ui.dart' show Tooltip;
 import 'package:material_ui/material_ui.dart' as m;
 
 import 'platform_ui.dart';
+import 'dialog_motion.dart';
+
+export 'dialog_motion.dart' show DialogSource, DeskDialogRoute;
 
 const double controlGap = 6;
 const double toolbarGap = 4;
@@ -43,12 +46,14 @@ class DeskControl extends StatelessWidget {
           ? BorderSide(color: context.colors.line, width: .8)
           : BorderSide.none,
     );
+    final action = onPressed;
+    void activate() => DialogSource.invoke(DialogSource.of(context), action!);
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       return DecoratedBox(
         decoration: ShapeDecoration(shape: shape),
         child: CupertinoButton(
           sizeStyle: CupertinoButtonSize.small,
-          onPressed: onPressed,
+          onPressed: action == null ? null : activate,
           minimumSize: minimumSize,
           padding: padding,
           color: background,
@@ -77,7 +82,7 @@ class DeskControl extends StatelessWidget {
     final mac = macControls;
     final focusColor = context.colors.accent;
     return m.TextButton(
-      onPressed: onPressed,
+      onPressed: action == null ? null : activate,
       style: mac
           ? style.copyWith(
               animationDuration: Duration.zero,
@@ -182,27 +187,44 @@ Future<T?> showDeskDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool barrierDismissible = false,
-}) => macControls
-    ? showGeneralDialog<T>(
-        context: context,
-        barrierDismissible: barrierDismissible,
-        barrierLabel: CupertinoLocalizations.of(context)
-            .modalBarrierDismissLabel,
-        barrierColor: const Color(0x26000000),
-        transitionDuration: const Duration(milliseconds: 140),
-        pageBuilder: (context, _, _) => SafeArea(child: builder(context)),
-      )
-    : appleControls
-    ? showCupertinoDialog<T>(
-        context: context,
-        builder: builder,
-        barrierDismissible: barrierDismissible,
-      )
-    : m.showDialog<T>(
-        context: context,
-        builder: builder,
-        barrierDismissible: barrierDismissible,
-      );
+  String? barrierLabel,
+  Color? barrierColor,
+  bool useSafeArea = true,
+  DialogSource? source,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final themes = InheritedTheme.capture(from: context, to: navigator.context);
+  final origin = source ?? DialogSource.current;
+  return navigator.push(
+    DeskDialogRoute<T>(
+      source: origin,
+      anchorPoint: origin?.bounds.center,
+      barrierDismissible: barrierDismissible,
+      barrierLabel:
+          barrierLabel ??
+          (appleControls
+              ? CupertinoLocalizations.of(context).modalBarrierDismissLabel
+              : m.MaterialLocalizations.of(context).modalBarrierDismissLabel),
+      barrierColor:
+          barrierColor ??
+          (macControls
+              ? const Color(0x26000000)
+              : appleControls
+              ? CupertinoDynamicColor.resolve(
+                  kCupertinoModalBarrierColor,
+                  context,
+                )
+              : m.DialogTheme.of(context).barrierColor ?? m.Colors.black54),
+      transitionDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 300),
+      pageBuilder: (ctx, _, _) {
+        final page = Builder(builder: builder);
+        return themes.wrap(useSafeArea ? SafeArea(child: page) : page);
+      },
+    ),
+  );
+}
 
 class DeskDialog extends StatelessWidget {
   final Widget title, content;
@@ -237,7 +259,9 @@ class DeskDialog extends StatelessWidget {
       height: .7,
       child: ColoredBox(color: context.colors.line),
     );
+    final surface = DeskDialogRoute.surfaceKey(context);
     final body = Padding(
+      key: appleControls ? null : surface,
       padding: divided ? EdgeInsets.zero : padding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -284,6 +308,7 @@ class DeskDialog extends StatelessWidget {
             child: Padding(
               padding: inset,
               child: Container(
+                key: surface,
                 constraints: constraints,
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
@@ -614,6 +639,7 @@ Future<int?> showDeskPopup(
   required List<DeskPopupRow> rows,
   bool showTitle = false,
   double anchorHeight = 0,
+  DialogSource? source,
 }) async {
   if (!appleControls) {
     final overlay =
@@ -682,13 +708,14 @@ Future<int?> showDeskPopup(
     }
   }
   if (!context.mounted) return null;
-  return showGeneralDialog<int>(
+  return showDeskDialog<int>(
+    source: source,
+    useSafeArea: false,
     context: context,
     barrierLabel: title,
     barrierDismissible: true,
     barrierColor: const Color(0x00000000),
-    transitionDuration: Duration.zero,
-    pageBuilder: (ctx, _, _) => LayoutBuilder(
+    builder: (ctx) => LayoutBuilder(
       builder: (_, box) {
         final width = math.min(showTitle ? 275.0 : 242.0, box.maxWidth);
         final height = math.min(
@@ -711,6 +738,7 @@ Future<int?> showDeskPopup(
               width: width,
               height: height,
               child: DecoratedBox(
+                key: DeskDialogRoute.surfaceKey(ctx),
                 decoration: BoxDecoration(
                   color: context.colors.panel,
                   border: Border.all(color: context.colors.line, width: .7),

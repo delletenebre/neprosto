@@ -33,7 +33,7 @@ void main() {
   }
 
   testWidgets(
-    'Tree double-click applies size and finish to the selected rows in one undo',
+    'Canvas double-click edits parts selected in the tree in one undo',
     (t) async {
       final project = Project.bench().edit(
         {2},
@@ -44,7 +44,7 @@ void main() {
           rabbets: const {RabbetEdge.topLeft: (width: 15, depth: 8)},
         ),
       );
-      final e = Editor(project);
+      final e = Editor(project)..setView(ViewAngle.top);
       await mount(t, e);
       Finder row(int id) => find.descendant(
         of: find.byType(PartsPanel),
@@ -55,7 +55,12 @@ void main() {
       await t.tap(row(2), kind: PointerDeviceKind.mouse);
       await t.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await t.pumpAndSettle();
-      await doubleClick(t, t.getCenter(row(2)));
+      final drawing = find.byKey(const Key('drawing'));
+      final board = project.byId[2]!.pointAt(Vector3(.4, .5, 1));
+      await doubleClick(
+        t,
+        t.getTopLeft(drawing) + e.camera.project(board, t.getSize(drawing)),
+      );
       expect(e.selection, {1, 2});
       expect(
         find.descendant(of: dialog, matching: find.text('Выбрано деталей · 2')),

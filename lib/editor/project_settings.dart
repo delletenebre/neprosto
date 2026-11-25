@@ -11,7 +11,11 @@ import 'desktop.dart';
 import 'model.dart';
 import 'palette.dart';
 
-Future<void> showProjectSettings(BuildContext context, Editor editor) async {
+Future<void> showProjectSettings(
+  BuildContext context,
+  Editor editor, {
+  DialogSource? source,
+}) async {
   final project = editor.project;
   final bounds = project.partBounds;
   final partSize = bounds == null ? null : bounds.high - bounds.low;
@@ -23,6 +27,7 @@ Future<void> showProjectSettings(BuildContext context, Editor editor) async {
   var resizeProducts = false;
   String? resizeError;
   final result = await showDeskDialog<Project>(
+    source: source,
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (_, update) {

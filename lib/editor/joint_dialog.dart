@@ -11,6 +11,7 @@ import 'controls.dart';
 import 'drawing.dart';
 import 'joint.dart';
 import 'model.dart';
+import 'step.dart';
 import 'scene.dart';
 
 Future<void> showPartJoint(BuildContext context, Editor editor) async {
@@ -79,6 +80,7 @@ class _JointDialogState extends State<JointDialog> {
   );
   @override
   Widget build(BuildContext context) {
+    final input = Units.of(context);
     JointPreview? result;
     String? error;
     try {
@@ -193,9 +195,7 @@ class _JointDialogState extends State<JointDialog> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  context.strings.shortAndLongEdgeLengths(
-                    Units.of(context).symbol,
-                  ),
+                  context.strings.shortAndLongEdgeLengths(input.unit.symbol),
                   style: TextStyle(fontSize: 12, color: context.colors.muted),
                 ),
                 for (final b in [j.fixed, j.moving])
@@ -206,7 +206,7 @@ class _JointDialogState extends State<JointDialog> {
                         children: [
                           Expanded(child: Text(b.name)),
                           Text(
-                            '${Units.of(context).format(lengths.first)} / ${Units.of(context).format(lengths.last)}',
+                            '${input.format(lengths.first)} / ${input.format(lengths.last)}',
                             style: mono,
                           ),
                         ],

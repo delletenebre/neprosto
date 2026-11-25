@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import 'model.dart';
+import 'step.dart';
 import 'finish_painter.dart';
 import 'part_finish.dart';
 import 'move_snap.dart';
@@ -272,7 +273,7 @@ class DrawingPainter extends CustomPainter {
         _label(
           c,
           (start + end) / 2 + const Offset(0, -15),
-          editorStrings.gap(unit.format(g.gap!), unit.symbol),
+          editorStrings.gap(scene.input.format(g.gap!), unit.symbol),
           colors.accent,
           filled: true,
         );
@@ -302,7 +303,7 @@ class DrawingPainter extends CustomPainter {
           _label(
             c,
             top + const Offset(0, -24),
-            'Z +${unit.format(end.z - start.z)} ${unit.symbol}',
+            'Z +${scene.input.format(end.z - start.z)} ${unit.symbol}',
             colors.accent,
           );
         }
@@ -339,7 +340,7 @@ class DrawingPainter extends CustomPainter {
       _label(
         c,
         edgePointer! + const Offset(0, -24),
-        '${StockAxis.values[edge.axis].label} · ${unit.format(part.size[edge.axis])} ${unit.symbol}',
+        '${StockAxis.values[edge.axis].label} · ${scene.input.format(part.size[edge.axis])} ${unit.symbol}',
         colors.accent,
         filled: true,
       );
@@ -797,7 +798,7 @@ class DrawingPainter extends CustomPainter {
           : colors.diagramColor(axis.color);
       final label = part == null
           ? null
-          : '${active ? axis.label : axis.letter} ${scene.project.unit.format(part.size[k])}';
+          : '${active ? axis.label : axis.letter} ${scene.input.format(part.size[k])}';
       var best = -1.0, start = 0, side = 1.0;
       for (var i = 0; i < 8; i++) {
         if (i & bit != 0) continue;
@@ -870,7 +871,7 @@ class DrawingPainter extends CustomPainter {
     Offset Function(Offset, String)? place,
   }) {
     final a = project(from), b = project(to), dir = b - a;
-    final text = label ?? scene.project.unit.format(from.distanceTo(to));
+    final text = label ?? scene.input.format(from.distanceTo(to));
     if (dir.distance < 1) {
       if (!showDepth) return null;
       final badge = a + const Offset(0, -17);

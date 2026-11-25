@@ -19,6 +19,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:material_ui/material_ui.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
+    show PhosphorIconsRegular;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'editor/controller.dart';
@@ -41,6 +43,7 @@ import 'editor/scene.dart';
 import 'editor/step.dart';
 import 'editor/storage.dart';
 import 'editor/viewport.dart';
+import 'editor/work_plane_picker.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -199,13 +202,7 @@ class _NeprostoAppState extends State<NeprostoApp> {
           ListenableBuilder(
             listenable: editor,
             child: child,
-            builder: (_, child) => Units(
-              editor.project.unit,
-              editor.step.enabled
-                  ? editor.step.millimeters(editor.project.unit)
-                  : null,
-              child: child!,
-            ),
+            builder: (_, child) => Units(editor.lengthInput, child: child!),
           );
       if (!appleControls) {
         return MaterialApp(
@@ -664,9 +661,11 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     String title,
     String value, {
     DoorSettingsDraft? door,
+    DialogSource? source,
   }) {
     var result = value;
     return showDeskDialog<String>(
+      source: source,
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (_, update) {
@@ -744,15 +743,19 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     FocusManager.instance.primaryFocus?.unfocus();
     FocusManager.instance.applyFocusChangesIfNeeded();
     await showDeskDialog<void>(
+      source:
+          DialogSource.current ??
+          DialogSource.of(partsListButton.currentContext),
       context: context,
       barrierDismissible: true,
-      builder: (_) => PartsList(e, rename: renamePart),
+      builder: (_) => PartsList(e),
     );
   }
 
-  Future<bool> closeAllowed(ProjectTab tab) async {
+  Future<bool> closeAllowed(ProjectTab tab, DialogSource? source) async {
     if (!tab.dirty) return true;
     final answer = await showDeskDialog<int>(
+      source: source,
       context: context,
       builder: (ctx) => DeskDialog(
         maxWidth: 352,
@@ -810,7 +813,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
 
   bool settingsOpen = false;
   bool gridControlsOpen = false;
-  final gridAnchor = LayerLink();
+  final settingsButton = GlobalKey();
+  final newProjectButton = GlobalKey();
+  final partsListButton = GlobalKey();
+  final gridButton = GlobalKey();
   Future<void> gridWrites = Future.value();
 
   Future<void> saveGrid(GridVisibility value) {
@@ -829,54 +835,68 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
 
   Future<void> showGridControls() async {
     if (gridControlsOpen) return;
+    final source = DialogSource.of(gridButton.currentContext)!;
+    final overlay =
+        Navigator.of(
+              context,
+              rootNavigator: true,
+            ).overlay!.context.findRenderObject()!
+            as RenderBox;
     setState(() => gridControlsOpen = true);
     try {
-      await showGeneralDialog<void>(
+      await showDeskDialog<void>(
+        source: source,
+        useSafeArea: false,
         context: context,
         barrierDismissible: true,
         barrierLabel: context.strings.closeGridSettings,
         barrierColor: Colors.transparent,
-        transitionDuration: Duration.zero,
-        pageBuilder: (_, _, _) => Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              child: CompositedTransformFollower(
-                link: gridAnchor,
-                targetAnchor: Alignment.bottomRight,
-                followerAnchor: Alignment.topRight,
-                offset: const Offset(0, 5),
-                showWhenUnlinked: false,
-                child: IntrinsicWidth(
-                  child: Container(
-                    constraints: const BoxConstraints(minWidth: 265),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: context.colors.panel,
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(color: context.colors.line, width: .8),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x28000000),
-                          offset: Offset(0, 4),
-                          blurRadius: 14,
+        builder: (ctx) => LayoutBuilder(
+          builder: (_, box) {
+            final anchor = overlay.globalToLocal(source.bounds.bottomRight);
+            return Stack(
+              children: [
+                Positioned(
+                  right: (box.maxWidth - anchor.dx).clamp(
+                    0.0,
+                    (box.maxWidth - 265).clamp(0.0, box.maxWidth),
+                  ),
+                  top: anchor.dy + 5,
+                  child: IntrinsicWidth(
+                    child: Container(
+                      key: DeskDialogRoute.surfaceKey(ctx),
+                      constraints: const BoxConstraints(minWidth: 265),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: context.colors.panel,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: context.colors.line,
+                          width: .8,
                         ),
-                      ],
-                    ),
-                    child: ListenableBuilder(
-                      listenable: e,
-                      builder: (_, _) => GridControls(e.gridVisibility, (next) {
-                        e.gridVisibility = next;
-                        e.refresh();
-                        unawaited(saveGrid(next));
-                      }),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x28000000),
+                            offset: Offset(0, 4),
+                            blurRadius: 14,
+                          ),
+                        ],
+                      ),
+                      child: ListenableBuilder(
+                        listenable: e,
+                        builder: (_, _) =>
+                            GridControls(e.gridVisibility, (next) {
+                              e.gridVisibility = next;
+                              e.refresh();
+                              unawaited(saveGrid(next));
+                            }),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       );
     } finally {
@@ -918,6 +938,9 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     final originalLocale = widget.locale;
     try {
       final result = await showDeskDialog<SettingsResult>(
+        source:
+            DialogSource.current ??
+            DialogSource.of(settingsButton.currentContext),
         context: context,
         builder: (_) => EditorSettings(
           e,
@@ -1021,8 +1044,15 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       FocusManager.instance.applyFocusChangesIfNeeded();
       if (autosaving case final pending?) await pending;
       if (!mounted) return;
+      final source =
+          DialogSource.current ??
+          DialogSource.of(
+            action == 'new'
+                ? newProjectButton.currentContext
+                : GlobalObjectKey(tab ?? active).currentContext,
+          );
       if (action == 'projectSettings') {
-        await showProjectSettings(context, e);
+        await showProjectSettings(context, e, source: source);
         return;
       }
       if (action == 'save' || action == 'saveAs') {
@@ -1034,6 +1064,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         final value = await nameDialog(
           context.strings.projectName,
           document.committed.name,
+          source: source,
         );
         if (value != null && mounted && tabs.items.contains(document)) {
           document.editor.commit(document.editor.project.copy(name: value));
@@ -1044,7 +1075,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       switch (action) {
         case 'close':
           final closing = tab ?? active;
-          if (!await closeAllowed(closing) || !mounted) return;
+          if (!await closeAllowed(closing, source) || !mounted) return;
           tabs.close(closing);
         case 'open':
           final input = await openProject();
@@ -1058,7 +1089,11 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
             tabs.open(input.project, file: input.file);
           }
         case 'new':
-          final choice = await chooseProjectTemplate(context, e.project.unit);
+          final choice = await chooseProjectTemplate(
+            context,
+            e.project.unit,
+            source: source,
+          );
           if (!mounted || choice == null) return;
           tabs.create(template: choice.template, unit: choice.unit);
         case 'demo':
@@ -1169,6 +1204,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           ),
         Expanded(
           child: ProjectTabBar(
+            newProjectButton: newProjectButton,
             tabs: tabs.items,
             active: active,
             select: focusTab,
@@ -1250,10 +1286,23 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       ),
   ];
 
-  Widget documentActions({required bool compact}) => Wrap(
-    spacing: toolbarGap,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
+  Widget viewportToolbar() {
+    Widget group(List<Widget> controls, {double spacing = 2}) => Wrap(
+      spacing: spacing,
+      runSpacing: toolbarGap,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: controls,
+    );
+
+    Widget afterDivider(Widget controls) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 16, child: VerticalDivider(width: 15)),
+        Flexible(child: controls),
+      ],
+    );
+
+    final documentActions = group([
       iconAction(
         cu.CupertinoIcons.arrow_uturn_left,
         context.strings.undo,
@@ -1264,133 +1313,106 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         context.strings.redo,
         e.canRedo ? e.redo : null,
       ),
-      if (compact)
-        iconAction(
-          cu.CupertinoIcons.square_arrow_down,
-          context.strings.save,
-          () => file('save'),
-          size: 16,
-        )
-      else
-        DeskButton(
-          plain: macControls,
-          onPressed: () => file('save'),
-          icon: const Icon(cu.CupertinoIcons.square_arrow_down, size: 16),
-          label: Text(context.strings.save),
-        ),
       iconAction(
+        PhosphorIconsRegular.floppyDisk,
+        context.strings.save,
+        () => file('save'),
+      ),
+    ]);
+    final planeAndGrid = Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 2,
+      children: [
+        Flexible(child: WorkPlanePicker(e)),
+        DeskIcon(
+          cu.CupertinoIcons.grid,
+          context.strings.gridVisibility,
+          showGridControls,
+          key: gridButton,
+          size: 18,
+          background: gridControlsOpen ? context.colors.pale : null,
+        ),
+      ],
+    );
+    final zoomControls = group([
+      iconAction(
+        cu.CupertinoIcons.minus,
+        context.strings.zoomOut,
+        () => zoom(.8),
+      ),
+      iconAction(
+        cu.CupertinoIcons.plus,
+        context.strings.zoomIn,
+        () => zoom(1.25),
+      ),
+      iconAction(
+        cu.CupertinoIcons.viewfinder,
+        context.strings.fitShortcut(e.hotkeys[Command.fit].label),
+        () {
+          e.fitRequested = true;
+          e.refresh();
+        },
+      ),
+    ]);
+
+    final settings = afterDivider(
+      DeskIcon(
         cu.CupertinoIcons.gear_alt,
         context.strings.settings,
         editSettings,
+        key: settingsButton,
+        size: 18,
       ),
-    ],
-  );
+    );
 
-  Widget viewportToolbar() => Container(
-    key: const ValueKey('drawing-toolbar'),
-    constraints: BoxConstraints(minHeight: macControls ? 35 : 44),
-    alignment: Alignment.center,
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-    decoration: BoxDecoration(
-      color: context.colors.panel,
-      border: Border(bottom: BorderSide(color: context.colors.line)),
-    ),
-    child: LayoutBuilder(
-      builder: (context, box) {
-        final compact = box.maxWidth < 650;
-        const divider = SizedBox(height: 17, child: VerticalDivider(width: 1));
-        final tools = <Widget>[
-          if (macControls)
-            Wrap(spacing: toolbarGap, children: drawingTools())
-          else
-            iconAction(
-              cu.CupertinoIcons.sidebar_left,
-              context.strings.partsTree,
-              toggleParts,
-              size: 17,
-            ),
-          if (!compact) divider,
-          documentActions(compact: compact),
-          if (!compact) divider,
-          MenuChoice<String>(
-            selected: e.plane.name,
-            label: context.strings.workPlaneLabel(e.plane.displayName),
-            compactLabel: compact ? e.plane.displayName : null,
-            items: [
-              ('XY', context.strings.xyTop),
-              ('XZ', context.strings.xzFront),
-              ('YZ', context.strings.yzSide),
-              ('face', context.strings.selectFace),
-            ],
-            change: (v) {
-              if (v == 'face') {
-                e.setTool(Tool.face);
-              } else {
-                e.setPlane(
-                  v == 'XY'
-                      ? WorkPlane.xy()
-                      : v == 'XZ'
-                      ? WorkPlane.xz()
-                      : WorkPlane.yz(),
-                );
-              }
-            },
-          ),
-        ];
-        final zoomControls = <Widget>[
-          CompositedTransformTarget(
-            link: gridAnchor,
-            child: DeskIcon(
-              cu.CupertinoIcons.grid,
-              context.strings.gridVisibility,
-              showGridControls,
-              size: 18,
-              background: gridControlsOpen ? context.colors.pale : null,
-            ),
-          ),
-          iconAction(
-            cu.CupertinoIcons.minus,
-            context.strings.zoomOut,
-            () => zoom(.8),
-          ),
-          iconAction(
-            cu.CupertinoIcons.plus,
-            context.strings.zoomIn,
-            () => zoom(1.25),
-          ),
-          iconAction(
-            cu.CupertinoIcons.viewfinder,
-            context.strings.fitShortcut(e.hotkeys[Command.fit].label),
-            () {
-              e.fitRequested = true;
-              e.refresh();
-            },
-          ),
-        ];
-        return Row(
-          spacing: 8,
+    return Container(
+      key: const ValueKey('drawing-toolbar'),
+      constraints: BoxConstraints(minHeight: macControls ? 35 : 44),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: context.colors.panel,
+        border: Border(bottom: BorderSide(color: context.colors.line)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          spacing: 12,
           children: [
             Expanded(
               child: Wrap(
-                spacing: 8,
-                runSpacing: toolbarGap,
+                alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                children: tools,
+                spacing: 12,
+                runSpacing: toolbarGap,
+                children: [
+                  group([
+                    if (!macControls)
+                      iconAction(
+                        cu.CupertinoIcons.sidebar_left,
+                        context.strings.partsTree,
+                        toggleParts,
+                      ),
+                    documentActions,
+                    if (macControls) afterDivider(group(drawingTools())),
+                  ], spacing: macControls ? 0 : 12),
+                  planeAndGrid,
+                ],
               ),
             ),
             ConstrainedBox(
               constraints: BoxConstraints(maxWidth: box.maxWidth / 2),
               child: Wrap(
                 alignment: WrapAlignment.end,
-                spacing: toolbarGap,
-                children: zoomControls,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [zoomControls, settings],
               ),
             ),
           ],
-        );
-      },
-    ),
-  );
+        ),
+      ),
+    );
+  }
 
   Widget viewport() => Column(
     children: [
@@ -1525,9 +1547,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           onPressed: editSettings,
           child: Text(
             e.step.enabled
-                ? context.strings.step(
-                    e.project.unit.format(e.step.millimeters(e.project.unit)),
-                  )
+                ? context.strings.step(e.step.label(e.project.unit))
                 : context.strings.stepOff,
             style: const TextStyle(fontSize: 11),
           ),
@@ -1560,6 +1580,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 final parts = PartsPanel(
                   e,
                   showPartsList: showPartsList,
+                  partsListButton: partsListButton,
                   centerOn: (points) {
                     final viewport = viewportKey.currentState;
                     if (viewport == null) return;

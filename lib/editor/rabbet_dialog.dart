@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/strings.dart';
-import 'arithmetic.dart';
+import 'controls.dart';
 import 'controller.dart';
-import 'desk_text_field.dart';
+import 'step.dart';
 import 'desktop.dart';
 import 'model.dart';
 import 'palette.dart';
@@ -14,7 +14,7 @@ import 'palette.dart';
 Future<void> showRabbets(BuildContext context, Editor editor, Beam part) async {
   final result = await showDeskDialog<Beam>(
     context: context,
-    builder: (_) => _RabbetDialog(part, editor.project.unit),
+    builder: (_) => _RabbetDialog(part, editor.lengthInput),
   );
   if (result != null &&
       context.mounted &&
@@ -25,9 +25,9 @@ Future<void> showRabbets(BuildContext context, Editor editor, Beam part) async {
 }
 
 class _RabbetDialog extends StatefulWidget {
-  const _RabbetDialog(this.part, this.unit);
+  const _RabbetDialog(this.part, this.input);
   final Beam part;
-  final LengthUnit unit;
+  final LengthInput input;
   @override
   State<_RabbetDialog> createState() => _RabbetDialogState();
 }
@@ -37,21 +37,16 @@ class _RabbetDialogState extends State<_RabbetDialog> {
   late final fields = {
     for (final e in RabbetEdge.values)
       e: (
-        width: controller(widget.part.rabbets[e]?.width),
-        depth: controller(widget.part.rabbets[e]?.depth),
+        width: LengthEditingController(
+          widget.input,
+          widget.part.rabbets[e]?.width,
+        ),
+        depth: LengthEditingController(
+          widget.input,
+          widget.part.rabbets[e]?.depth,
+        ),
       ),
   };
-
-  TextEditingController controller(double? mm) =>
-      TextEditingController(text: mm == null ? '' : widget.unit.format(mm));
-
-  double? read(String text, double? original) {
-    if (original != null && text == widget.unit.format(original)) {
-      return original;
-    }
-    final value = calculate(text);
-    return value == null ? null : value * widget.unit.factor;
-  }
 
   @override
   void dispose() {
@@ -64,14 +59,14 @@ class _RabbetDialogState extends State<_RabbetDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final s = context.strings, unit = widget.unit, part = widget.part;
+    final s = context.strings, unit = widget.input.unit, part = widget.part;
     final cuts = <RabbetEdge, Rabbet>{};
     RabbetEdge? invalid;
     for (final e in fields.entries) {
       final w = e.value.width.text.trim(), d = e.value.depth.text.trim();
       if (w.isEmpty && d.isEmpty) continue;
-      final width = read(w, part.rabbets[e.key]?.width);
-      final depth = read(d, part.rabbets[e.key]?.depth);
+      final width = e.value.width.millimeters;
+      final depth = e.value.depth.millimeters;
       if (width == null ||
           !width.isFinite ||
           width <= 0 ||
@@ -87,24 +82,7 @@ class _RabbetDialogState extends State<_RabbetDialog> {
     final valid = invalid == null && draft.cutsFit;
     final current = fields[edge]!;
 
-    Widget choices(RabbetEdge left, RabbetEdge right) => Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        for (final e in [left, right])
-          Flexible(
-            child: Semantics(
-              selected: e == edge,
-              child: DeskButton(
-                active: edge == e,
-                onPressed: () => setState(() => edge = e),
-                child: Text(e.label),
-              ),
-            ),
-          ),
-      ],
-    );
-
-    Widget field(String label, TextEditingController input) => Expanded(
+    Widget field(String label, LengthEditingController input) => Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -112,17 +90,10 @@ class _RabbetDialogState extends State<_RabbetDialog> {
           const SizedBox(height: 4),
           Semantics(
             label: label,
-            child: DeskTextField(
+            child: DraftLengthField(
+              input,
+              () => setState(() {}),
               key: ObjectKey(input),
-              controller: input,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              onChanged: (_) => setState(() {}),
-              suffix: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text(unit.symbol),
-              ),
             ),
           ),
         ],
@@ -138,37 +109,14 @@ class _RabbetDialogState extends State<_RabbetDialog> {
         spacing: 8,
         children: [
           Text(
-            '${part.name} · ${unit.format(part.size.y)} × ${unit.format(part.size.z)} ${unit.symbol}',
+            '${part.name} · ${widget.input.format(part.size.y)} × ${widget.input.format(part.size.z)} ${unit.symbol}',
           ),
           Text(s.rabbetView, style: TextStyle(color: context.colors.muted)),
-          choices(RabbetEdge.topLeft, RabbetEdge.topRight),
-          SizedBox(
-            height: 106,
-            child: LayoutBuilder(
-              builder: (_, box) => GestureDetector(
-                key: const ValueKey('rabbet-section'),
-                behavior: HitTestBehavior.opaque,
-                excludeFromSemantics: true,
-                onTapUp: (tap) {
-                  final right = tap.localPosition.dx >= box.maxWidth / 2;
-                  final top = tap.localPosition.dy < box.maxHeight / 2;
-                  setState(
-                    () => edge = RabbetEdge.values.firstWhere(
-                      (e) => e.right == right && e.top == top,
-                    ),
-                  );
-                },
-                child: CustomPaint(
-                  painter: _SectionDiagram(
-                    draft.cutsFit ? draft : part,
-                    edge,
-                    context.colors,
-                  ),
-                ),
-              ),
-            ),
+          _SectionPicker(
+            part: draft.cutsFit ? draft : part,
+            selected: edge,
+            onChanged: (value) => setState(() => edge = value),
           ),
-          choices(RabbetEdge.bottomLeft, RabbetEdge.bottomRight),
           Row(
             spacing: 12,
             children: [
@@ -189,8 +137,8 @@ class _RabbetDialogState extends State<_RabbetDialog> {
                   ? null
                   : () {
                       setState(() {
-                        current.width.clear();
-                        current.depth.clear();
+                        current.width.setMillimeters(null);
+                        current.depth.setMillimeters(null);
                       });
                     },
               child: Text(s.rabbetRemove),
@@ -214,23 +162,131 @@ class _RabbetDialogState extends State<_RabbetDialog> {
   }
 }
 
+class _SectionPicker extends StatelessWidget {
+  const _SectionPicker({
+    required this.part,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final Beam part;
+  final RabbetEdge selected;
+  final ValueChanged<RabbetEdge> onChanged;
+
+  Widget marker(RabbetEdge edge, EditorPalette colors) {
+    final active = selected == edge;
+    return Tooltip(
+      message: edge.label,
+      excludeFromSemantics: true,
+      child: Semantics(
+        label: edge.label,
+        selected: active,
+        child: DeskControl(
+          borderRadius: BorderRadius.circular(14),
+          onPressed: () => onChanged(edge),
+          child: Container(
+            width: active ? 11 : 8,
+            height: active ? 11 : 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: active ? colors.accent : colors.field,
+              border: Border.all(
+                color: active ? colors.field : colors.muted,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return LayoutBuilder(
+      builder: (_, box) {
+        final target = math.min(28.0, box.maxWidth / 2);
+        final scale = math.min(
+          (box.maxWidth - target) / part.size.y,
+          94 / part.size.z,
+        );
+        final section = Size(part.size.y * scale, part.size.z * scale);
+        final size = Size(
+          math.max(section.width, target) + target,
+          math.max(section.height, target) + target,
+        );
+        final rect = Rect.fromCenter(
+          center: size.center(Offset.zero),
+          width: section.width,
+          height: section.height,
+        );
+        final handles = (Offset.zero & size).deflate(target / 2);
+        return Center(
+          child: SizedBox.fromSize(
+            size: size,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                GestureDetector(
+                  key: const ValueKey('rabbet-section'),
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTapUp: (tap) => onChanged(
+                    RabbetEdge.values.firstWhere(
+                      (e) =>
+                          e.right == (tap.localPosition.dx >= rect.center.dx) &&
+                          e.top == (tap.localPosition.dy < rect.center.dy),
+                    ),
+                  ),
+                  child: CustomPaint(
+                    painter: _SectionDiagram(
+                      part,
+                      selected,
+                      colors,
+                      rect,
+                      handles,
+                    ),
+                  ),
+                ),
+                for (final edge in RabbetEdge.values)
+                  Positioned.fromRect(
+                    rect: Rect.fromCenter(
+                      center: _corner(handles, edge),
+                      width: target,
+                      height: target,
+                    ),
+                    child: marker(edge, colors),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+Offset _corner(Rect rect, RabbetEdge edge) => Offset(
+  edge.right ? rect.right : rect.left,
+  edge.top ? rect.top : rect.bottom,
+);
+
 class _SectionDiagram extends CustomPainter {
-  const _SectionDiagram(this.part, this.selected, this.colors);
+  const _SectionDiagram(
+    this.part,
+    this.selected,
+    this.colors,
+    this.rect,
+    this.handles,
+  );
   final Beam part;
   final RabbetEdge selected;
   final EditorPalette colors;
+  final Rect rect, handles;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scale = math.min(
-      (size.width - 16) / part.size.y,
-      (size.height - 12) / part.size.z,
-    );
-    final rect = Rect.fromCenter(
-      center: size.center(Offset.zero),
-      width: part.size.y * scale,
-      height: part.size.z * scale,
-    );
     Offset at(double y, double z) =>
         Offset(rect.left + y * rect.width, rect.bottom - z * rect.height);
     final shape = Path()
@@ -247,8 +303,9 @@ class _SectionDiagram extends CustomPainter {
         ..strokeWidth = 1.5
         ..color = colors.ink,
     );
-    final corner = at(selected.right ? 1 : 0, selected.top ? 1 : 0);
+    final corner = _corner(rect, selected);
     if (part.rabbets[selected] case final cut?) {
+      final scale = rect.width / part.size.y;
       final inset =
           corner +
           Offset(
@@ -270,10 +327,19 @@ class _SectionDiagram extends CustomPainter {
           ..color = colors.accent,
       );
     }
-    canvas.drawCircle(corner, 3.5, Paint()..color = colors.accent);
+    if (rect != handles) {
+      final guide = Paint()..color = colors.muted;
+      for (final edge in RabbetEdge.values) {
+        canvas.drawLine(_corner(rect, edge), _corner(handles, edge), guide);
+      }
+    }
   }
 
   @override
   bool shouldRepaint(_SectionDiagram old) =>
-      old.part != part || old.selected != selected || old.colors != colors;
+      old.part != part ||
+      old.selected != selected ||
+      old.colors != colors ||
+      old.rect != rect ||
+      old.handles != handles;
 }

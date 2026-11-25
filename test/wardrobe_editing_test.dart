@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:excel/excel.dart' show Excel;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,10 +9,12 @@ import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/part_type_picker.dart';
 import 'package:neprosto/editor/part_finish.dart';
 import 'package:neprosto/editor/model.dart';
+import 'package:neprosto/editor/step.dart';
 import 'package:neprosto/editor/project_templates.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/main.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 void main() {
   final wardrobe = FurnitureTemplate.bedroomWardrobe.build(
@@ -189,7 +192,21 @@ void main() {
       await t.pumpAndSettle();
 
       Future<void> editName() async {
-        await t.tap(find.byTooltip('Переименовать деталь'));
+        final action = find.byTooltip('Переименовать деталь');
+        final title = find.descendant(
+          of: action,
+          matching: find.text(panel.name),
+        );
+        final pencil = find.descendant(
+          of: action,
+          matching: find.byIcon(CupertinoIcons.pencil),
+        );
+        expect(
+          t.getRect(pencil).left - t.getRect(title).right,
+          closeTo(controlGap, .1),
+        );
+        expect(t.getCenter(pencil).dy, closeTo(t.getCenter(title).dy, .1));
+        await t.tap(title);
         await t.pumpAndSettle();
         expect(find.text('Название детали'), findsOneWidget);
         expect(
@@ -201,21 +218,36 @@ void main() {
       }
 
       Future<void> choose(String label) async {
-        await t.tap(
-          find.descendant(
-            of: find.byType(PartTypePicker),
-            matching: find.byType(DeskMenu<DoorHinge?>),
-          ),
+        final button = find.descendant(
+          of: find.byType(PartTypePicker),
+          matching: find.text(label),
         );
-        await t.pumpAndSettle();
-        await t.tap(find.text(label).last);
+        await t.tap(button);
         await t.pumpAndSettle();
       }
 
       expect(find.byType(PartTypePicker), findsNothing);
       expect(find.byType(DoorIcon), findsNothing);
       await editName();
-      await choose('Дверца вверх · петли сверху');
+      final diagram = find.byKey(const ValueKey('hinge-diagram'));
+      expect(diagram, findsNothing);
+      await choose('Дверца');
+      expect(find.text('Петли слева'), findsOneWidget);
+      final face = t.getRect(diagram);
+      for (final (point, label) in [
+        (face.centerRight - const Offset(16, 0), 'Петли справа'),
+        (face.bottomCenter - const Offset(0, 16), 'Петли снизу'),
+        (face.centerLeft + const Offset(16, 0), 'Петли слева'),
+        (face.topCenter + const Offset(0, 16), 'Петли сверху'),
+      ]) {
+        await t.tapAt(point);
+        await t.pumpAndSettle();
+        expect(find.text(label), findsOneWidget);
+      }
+      await choose('Обычная деталь');
+      expect(diagram, findsNothing);
+      await choose('Дверца');
+      expect(find.text('Петли сверху'), findsOneWidget);
       final field = find.descendant(
         of: find.byKey(const ValueKey('dialog-door-angle')),
         matching: find.byType(EditableText),
@@ -237,6 +269,17 @@ void main() {
       expect(icons, findsWidgets);
       for (final element in icons.evaluate()) {
         final icon = find.byWidget(element.widget);
+        expect(
+          find.descendant(
+            of: icon,
+            matching: find.byIcon(PhosphorIconsRegular.door),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: icon, matching: find.byType(RotatedBox)),
+          findsNothing,
+        );
         final row = find.ancestor(of: icon, matching: find.byType(Row)).first;
         final name = find
             .descendant(of: row, matching: find.text(panel.name))
@@ -250,6 +293,7 @@ void main() {
       await t.pumpAndSettle();
       expect(e.single!.doorOpen, isTrue);
       await editName();
+      expect(find.text('Петли сверху'), findsOneWidget);
       await choose('Обычная деталь');
       await t.tap(find.text('Отмена'));
       await t.pumpAndSettle();
@@ -313,7 +357,8 @@ void main() {
     (t) async {
       await t.binding.setSurfaceSize(const Size(1320, 900));
       addTearDown(() => t.binding.setSurfaceSize(null));
-      final e = Editor(wardrobe.copy(unit: LengthUnit.centimeter));
+      final e = Editor(wardrobe.copy(unit: LengthUnit.centimeter))
+        ..step = EditStep(values: {LengthUnit.centimeter: .1});
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
       e.setView(ViewAngle.front);

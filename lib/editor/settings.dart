@@ -203,8 +203,7 @@ class _EditorSettingsState extends State<EditorSettings> {
   );
 
   Widget stepField(LengthUnit fieldUnit) => Units(
-    fieldUnit,
-    widget.editor.step.millimeters(fieldUnit),
+    (unit: fieldUnit, increment: null),
     key: ValueKey(fieldUnit),
     child: SizedBox(
       width: 78,
@@ -214,12 +213,37 @@ class _EditorSettingsState extends State<EditorSettings> {
           step = step.change(fieldUnit, mm / fieldUnit.factor, step.enabled);
         }),
         key: const ValueKey('input-step'),
+        formatValue: fieldUnit.formatStep,
         live: true,
         onValidityChanged: (valid) {
           if (valid != stepValid) setState(() => stepValid = valid);
         },
       ),
     ),
+  );
+
+  void toggleStep(bool enabled) => setState(() {
+    step = step.change(unit, step.value(unit), enabled);
+    stepValid = true;
+  });
+
+  Widget stepPresets(List<double> values) => DeskSegmentedControl<double>(
+    value: values.contains(step.value(unit)) ? step.value(unit) : null,
+    children: {
+      for (final value in values)
+        value: Text(
+          unit == LengthUnit.inch
+              ? '${unit.formatStep(value * unit.factor)}${unit.symbol}'
+              : '${unit.format(value * unit.factor)} ${unit.symbol}',
+        ),
+    },
+    change: (value) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        step = step.change(unit, value, true);
+        stepValid = true;
+      });
+    },
   );
 
   List<Widget> editing() => [
@@ -232,6 +256,40 @@ class _EditorSettingsState extends State<EditorSettings> {
         stepValid = true;
       }),
     ),
+    const SizedBox(height: 18),
+    heading(context.strings.precision),
+    card([
+      Row(
+        children: [
+          Expanded(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => toggleStep(!step.enabled),
+                excludeFromSemantics: true,
+                child: ExcludeSemantics(
+                  child: Text(context.strings.editingIncrement),
+                ),
+              ),
+            ),
+          ),
+          if (step.enabled) ...[stepField(unit), const SizedBox(width: 9)],
+          Semantics(
+            label: context.strings.editingIncrement,
+            child: DeskSwitch(value: step.enabled, onChanged: toggleStep),
+          ),
+        ],
+      ),
+      if (step.enabled) ...[
+        const SizedBox(height: 8),
+        stepPresets(const [1, .1, .01]),
+        if (unit == LengthUnit.inch) ...[
+          const SizedBox(height: 6),
+          stepPresets(const [1 / 8, 1 / 16, 1 / 32]),
+        ],
+      ],
+    ]),
     const SizedBox(height: 18),
     heading(context.strings.movementAndRuler),
     card([
@@ -246,23 +304,6 @@ class _EditorSettingsState extends State<EditorSettings> {
         snap
             ? context.strings.freeMovementHint(primaryModifierLabel)
             : context.strings.holdToSnap(primaryModifierLabel),
-      ),
-    ]),
-    const SizedBox(height: 18),
-    heading(context.strings.movementAndResizing),
-    card([
-      Row(
-        children: [
-          Expanded(child: Text(context.strings.moveAndResizeInIncrements)),
-          if (step.enabled) ...[stepField(unit), const SizedBox(width: 9)],
-          DeskSwitch(
-            value: step.enabled,
-            onChanged: (v) => setState(() {
-              step = step.change(unit, step.value(unit), v);
-              stepValid = true;
-            }),
-          ),
-        ],
       ),
     ]),
   ];

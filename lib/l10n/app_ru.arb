@@ -16,12 +16,15 @@
   "invalidHexColor": "Введите цвет в формате #RRGGBB",
   "positiveThickness": "+Т",
   "positiveWidth": "+Ш",
-  "flushOffsetHint": "0 — заподлицо, минус — выступ",
   "xWidth": "X · ширина",
-  "xyTop": "XY · сверху",
-  "xzFront": "XZ · спереди",
+  "horizontalPlane": "Горизонтальная",
+  "workPlanePurpose": "Где строить и перемещать детали?",
+  "horizontalPlaneExample": "Как полка или столешница",
+  "frontPlaneExample": "Как дверца шкафа",
+  "sidePlaneExample": "Как боковина шкафа",
+  "partFacePlane": "По грани детали",
+  "workPlaneNeedsPart": "Нужна видимая деталь на чертеже",
   "yDepth": "Y · глубина",
-  "yzSide": "YZ · сбоку",
   "zHeight": "Z · высота",
   "edgeCaption": "{side}\nкрай",
   "@edgeCaption": {
@@ -181,7 +184,7 @@
   "alwaysVisible": "Всегда видны",
   "shortcutKeyHint": "Выберите букву, цифру, стрелку или функциональную клавишу",
   "selectTheSecondShelf": "Выберите вторую полку",
-  "selectWorkPlaneFace": "Выберите грань для рабочей плоскости",
+  "selectWorkPlaneFace": "Щёлкните по нужной поверхности детали на чертеже",
   "chooseParallelShelf": "Выберите другую полку с общей проекцией и параллельной гранью",
   "chooseAlignmentHint": "Укажите точки на двух деталях или задайте выравнивание в панели",
   "chooseMovingAnchor": "2 из 2. Укажите точку на перемещаемой детали.",
@@ -206,9 +209,7 @@
     }
   },
   "selectAllParts": "Выбрать все детали",
-  "selectFace": "Выбрать грань…",
   "chooseReferenceFromList": "Выбрать опорную деталь из списка",
-  "chooseThePartToMove": "Выбрать перемещаемую деталь",
   "alignment": "Выравнивание",
   "alignToReference": "Выровнять по опоре…",
   "overallSizeMustExceed": "Габарит должен быть больше {size} {unit}",
@@ -384,6 +385,8 @@
   "ruler": "Линейка",
   "zoom": "Масштаб",
   "actionsMenu": "Меню действий",
+  "precision": "Точность",
+  "editingIncrement": "Шаг редактирования",
   "measurementUnits": "Единицы измерения",
   "millimeters": "Миллиметры",
   "onDrawing": "На чертеже",
@@ -538,7 +541,6 @@
       }
     }
   },
-  "movingPart": "Перемещаемая деталь",
   "movementAndRuler": "Перемещение и линейка",
   "movementAndResizing": "Перемещение и растягивание",
   "intersection": "Пересечение",
@@ -1000,6 +1002,8 @@
   "drillingFace": "Сторона сверления",
   "noPanelHoles": "На детали пока нет отверстий",
   "addHole": "Добавить отверстие",
+  "holeName": "Название отверстия",
+  "showHoleNumbers": "Показать номера на схеме",
   "holeDiameter": "Диаметр",
   "throughHole": "Сквозное",
   "blindHole": "Глухое",
@@ -1020,6 +1024,11 @@
   "awayFromViewer": "От вас",
   "liftUpDoor": "Дверца вверх · петли сверху",
   "dropDownDoor": "Дверца вниз · петли снизу",
+  "hingesLeft": "Петли слева",
+  "hingesRight": "Петли справа",
+  "hingesTop": "Петли сверху",
+  "hingesBottom": "Петли снизу",
+  "chooseHingeEdge": "Нажмите на край дверцы",
   "doorAngle": "Угол открывания",
   "leftHingedDoor": "Распашная дверца с петлями слева",
   "rightHingedDoor": "Распашная дверца с петлями справа",
@@ -1088,7 +1097,6 @@
   "endCutsTitle": "Торцевые срезы",
   "faceMarkAngle": "Разметка по ширине",
   "edgeMarkAngle": "Разметка по толщине",
-  "cutDiagramKey": "Пунктир — прямой рез (0°), штриховка — отход. На обеих схемах начало детали слева.",
   "cutOffsetReadout": "Смещение {distance}",
   "@cutOffsetReadout": {
     "placeholders": {
@@ -1097,14 +1105,48 @@
       }
     }
   },
-  "flatSawSettings": "Торцовочная пила · деталь плашмя, начало слева",
-  "sawSettingValues": "Поворот стола {miter}°   ·   Наклон диска {bevel}°",
-  "@sawSettingValues": {
+  "mitreSaw": "Торцовочная пила",
+  "handheldSaw": "Ручная циркулярная",
+  "tableSaw": "Пильный стол",
+  "sawCutLine": "Линия пропила",
+  "sawCrosscutFence": "Поперечный упор",
+  "sawMiterPlan": "Сверху · рукоятка снизу",
+  "sawHandPlan": "Сверху · ход пилы",
+  "sawTablePlan": "Сверху · подача от себя",
+  "sawMiterSight": "От рукоятки вдоль реза",
+  "sawHandSight": "Сзади пилы по ходу реза",
+  "sawTableSight": "От переднего края стола",
+  "sawFenceNear": "{angle}° · правый край к себе",
+  "@sawFenceNear": {
     "placeholders": {
-      "miter": {
+      "angle": {
         "type": "String"
-      },
-      "bevel": {
+      }
+    }
+  },
+  "sawFenceFar": "{angle}° · правый край от себя",
+  "@sawFenceFar": {
+    "placeholders": {
+      "angle": {
+        "type": "String"
+      }
+    }
+  },
+  "sawStockPosition": "Деталь плашмя, начало слева",
+  "sawTableRotation": "Поворот стола",
+  "sawBladeTilt": "Наклон диска",
+  "sawAngleLeft": "{angle}° влево",
+  "@sawAngleLeft": {
+    "placeholders": {
+      "angle": {
+        "type": "String"
+      }
+    }
+  },
+  "sawAngleRight": "{angle}° вправо",
+  "@sawAngleRight": {
+    "placeholders": {
+      "angle": {
         "type": "String"
       }
     }
@@ -1119,7 +1161,6 @@
       }
     }
   },
-  "sawDirections": "Стрелки показывают, куда смещены линия реза у упора и верх диска.",
   "rabbetTitle": "Фальцевые срезы",
   "rabbetTopLeft": "Верхнее левое",
   "rabbetTopRight": "Верхнее правое",

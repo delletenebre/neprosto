@@ -358,6 +358,17 @@ void main() {
         expect(calculate(input), isNull);
       }
       expect(LengthUnit.inch.format(12.7), '0.5');
+      for (final (inches, label) in [
+        (1.0, '1″'),
+        (1 / 16, '1/16″'),
+        (.1, '1/10″'),
+        (3 / 8, '3/8″'),
+        (1 / 3, '1/3″'),
+        (1.25, '5/4″'),
+      ]) {
+        final inchStep = EditStep(values: {LengthUnit.inch: inches});
+        expect(EditStep.decode(inchStep.encode()).label(LengthUnit.inch), label);
+      }
       expect(LengthUnit.centimeter.format(1200), '120');
       final steps = EditStep().change(LengthUnit.centimeter, .25, true);
       expect(steps.round(123.53, LengthUnit.millimeter), 124);
@@ -367,6 +378,23 @@ void main() {
       );
       expect(off.round(123.53, LengthUnit.millimeter), 123.53);
       expect(off.value(LengthUnit.centimeter), .25);
+      for (final unit in LengthUnit.values) {
+        for (final (resolution, expected) in [
+          (1.0, 732.0),
+          (.1, 732.0),
+          (.01, 732.02),
+        ]) {
+          final step = EditStep().change(unit, resolution, true);
+          final input = EditStep.decode(step.encode()).input(unit);
+          final rounded = closeTo(expected * unit.factor, 1e-9);
+          expect(input.parse('732 + 0,023'), rounded);
+          expect(input.round(732.023 * unit.factor), rounded);
+          expect(input.parse('1/0'), isNull);
+        }
+        final fine = EditStep().change(unit, .01, true).input(unit);
+        expect(fine.parse('-1,005'), closeTo(-1.01 * unit.factor, 1e-9));
+        expect(fine.format(732.023 * unit.factor), '732.02');
+      }
     },
   );
   test(

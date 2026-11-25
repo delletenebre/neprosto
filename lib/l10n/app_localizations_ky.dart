@@ -60,23 +60,32 @@ class AppLocalizationsKy extends AppLocalizations {
   String get positiveWidth => '+Т';
 
   @override
-  String get flushOffsetHint =>
-      'Нөл — бир тегиздикте, терс маани — чыгып турат';
-
-  @override
   String get xWidth => 'X · туурасы';
 
   @override
-  String get xyTop => 'XY · үстүнөн';
+  String get horizontalPlane => 'Туурасынан';
 
   @override
-  String get xzFront => 'XZ · алдынан';
+  String get workPlanePurpose =>
+      'Деталдарды кайсы тегиздикте чийип, жылдырасыз?';
+
+  @override
+  String get horizontalPlaneExample => 'Текче же үстөлдүн үстү сыяктуу';
+
+  @override
+  String get frontPlaneExample => 'Шкафтын эшиги сыяктуу';
+
+  @override
+  String get sidePlaneExample => 'Шкафтын каптал дубалы сыяктуу';
+
+  @override
+  String get partFacePlane => 'Деталдын бети боюнча';
+
+  @override
+  String get workPlaneNeedsPart => 'Чиймеде көрүнгөн деталь болушу керек';
 
   @override
   String get yDepth => 'Y · тереңдиги';
-
-  @override
-  String get yzSide => 'YZ · капталдан';
 
   @override
   String get zHeight => 'Z · бийиктиги';
@@ -244,7 +253,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get selectTheSecondShelf => 'Экинчи текчени тандаңыз';
 
   @override
-  String get selectWorkPlaneFace => 'Иш тегиздиги үчүн бетти тандаңыз';
+  String get selectWorkPlaneFace => 'Чиймедеги деталдын керектүү бетин басыңыз';
 
   @override
   String get chooseParallelShelf =>
@@ -284,13 +293,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get selectAllParts => 'Бардык тетиктерди тандоо';
 
   @override
-  String get selectFace => 'Бетти тандоо…';
-
-  @override
   String get chooseReferenceFromList => 'Тизмеден таяныч тетикти тандаңыз';
-
-  @override
-  String get chooseThePartToMove => 'Жылдырылуучу тетикти тандаңыз';
 
   @override
   String get alignment => 'Тегиздөө';
@@ -524,6 +527,12 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get actionsMenu => 'Аракеттер менюсу';
+
+  @override
+  String get precision => 'Тактык';
+
+  @override
+  String get editingIncrement => 'Түзөтүү кадамы';
 
   @override
   String get measurementUnits => 'Өлчөө бирдиктери';
@@ -819,9 +828,6 @@ class AppLocalizationsKy extends AppLocalizations {
   String anchorShortcut(Object shortcut) {
     return 'Таянычка жайгаштыруу · $shortcut';
   }
-
-  @override
-  String get movingPart => 'Жылдырылуучу тетик';
 
   @override
   String get movementAndRuler => 'Жылдыруу жана сызгыч';
@@ -1647,6 +1653,12 @@ class AppLocalizationsKy extends AppLocalizations {
   String get addHole => 'Тешик кошуу';
 
   @override
+  String get holeName => 'Тешиктин аталышы';
+
+  @override
+  String get showHoleNumbers => 'Схемада номерлерди көрсөтүү';
+
+  @override
   String get holeDiameter => 'Диаметр';
 
   @override
@@ -1707,6 +1719,21 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get dropDownDoor => 'Ылдый ачылат · илмеги астында';
+
+  @override
+  String get hingesLeft => 'Илмектер сол жакта';
+
+  @override
+  String get hingesRight => 'Илмектер оң жакта';
+
+  @override
+  String get hingesTop => 'Илмектер үстүндө';
+
+  @override
+  String get hingesBottom => 'Илмектер астында';
+
+  @override
+  String get chooseHingeEdge => 'Эшиктин кырын тандаңыз';
 
   @override
   String get doorAngle => 'Ачылуу бурчу';
@@ -1901,21 +1928,70 @@ class AppLocalizationsKy extends AppLocalizations {
   String get edgeMarkAngle => 'Калыңдыгы боюнча белгилөө';
 
   @override
-  String get cutDiagramKey =>
-      'Үзүк сызык тик кесимди (0°), штрихтер калдыкты көрсөтөт. Эки схемада тең тетиктин башы сол жакта.';
-
-  @override
   String cutOffsetReadout(String distance) {
     return 'Жылыш $distance';
   }
 
   @override
-  String get flatSawSettings =>
-      'Торцовка араасы · тетик жалпак жатат, башы сол жакта';
+  String get mitreSaw => 'Торцовка араасы';
 
   @override
-  String sawSettingValues(String miter, String bevel) {
-    return 'Үстөлдүн бурулушу $miter°   ·   Дисктин жантайышы $bevel°';
+  String get handheldSaw => 'Кол дисктүү араа';
+
+  @override
+  String get tableSaw => 'Араа үстөлү';
+
+  @override
+  String get sawCutLine => 'Кесүү сызыгы';
+
+  @override
+  String get sawCrosscutFence => 'Туурасынан кесүү таянычы';
+
+  @override
+  String get sawMiterPlan => 'Үстүнөн · тутка төмөндө';
+
+  @override
+  String get sawHandPlan => 'Үстүнөн · араанын жүрүшү';
+
+  @override
+  String get sawTablePlan => 'Үстүнөн · өзүңүздөн ары';
+
+  @override
+  String get sawMiterSight => 'Туткадан кесимди бойлой';
+
+  @override
+  String get sawHandSight => 'Араанын артынан, кесимди бойлой';
+
+  @override
+  String get sawTableSight => 'Үстөлдүн алдыңкы четинен';
+
+  @override
+  String sawFenceNear(String angle) {
+    return '$angle° · оң учу өзүңүзгө карай';
+  }
+
+  @override
+  String sawFenceFar(String angle) {
+    return '$angle° · оң учу өзүңүздөн ары';
+  }
+
+  @override
+  String get sawStockPosition => 'Тетик жалпак жатат, башы сол жакта';
+
+  @override
+  String get sawTableRotation => 'Үстөлдүн бурулушу';
+
+  @override
+  String get sawBladeTilt => 'Дисктин жантайышы';
+
+  @override
+  String sawAngleLeft(String angle) {
+    return 'Солго $angle°';
+  }
+
+  @override
+  String sawAngleRight(String angle) {
+    return 'Оңго $angle°';
   }
 
   @override
@@ -1929,10 +2005,6 @@ class AppLocalizationsKy extends AppLocalizations {
   String angleToLongEdge(String angle) {
     return 'Узун кырга карата $angle°';
   }
-
-  @override
-  String get sawDirections =>
-      'Жебелер таянычтагы кесүү сызыгы жана дисктин үстү кайсы тарапка жылганын көрсөтөт.';
 
   @override
   String get rabbetTitle => 'Фальц оюктары';

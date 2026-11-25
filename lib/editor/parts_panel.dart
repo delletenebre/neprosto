@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import '../l10n/strings.dart';
 import 'palette.dart';
 import 'platform_ui.dart';
@@ -20,17 +18,19 @@ import 'hotkeys.dart';
 import 'controls.dart';
 import 'drawing.dart';
 import 'model.dart';
+import 'step.dart';
 import 'part_menu.dart';
 import 'part_type_picker.dart';
-import 'size_dialog.dart';
 
 class PartsPanel extends StatefulWidget {
   final Editor editor;
   final VoidCallback showPartsList;
+  final Key? partsListButton;
   final ValueChanged<List<Vector3>> centerOn;
   const PartsPanel(
     this.editor, {
     required this.showPartsList,
+    this.partsListButton,
     required this.centerOn,
     super.key,
   });
@@ -41,53 +41,32 @@ class PartsPanel extends StatefulWidget {
 class _PartsPanelState extends State<PartsPanel> {
   final collapsedGroups = <int?>{};
   Object? hoveredDimensionId;
-  Timer? pendingRowSelection;
   int? lastPlainRow;
   Editor get e => widget.editor;
 
-  @override
-  void dispose() {
-    pendingRowSelection?.cancel();
-    super.dispose();
-  }
-
   Widget partControl(Beam b, {required Widget child}) {
     void select([SerialTapUpDetails? tap]) {
-      final preserveSelection = pendingRowSelection != null;
-      pendingRowSelection?.cancel();
-      pendingRowSelection = null;
-      FocusManager.instance.primaryFocus?.unfocus();
-      FocusManager.instance.applyFocusChangesIfNeeded();
-      if (e.pickingAlignmentSupport) {
-        e.chooseSupport(b.id);
-        return;
-      }
-      if (e.tool == Tool.rotate || e.tool == Tool.align) {
-        e.setTool(Tool.select);
-      }
       final k = HardwareKeyboard.instance;
       final multi = k.isShiftPressed || k.isMetaPressed || k.isControlPressed;
       final plainClick = tap != null && !multi && !k.isAltPressed;
       final doubleClick = plainClick && tap.count > 1 && lastPlainRow == b.id;
       lastPlainRow = plainClick && !doubleClick ? b.id : null;
-      if (doubleClick) {
-        if (!preserveSelection || !e.selection.contains(b.id)) {
-          e.select(b.id, individual: true);
-        }
-        showPartProperties(context, e, tap.globalPosition);
-      } else if (plainClick &&
-          e.selection.length > 1 &&
-          e.selection.contains(b.id)) {
-        // Wait for a possible double-click before narrowing the selection.
-        final selection = e.selection;
-        pendingRowSelection = Timer(kDoubleTapTimeout, () {
-          pendingRowSelection = null;
-          if (identical(e.selection, selection) &&
-              ModalRoute.isCurrentOf(context) == true) {
-            e.select(b.id);
-          }
-        });
+      if (b.hidden) {
+        if (doubleClick && e.showHiddenOutlines) widget.centerOn(b.corners);
+        return;
+      }
+      FocusManager.instance.primaryFocus?.unfocus();
+      FocusManager.instance.applyFocusChangesIfNeeded();
+      if (e.pickingAlignmentSupport) {
+        e.chooseSupport(b.id);
+      } else if (doubleClick) {
+        if (e.tool != Tool.select) e.setTool(Tool.select);
+        e.select(b.id, individual: true);
+        widget.centerOn(b.corners);
       } else {
+        if (e.tool == Tool.rotate || e.tool == Tool.align) {
+          e.setTool(Tool.select);
+        }
         e.select(b.id, multi: multi, individual: k.isAltPressed);
       }
     }
@@ -98,7 +77,7 @@ class _PartsPanelState extends State<PartsPanel> {
         behavior: HitTestBehavior.opaque,
         excludeFromSemantics: true,
         gestures: {
-          if (!b.hidden && !e.pickingAlignmentSupport)
+          if ((!b.hidden || e.showHiddenOutlines) && !e.pickingAlignmentSupport)
             SerialTapGestureRecognizer:
                 GestureRecognizerFactoryWithHandlers<
                   SerialTapGestureRecognizer
@@ -107,13 +86,7 @@ class _PartsPanelState extends State<PartsPanel> {
                     allowedButtonsFilter: (buttons) =>
                         buttons == kPrimaryButton,
                   ),
-                  (recognizer) => recognizer
-                    ..onSerialTapDown = (tap) {
-                      if (tap.count > 1 && lastPlainRow == b.id) {
-                        pendingRowSelection?.cancel();
-                      }
-                    }
-                    ..onSerialTapUp = select,
+                  (recognizer) => recognizer.onSerialTapUp = select,
                 ),
         },
         child: child,
@@ -121,96 +94,94 @@ class _PartsPanelState extends State<PartsPanel> {
     );
   }
 
-  Widget item(Beam b) {
+  Widget item(Beam b) => Padding(
+    key: ValueKey(b.id),
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Builder(builder: (row) => partRow(row, b)),
+  );
+
+  Widget partRow(BuildContext row, Beam b) {
     final active = e.selection.contains(b.id);
-    return Padding(
-      key: ValueKey(b.id),
-      padding: const EdgeInsets.only(bottom: 2),
-      child: GestureDetector(
-        onSecondaryTapUp: (details) =>
-            showDrawingMenu(context, e, details.globalPosition, partId: b.id),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: active ? context.selectionFill : Colors.transparent,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: _PartVisibilityRow(
-            hasHiddenParts: b.hidden,
-            showHiddenIndicator: true,
-            tooltip: b.hidden
-                ? context.strings.showPart
-                : context.strings.hidePart,
-            toggleVisibility: () => e.setPartsHidden({b.id}, !b.hidden),
-            onCenter: b.hidden && !e.showHiddenOutlines
-                ? null
-                : () {
-                    if (!b.hidden) {
-                      if (e.tool != Tool.select) e.setTool(Tool.select);
-                      e.select(b.id, individual: true);
-                    }
-                    widget.centerOn(b.corners);
-                  },
-            trailing: Expanded(
-              child: partControl(
-                b,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    4,
-                    macControls ? 3 : 6,
-                    7,
-                    macControls ? 3 : 6,
-                  ),
-                  child: Row(
-                    spacing: toolbarGap,
-                    children: [
-                      if (b.hinge case final side?)
-                        DoorIcon(
-                          side,
-                          color: b.hidden ? context.colors.disabled : null,
-                        ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              b.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: b.hidden
-                                    ? context.colors.disabled
-                                    : context.colors.ink,
-                                fontWeight: active
-                                    ? FontWeight.w600
-                                    : (macControls
-                                          ? FontWeight.w400
-                                          : FontWeight.w500),
-                              ),
+    return GestureDetector(
+      onSecondaryTapUp: (details) => showDrawingMenu(
+        context,
+        e,
+        details.globalPosition,
+        partId: b.id,
+        source: DialogSource.of(row),
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: active ? context.selectionFill : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: _PartVisibilityRow(
+          hasHiddenParts: b.hidden,
+          showHiddenIndicator: true,
+          tooltip: b.hidden
+              ? context.strings.showPart
+              : context.strings.hidePart,
+          toggleVisibility: () => e.setPartsHidden({b.id}, !b.hidden),
+          trailing: Expanded(
+            child: partControl(
+              b,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  4,
+                  macControls ? 3 : 6,
+                  7,
+                  macControls ? 3 : 6,
+                ),
+                child: Row(
+                  spacing: toolbarGap,
+                  children: [
+                    if (b.hinge case final side?)
+                      DoorIcon(
+                        side,
+                        color: b.hidden ? context.colors.disabled : null,
+                      ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            b.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: b.hidden
+                                  ? context.colors.disabled
+                                  : context.colors.ink,
+                              fontWeight: active
+                                  ? FontWeight.w600
+                                  : (macControls
+                                        ? FontWeight.w400
+                                        : FontWeight.w500),
                             ),
-                            Text(
-                              '${e.project.unit.format(b.size.x)} × ${e.project.unit.format(b.size.y)} × ${e.project.unit.format(b.size.z)}',
-                              style: mono.copyWith(
-                                fontSize: 10,
-                                color: b.hidden
-                                    ? context.colors.disabled
-                                    : context.colors.muted,
-                              ),
+                          ),
+                          Text(
+                            '${e.lengthInput.format(b.size.x)} × ${e.lengthInput.format(b.size.y)} × ${e.lengthInput.format(b.size.z)}',
+                            style: mono.copyWith(
+                              fontSize: 10,
+                              color: b.hidden
+                                  ? context.colors.disabled
+                                  : context.colors.muted,
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (e.overlaps.contains(b.id))
+                      Tooltip(
+                        message: context.strings.intersection,
+                        child: Icon(
+                          cu.CupertinoIcons.exclamationmark_triangle,
+                          size: 15,
+                          color: context.colors.danger,
                         ),
                       ),
-                      if (e.overlaps.contains(b.id))
-                        Tooltip(
-                          message: context.strings.intersection,
-                          child: Icon(
-                            cu.CupertinoIcons.exclamationmark_triangle,
-                            size: 15,
-                            color: context.colors.danger,
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -479,6 +450,7 @@ class _PartsPanelState extends State<PartsPanel> {
             child: DeskButton(
               plain: macControls,
               onPressed: widget.showPartsList,
+              key: widget.partsListButton,
               icon: const Icon(cu.CupertinoIcons.list_bullet, size: 16),
               label: Text(context.strings.partsList),
             ),
@@ -631,7 +603,6 @@ class _PartVisibilityRow extends StatefulWidget {
     super.key,
     required this.hasHiddenParts,
     this.showHiddenIndicator = false,
-    this.onCenter,
     required this.tooltip,
     required this.toggleVisibility,
     this.leading,
@@ -641,7 +612,6 @@ class _PartVisibilityRow extends StatefulWidget {
   final bool hasHiddenParts, showHiddenIndicator;
   final String tooltip;
   final VoidCallback toggleVisibility;
-  final VoidCallback? onCenter;
   final Widget? leading;
   final Widget trailing;
 
@@ -695,19 +665,6 @@ class _PartVisibilityRowState extends State<_PartVisibilityRow> {
           ],
         ),
         widget.trailing,
-        if (widget.onCenter != null)
-          Visibility(
-            visible: hovered,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainState: true,
-            child: DeskIcon(
-              PhosphorIconsRegular.crosshair,
-              context.strings.centerCamera,
-              widget.onCenter,
-              size: 15,
-            ),
-          ),
       ],
     ),
   );
