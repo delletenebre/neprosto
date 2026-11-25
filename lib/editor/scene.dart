@@ -84,6 +84,12 @@ class Camera {
     math.sin(pitch),
   );
   Vector3 get up => eye.cross(right);
+  int? get orthographicDepthAxis {
+    if (perspective) return null;
+    final direction = eye;
+    return [0, 1, 2].where((i) => direction[i].abs() > 1 - 1e-12).firstOrNull;
+  }
+
   double projectionFactor(Vector3 p) => perspective
       ? eyeDistance /
             math.max(eyeDistance * .001, eyeDistance - (p - target).dot(eye))
@@ -106,6 +112,7 @@ class Camera {
     }
     return (a, b);
   }
+
   Offset project(Vector3 p, Size s) {
     final v = p - target;
     return s.center(Offset.zero) +
@@ -594,7 +601,9 @@ class Scene {
   }) {
     final surface = hit(pos);
     final part = _partRulerTarget(pos, surface, sticky, mode);
-    if (!sticky || surface != null || project.workspaceSize == null) return part;
+    if (!sticky || surface != null || project.workspaceSize == null) {
+      return part;
+    }
     final boundary = _workspaceRulerTarget(pos, mode, planeOrigin);
     if (part == null || boundary == null) return part ?? boundary;
     double distance(RulerTarget t) =>
@@ -654,15 +663,27 @@ class Scene {
     );
   }
 
-  RulerTarget? _workspaceRulerTarget(Offset pos, SnapMode mode, Vector3? planeOrigin) {
-    if (mode != SnapMode.auto && mode != SnapMode.edge && mode != SnapMode.corner) {
+  RulerTarget? _workspaceRulerTarget(
+    Offset pos,
+    SnapMode mode,
+    Vector3? planeOrigin,
+  ) {
+    if (mode != SnapMode.auto &&
+        mode != SnapMode.edge &&
+        mode != SnapMode.corner) {
       return null;
     }
     final room = project.workspaceSize!;
+    if (room.x <= 0 || room.y <= 0 || room.z <= 0) return null;
     final corners = project.workspaceCorners;
     RulerTarget? best;
     var bestScore = double.infinity, bestDepth = double.negativeInfinity;
-    void consider(Vector3 point, String label, (Vector3, Vector3) guide, {Offset? onLine}) {
+    void consider(
+      Vector3 point,
+      String label,
+      (Vector3, Vector3) guide, {
+      Offset? onLine,
+    }) {
       final screen = camera.project(point, size);
       final distance = ((onLine ?? screen) - pos).distance;
       if (distance > (onLine == null ? 13 : 8)) return;
@@ -674,7 +695,11 @@ class Scene {
           hit(screen) != null) {
         return;
       }
-      best = (anchor: Anchor.workspace(point, room, label), face: null, guide: guide);
+      best = (
+        anchor: Anchor.workspace(point, room, label),
+        face: null,
+        guide: guide,
+      );
       bestScore = score;
       bestDepth = depth;
     }
@@ -689,7 +714,9 @@ class Scene {
       }
       if (mode == SnapMode.corner) return;
       final mid = (a + b) * .5;
-      if ((mid - from).dot(mid - to) <= 0) consider(mid, 'Середина ребра', clipped);
+      if ((mid - from).dot(mid - to) <= 0) {
+        consider(mid, 'Середина ребра', clipped);
+      }
       if (mode != SnapMode.auto) return;
       final start = camera.project(from, size), end = camera.project(to, size);
       final t = _segmentFraction(pos, start, end);
@@ -697,20 +724,26 @@ class Scene {
       final screen = start + (end - start) * t;
       if ((screen - pos).distance > 8 || hit(screen) != null) return;
       // Interpolate in world space using the projected endpoints' depth factors.
-      final x = (1 - t) * camera.projectionFactor(from);
-      final y = t * camera.projectionFactor(to);
-      final raw = from + (to - from) * (y / (x + y));
+      final fromWeight = (1 - t) * camera.projectionFactor(from);
+      final toWeight = t * camera.projectionFactor(to);
+      final raw = from + (to - from) * (toWeight / (fromWeight + toWeight));
       final direction = (b - a).normalized();
       final offset = input.round((raw - a).dot(direction));
-      final point = a + direction * offset.clamp((from - a).dot(direction), (to - a).dot(direction));
+      final point =
+          a +
+          direction *
+              offset.clamp((from - a).dot(direction), (to - a).dot(direction));
       consider(point, 'Ребро', clipped, onLine: screen);
     }
 
     // In an axis view the front and back outlines coincide. Measure on the
     // current plane so the invisible depth does not add to the ruler length.
-    final depthAxis = camera.perspective ? null : [0, 1, 2].where((i) => camera.eye[i].abs() > 1 - 1e-12).firstOrNull;
+    final depthAxis = camera.orthographicDepthAxis;
     if (depthAxis != null) {
-      final depth = (planeOrigin?[depthAxis] ?? 0.0).clamp(0.0, room[depthAxis]);
+      final depth = (planeOrigin?[depthAxis] ?? 0.0).clamp(
+        0.0,
+        room[depthAxis],
+      );
       final ring = faceCorners[2 * depthAxis];
       for (final i in ring) {
         corners[i][depthAxis] = depth;

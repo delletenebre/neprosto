@@ -44,6 +44,7 @@ class DrawingViewportState extends State<DrawingViewport> {
   bool? firstTapWithCommand;
   DrawingPainter? painted;
   RulerTarget? rulerTarget;
+  int? firstBoundaryDepthAxis;
   MapEntry<StockAxis, Rect>? sizeLabel(Offset pos) => painted
       ?.stockLabels
       .entries
@@ -484,6 +485,26 @@ class DrawingViewportState extends State<DrawingViewport> {
         : Anchor(plane.quantize(point, scene.input.stepMm));
   }
 
+  Anchor? get measurementStart {
+    final start = e.first, end = e.hover;
+    final axis = firstBoundaryDepthAxis;
+    if (e.tool != Tool.measure ||
+        axis == null ||
+        start == null ||
+        !start.onWorkspace ||
+        end == null ||
+        end.beam == null ||
+        e.camera.orthographicDepthAxis != axis) {
+      return start;
+    }
+    // A boundary picked first has the same projected position at every depth.
+    // Once a part supplies the measurement plane, use it for both endpoints.
+    final room = e.project.workspaceSize!;
+    final point = start.point.clone()
+      ..[axis] = end.point[axis].clamp(0.0, room[axis]);
+    return Anchor.workspace(point, room, start.label);
+  }
+
   void clickTool(Offset pos) {
     if (e.tool == Tool.ruler) {
       e.selectDimension(painted?.dimensionAt(pos));
@@ -556,6 +577,9 @@ class DrawingViewportState extends State<DrawingViewport> {
         if (!e.selection.contains(a.beam)) e.select(a.beam);
       }
       e.first = a;
+      firstBoundaryDepthAxis = e.tool == Tool.measure && a.onWorkspace
+          ? e.camera.orthographicDepthAxis
+          : null;
       e.message = '';
       if (e.tool == Tool.beam) {
         e.sketch = beginSketch(a);
@@ -572,7 +596,7 @@ class DrawingViewportState extends State<DrawingViewport> {
       e.refresh();
       return;
     }
-    final start = e.first!,
+    final start = measurementStart!,
         from = start.resolve(e.project),
         to = a.resolve(e.project);
     if (from.distanceTo(to) < .001 &&
@@ -1189,7 +1213,7 @@ class DrawingViewportState extends State<DrawingViewport> {
                         referenceId: e.firstShelf,
                         alignmentSupport: e.alignmentSupport,
                         gapPreview: e.gapPreview,
-                        first: e.first,
+                        first: measurementStart,
                         hover: anchor ?? e.hover,
                         preview: anchor != null
                             ? partToPlace!.copy(origin: anchor.point)

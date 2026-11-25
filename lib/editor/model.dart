@@ -91,7 +91,10 @@ const faceCorners = [
   [4, 5, 7, 6],
 ];
 
-void forEachBoxEdge(List<Vector3> corners, void Function(Vector3, Vector3) edge) {
+void forEachBoxEdge(
+  List<Vector3> corners,
+  void Function(Vector3, Vector3) edge,
+) {
   for (var i = 0; i < corners.length; i++) {
     for (final bit in [1, 2, 4]) {
       if (i & bit == 0) edge(corners[i], corners[i | bit]);
@@ -388,8 +391,9 @@ class Anchor {
     _ => label,
   };
   final int? face;
+  // Local coordinates are fractions of the owning part or workspace bounds.
   bool get onWorkspace => beam == null && local != null;
-  bool get attached => beam != null || onWorkspace;
+  bool get attached => beam != null || local != null;
   Anchor(
     this.point, [
     this.beam,
