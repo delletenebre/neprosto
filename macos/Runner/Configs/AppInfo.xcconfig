@@ -8,7 +8,7 @@
 PRODUCT_NAME = NeProSto
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = studio.brus.nePro100
+PRODUCT_BUNDLE_IDENTIFIER = kg.asdc.NeProSto
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 studio.brus. All rights reserved.

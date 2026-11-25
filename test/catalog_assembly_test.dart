@@ -45,14 +45,11 @@ void main() {
       final templates = FurnitureTemplate.values.where(
         (t) => t.category == category,
       );
-      expect(
-        templates.length,
-        switch (category) {
-          TemplateCategory.garden => equals(9),
-          TemplateCategory.bathroom => equals(2),
-          _ => inInclusiveRange(3, 4),
-        },
-      );
+      expect(templates.length, switch (category) {
+        TemplateCategory.garden => equals(9),
+        TemplateCategory.bathroom => equals(2),
+        _ => inInclusiveRange(3, 4),
+      });
       expect(
         templates.map((t) => t.assemblyNote).toSet(),
         hasLength(templates.length),

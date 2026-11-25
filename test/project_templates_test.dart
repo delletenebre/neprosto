@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:neprosto/editor/contact.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart' show DeskDialog;
+import 'package:neprosto/editor/drawing.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/part_finish.dart';
 import 'package:neprosto/editor/parts_workbook.dart' show blankLength;
@@ -195,6 +196,51 @@ void main() {
     final skins = templateStock(shelf).where((b) => b.thickness == 6);
     expect(skins, hasLength(1));
     expect(skins.single.cuts, hasLength(5));
+  });
+
+  test('The far picnic seat draws and picks in front of its support from either end', () async {
+    const size = Size(800, 600);
+    final project = FurnitureTemplate.picnicTable.build(LengthUnit.millimeter);
+    final seats =
+        project.beams
+            .where(
+              (b) =>
+                  b.name == editorStrings.seatSlat(1) ||
+                  b.name == editorStrings.seatSlat(2),
+            )
+            .toList()
+          ..sort((a, b) => a.origin.y.compareTo(b.origin.y));
+
+    Future<int> pixel(Scene scene, Offset at) async {
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder)
+        ..translate(-at.dx.floorToDouble(), -at.dy.floorToDouble());
+      DrawingPainter(
+        scene: scene,
+        selection: const {},
+        dimensions: false,
+        dimensionsVisible: false,
+      ).paint(canvas, size);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(1, 1);
+      final data = await image.toByteData();
+      image.dispose();
+      picture.dispose();
+      return data!.getUint32(0);
+    }
+
+    for (final reverse in [false, true]) {
+      final camera = Camera();
+      if (reverse) camera.yaw += math.pi;
+      camera.fit(project, size);
+      final scene = Scene(project, camera, size);
+      final seat = seats[reverse ? 1 : 2];
+      final local = reverse ? Vector3(.98, .2, 1) : Vector3(.02, .65, 1);
+      final point = camera.project(seat.pointAt(local), size);
+      expect(scene.hit(point)?.beam.id, seat.id);
+      final isolated = Scene(Project('', [seat]), camera, size);
+      expect(await pixel(scene, point), await pixel(isolated, point));
+    }
   });
 
   test('Signature cabinet retains its colours and drilled finger pull when reopened', () {

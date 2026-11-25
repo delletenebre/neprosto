@@ -164,6 +164,11 @@ class DrawingPainter extends CustomPainter {
       }
     }
     for (final f in scene.faces) {
+      final clip = f.paintClip;
+      if (clip != null) {
+        c.save();
+        c.clipPath(clip);
+      }
       _face(c, f);
       if (f == rulerTarget?.face) {
         _highlightFace(c, f);
@@ -177,6 +182,7 @@ class DrawingPainter extends CustomPainter {
           );
         }
       }
+      if (clip != null) c.restore();
     }
     if (hiddenOutlines.isNotEmpty) {
       final pen = Paint()

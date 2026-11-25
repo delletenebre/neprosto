@@ -191,6 +191,14 @@ class SceneFace {
   final Vector3 normal;
   final Path path;
   Path? boreRim, boreFloor;
+  final _earlyOccluders = <SceneFace>[];
+  late final Path? paintClip = _earlyOccluders.isEmpty
+      ? null
+      : _earlyOccluders.fold<Path>(
+          Path()..addRect(bounds.inflate(8)),
+          (clip, front) =>
+              Path.combine(PathOperation.difference, clip, front.path),
+        );
   final Rect bounds;
   final double depth;
   SceneFace(
@@ -277,6 +285,20 @@ class SceneFace {
     (world[1] - world[0]).normalized(),
     normal.cross((world[1] - world[0]).normalized()),
   );
+
+  // Visible normals point toward the eye. If all vertices lie on one side
+  // of the other face, their order is exact even at a shared bevelled edge.
+  int? _sideOf(SceneFace other) {
+    var side = 0;
+    for (final vertex in world) {
+      final distance = (vertex - other.world.first).dot(other.normal);
+      if (distance.abs() < 1e-6) continue;
+      final sign = distance > 0 ? 1 : -1;
+      if (side != 0 && side != sign) return null;
+      side = sign;
+    }
+    return side;
+  }
 }
 
 /// One boundary of a visible face. Dragging it changes the dimension across
@@ -444,31 +466,44 @@ class Scene {
           b.path,
         ).getBounds();
         if (overlap.width < .05 || overlap.height < .05) continue;
-        final ray = camera.rayOrigin(overlap.center, size);
-        final direction = camera.towardEye(ray);
-        double depthAt(SceneFace f) =>
-            (f.world.first - ray).dot(f.normal) / direction.dot(f.normal);
-        final delta = depthAt(a) - depthAt(b);
+        num depthDifference() {
+          final sideA = a._sideOf(b);
+          if (sideA != null) return sideA;
+          final sideB = b._sideOf(a);
+          if (sideB != null) return -sideB;
+          final ray = camera.rayOrigin(overlap.center, size);
+          final direction = camera.towardEye(ray);
+          double depthAt(SceneFace f) =>
+              (f.world.first - ray).dot(f.normal) / direction.dot(f.normal);
+          return depthAt(a) - depthAt(b);
+        }
+
+        final delta = depthDifference();
         if (delta.abs() < 1e-6) continue;
         final far = delta < 0 ? i : j, near = delta < 0 ? j : i;
         ahead[far].add(near);
         incoming[near]++;
       }
     }
-    final ordered = <SceneFace>[], used = <int>{};
+    final ordered = <SceneFace>[];
     while (ordered.length < faces.length) {
       var i = incoming.indexOf(0);
       if (i < 0) {
-        i = List.generate(
-          faces.length,
-          (i) => i,
-        ).firstWhere((k) => !used.contains(k));
+        // Long members can form a visibility cycle. Paint the face with the
+        // fewest pending predecessors and mask it out of those drawn later.
+        for (var j = 0; j < faces.length; j++) {
+          if (incoming[j] > 0 && (i < 0 || incoming[j] < incoming[i])) i = j;
+        }
+        for (var j = 0; j < faces.length; j++) {
+          if (incoming[j] > 0 && ahead[j].contains(i)) {
+            faces[j]._earlyOccluders.add(faces[i]);
+          }
+        }
       }
-      used.add(i);
       incoming[i] = -1;
       ordered.add(faces[i]);
       for (final j in ahead[i]) {
-        if (!used.contains(j)) incoming[j]--;
+        if (incoming[j] >= 0) incoming[j]--;
       }
     }
     faces
@@ -480,7 +515,11 @@ class Scene {
     for (final f in faces.reversed) {
       if (!exclude.contains(f.beam.id) &&
           f.bounds.contains(pos) &&
-          f.path.contains(pos)) {
+          f.path.contains(pos) &&
+          !f._earlyOccluders.any(
+            (near) =>
+                !exclude.contains(near.beam.id) && near.path.contains(pos),
+          )) {
         return f;
       }
     }

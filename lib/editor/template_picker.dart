@@ -314,6 +314,10 @@ class _Preview extends CustomPainter {
       camera
         ..yaw = .38
         ..pitch = .23;
+    } else if (template == FurnitureTemplate.picnicTable) {
+      camera
+        ..yaw = -.88
+        ..pitch = .64;
     }
     camera.fit(model, size);
     camera.scale *= 1.18;
