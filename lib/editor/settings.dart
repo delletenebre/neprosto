@@ -530,9 +530,8 @@ class _EditorSettingsState extends State<EditorSettings> {
                     const SizedBox(height: 18),
                     heading(context.strings.language),
                     DeskSegments(locale, {
-                      const Locale('ru'): 'Русский',
-                      const Locale('en'): 'English',
-                      const Locale('ky'): 'Кыргызча',
+                      for (final language in editorLanguages.entries)
+                        language.key: language.value.name,
                     }, (v) => preview(palette, v)),
                   ],
                   SettingsPage.editing => editing(),

@@ -877,11 +877,36 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     }
   }
 
+  EditorPalette? get paletteOverride =>
+      widget.followSystemTheme ? null : widget.palette;
+
+  Future<void> saveLanguage(Locale locale) async {
+    for (final tab in tabs.items) {
+      tab.editor.message = '';
+    }
+    try {
+      await widget.preferences?.setString(
+        'interface-language',
+        locale.languageCode,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      e.message = editorStrings.settingsSaveError;
+      e.refresh();
+    }
+  }
+
+  void selectLanguage(Locale locale) {
+    if (locale == widget.locale) return;
+    widget.onAppearance(paletteOverride, locale);
+    unawaited(saveLanguage(locale));
+  }
+
   Future<void> editSettings() async {
     if (settingsOpen) return;
     settingsOpen = true;
     e.releaseModifiers();
-    final originalPalette = widget.followSystemTheme ? null : widget.palette;
+    final originalPalette = paletteOverride;
     final originalLocale = widget.locale;
     try {
       final result = await showDeskDialog<SettingsResult>(
@@ -906,11 +931,6 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       final theme = result.palette;
       final languageChanged = result.locale != originalLocale;
       widget.onAppearance(theme, result.locale);
-      if (languageChanged) {
-        for (final tab in tabs.items) {
-          tab.editor.message = '';
-        }
-      }
       if (autosave != result.autosave ||
           autosaveMinutes != result.autosaveMinutes) {
         autosave = result.autosave;
@@ -926,12 +946,11 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       e.displayUnit = result.unit;
       e.refresh();
       final prefs = widget.preferences;
-      if (prefs != null) {
-        await Future.wait([
+      await Future.wait([
+        if (languageChanged) saveLanguage(result.locale),
+        if (prefs != null) ...[
           if (theme != null && theme != originalPalette)
             prefs.setString('interface-theme', theme.name),
-          if (languageChanged)
-            prefs.setString('interface-language', result.locale.languageCode),
           prefs.setString('display-length-unit', result.unit.name),
           prefs.setBool('autosave-enabled', autosave),
           prefs.setInt('autosave-minutes', autosaveMinutes),
@@ -941,8 +960,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           prefs.setBool('dimensions-by-default', result.dimensions),
           prefs.setBool('show-hidden-outlines', result.showHiddenOutlines),
           prefs.setBool('move-snap-default', result.snap),
-        ]);
-      }
+        ],
+      ]);
       await syncNativeKeys();
     } catch (_) {
       e.message = editorStrings.settingsSaveError;
@@ -1324,14 +1343,44 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       ),
     ]);
 
+    final locale = Localizations.localeOf(context);
     final settings = afterDivider(
-      DeskIcon(
-        cu.CupertinoIcons.gear_alt,
-        context.strings.settings,
-        editSettings,
-        key: settingsButton,
-        size: 18,
-      ),
+      group([
+        if (kIsWeb)
+          MenuChoice<Locale>(
+            label: context.strings.language,
+            compactLabel:
+                '${editorLanguages[locale]!.flag} ${locale.languageCode.toUpperCase()}',
+            items: [
+              for (final language in editorLanguages.entries)
+                (language.key, '${language.value.flag} ${language.value.name}'),
+            ],
+            selected: locale,
+            change: selectLanguage,
+          ),
+        DeskIcon(
+          cu.CupertinoIcons.gear_alt,
+          context.strings.settings,
+          editSettings,
+          key: settingsButton,
+          size: 18,
+        ),
+      ]),
+    );
+    final editingControls = group([
+      if (!macControls)
+        iconAction(
+          cu.CupertinoIcons.sidebar_left,
+          context.strings.partsTree,
+          toggleParts,
+        ),
+      documentActions,
+      if (macControls) afterDivider(group(drawingTools())),
+    ], spacing: macControls ? 0 : 12);
+    final viewActions = Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [zoomControls, settings],
     );
 
     return Container(
@@ -1344,41 +1393,43 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         border: Border(bottom: BorderSide(color: context.colors.line)),
       ),
       child: LayoutBuilder(
-        builder: (context, box) => Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          spacing: 12,
-          children: [
-            Expanded(
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: toolbarGap,
-                children: [
-                  group([
-                    if (!macControls)
-                      iconAction(
-                        cu.CupertinoIcons.sidebar_left,
-                        context.strings.partsTree,
-                        toggleParts,
-                      ),
-                    documentActions,
-                    if (macControls) afterDivider(group(drawingTools())),
-                  ], spacing: macControls ? 0 : 12),
-                  planeAndGrid,
-                ],
+        builder: (context, box) {
+          if (kIsWeb && box.maxWidth < 460) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: toolbarGap,
+              children: [
+                editingControls,
+                OverflowBar(
+                  alignment: MainAxisAlignment.spaceBetween,
+                  overflowAlignment: OverflowBarAlignment.end,
+                  spacing: 12,
+                  overflowSpacing: toolbarGap,
+                  children: [planeAndGrid, viewActions],
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            spacing: 12,
+            children: [
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: toolbarGap,
+                  children: [editingControls, planeAndGrid],
+                ),
               ),
-            ),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: box.maxWidth / 2),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [zoomControls, settings],
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: box.maxWidth / 2),
+                child: viewActions,
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }

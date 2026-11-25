@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show Locale, Localizations;
 import 'package:flutter_test/flutter_test.dart';
@@ -127,6 +128,59 @@ void main() {
       expect(restored.value.file, isNull);
       expect(restored.recent.single.id, id);
     },
+  );
+
+  testWidgets(
+    'Web language menu switches the open workspace and saves the selection',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(880, 600));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final originalStrings = editorStrings;
+      addTearDown(() => editorStrings = originalStrings);
+      final prefs = _Preferences();
+      final editor = Editor(Project.bench())..select(1);
+      final project = editor.project;
+      await t.pumpWidget(NeprostoApp(editor: editor, preferences: prefs));
+      await t.pumpAndSettle();
+      Finder menu() => find.byTooltip(editorStrings.language);
+      if (!kIsWeb) {
+        expect(menu(), findsNothing);
+        return;
+      }
+      final settings = t.getRect(find.byTooltip(editorStrings.settings));
+      final button = t.getRect(menu());
+      expect(button.center.dy, closeTo(settings.center.dy, 1));
+      expect(settings.left - button.right, inInclusiveRange(0, 4));
+      const languages = [
+        ('en', '🇬🇧', 'English'),
+        ('ky', '🇰🇬', 'Кыргызча'),
+        ('ru', '🇷🇺', 'Русский'),
+      ];
+      expect(find.text('🇷🇺 RU'), findsOneWidget);
+      for (final (code, flag, name) in languages) {
+        await t.tap(menu());
+        await t.pumpAndSettle();
+        for (final (_, flag, name) in languages) {
+          expect(find.text('$flag $name'), findsOneWidget);
+        }
+        await t.tap(find.text('$flag $name'));
+        await t.pumpAndSettle();
+        final page = t.element(find.byType(Workspace));
+        expect(Localizations.localeOf(page), Locale(code));
+        expect(
+          find.byTooltip(lookupAppLocalizations(Locale(code)).settings),
+          findsOneWidget,
+        );
+        expect(find.text('$flag ${code.toUpperCase()}'), findsOneWidget);
+        expect(prefs.values, {'interface-language': code});
+        expect(editor.project, same(project));
+        expect(editor.selection, {1});
+      }
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
   );
 
   testWidgets(

@@ -11,7 +11,36 @@
 
 ## Совместимость
 
-| Платформа | Версия редактора |
+| Платформа | Как запустить релиз |
 | --- | --- |
-| macOS 12 и новее | Настольное приложение |
-| Веб | Приложение в браузере |
+| macOS 13 и новее, Intel и Apple Silicon | Открыть DMG и перетащить NeProSto в «Программы». |
+| Windows 10/11, x64 | Распаковать весь ZIP и запустить `NeProSto.exe`. |
+| Linux x64 с GTK 3 | Распаковать `.tar.gz` и запустить `./NeProSto/neprosto`. Сборка выполняется на Ubuntu 22.04. |
+| Веб (WebAssembly) | Распаковать веб-ZIP в корень статического сайта. Сервер должен отдавать файлы `.wasm` с типом `application/wasm`. |
+
+## Релизы
+
+Создайте тег на коммите с нужной версией и отправьте его на GitHub. Для версии 0.1.0 команды выглядят так.
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+В разделе **Actions → Release** можно следить за четырьмя параллельными сборками. Когда все они завершатся успешно, GitHub прикрепит DMG, Windows ZIP, Linux tar.gz и веб-ZIP к одному релизу. Тег вида `v0.2.0-beta.1` создаст предварительный релиз.
+
+### Подпись macOS для GitHub Releases
+
+1. В Xcode откройте **Settings → Apple Accounts**, выберите команду и нажмите **Manage Certificates → + → Developer ID Application**. Выпустить локальный сертификат может владелец аккаунта команды (Account Holder). Если у команды уже есть действующий сертификат с закрытым ключом, используйте его. [Сертификаты Developer ID](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/)
+2. В **Связке ключей → Мои сертификаты** экспортируйте `Developer ID Application: …` вместе с закрытым ключом в файл `DeveloperID.p12` и задайте пароль экспорта.
+3. В Apple Account откройте **Вход и безопасность → Пароли приложений** и создайте пароль для нотарификации. [Пароли приложений Apple](https://support.apple.com/en-us/102654)
+4. В репозитории GitHub откройте **Settings → Secrets and variables → Actions → New repository secret** и добавьте четыре значения. [Сертификаты в GitHub Actions](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications)
+
+| Секрет | Значение |
+| --- | --- |
+| `MACOS_CERTIFICATE_BASE64` | Содержимое `.p12` в Base64. В каталоге с файлом выполните `base64 -i DeveloperID.p12 \| pbcopy` и вставьте результат в GitHub. |
+| `MACOS_CERTIFICATE_PASSWORD` | Пароль, заданный при экспорте `.p12`. |
+| `APPLE_NOTARY_ID` | Почта Apple Account, имеющего доступ к команде этого сертификата. |
+| `APPLE_NOTARY_PASSWORD` | Пароль приложения, созданный на шаге 3. |
+
+При отправке тега workflow подпишет приложение и DMG, дождётся статуса `Accepted` от Apple, прикрепит билет нотарификации к DMG и проверит его перед публикацией. Когда все четыре секрета отсутствуют, workflow собирает DMG с подписью ad hoc. При частичной настройке сборка остановится.

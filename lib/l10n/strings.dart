@@ -10,4 +10,9 @@ extension EditorLanguageContext on BuildContext {
 
 // The editor has one UI language, including commands and exports without a widget context.
 AppLocalizations editorStrings = lookupAppLocalizations(const Locale('ru'));
-const editorLocales = [Locale('ru'), Locale('en'), Locale('ky')];
+final editorLanguages = {
+  const Locale('ru'): (name: 'Русский', flag: '🇷🇺'),
+  const Locale('en'): (name: 'English', flag: '🇬🇧'),
+  const Locale('ky'): (name: 'Кыргызча', flag: '🇰🇬'),
+};
+final editorLocales = editorLanguages.keys;

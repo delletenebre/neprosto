@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ !github.event.deleted }}
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS
+            runner: macos-26
+          - platform: Windows
+            runner: windows-2022
+          - platform: Linux
+            runner: ubuntu-22.04
+          - platform: WebAssembly
+            runner: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Read version from tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Expected a version tag such as v1.2.3 or v1.2.3-beta.1" >&2
+            exit 1
+          fi
+          echo "APP_VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "ASSET_PREFIX=NeProSto-${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          mkdir -p dist
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+
+      - run: flutter pub get --enforce-lockfile
+
+      - name: Build macOS application
+        id: macos
+        if: matrix.platform == 'macOS'
+        env:
+          FLUTTER_XCODE_CODE_SIGN_STYLE: Manual
+          FLUTTER_XCODE_CODE_SIGN_IDENTITY: '-'
+          FLUTTER_XCODE_DEVELOPMENT_TEAM: ''
+          FLUTTER_XCODE_CODE_SIGN_INJECT_BASE_ENTITLEMENTS: 'NO'
+          HAS_CERT: ${{ secrets.MACOS_CERTIFICATE_BASE64 != '' }}
+          HAS_CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_NOTARY_ID != '' }}
+          HAS_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD != '' }}
+        run: |
+          if [[ "$HAS_CERT" != "$HAS_CERT_PASSWORD" || "$HAS_CERT" != "$HAS_APPLE_ID" || "$HAS_CERT" != "$HAS_NOTARY_PASSWORD" ]]; then
+            echo "::error::Configure all four Apple signing secrets listed in README.md"
+            exit 1
+          fi
+          echo "sign=$HAS_CERT" >> "$GITHUB_OUTPUT"
+          flutter build macos --release --no-pub --build-name "$APP_VERSION"
+
+      - name: Import Developer ID certificate into a temporary keychain
+        if: steps.macos.outputs.sign == 'true'
+        uses: apple-actions/import-codesign-certs@fe74d46e82474f87e1ba79832ad28a4013d0e33a # v6
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+
+      - name: Package macOS disk image
+        if: matrix.platform == 'macOS'
+        env:
+          MACOS_SIGN_IDENTITY: ${{ steps.macos.outputs.sign == 'true' && 'Developer ID Application:' || '' }}
+          APPLE_NOTARY_ID: ${{ secrets.APPLE_NOTARY_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+        run: |
+          ./tool/package_macos.sh
+          mv "build/release/NeProSto-$APP_VERSION-macOS.dmg" "dist/$ASSET_PREFIX-macOS.dmg"
+
+      - name: Package Windows x64 application
+        if: matrix.platform == 'Windows'
+        run: |
+          flutter build windows --release --no-pub --build-name "$APP_VERSION"
+          cd build/windows/x64/runner/Release
+          test -s NeProSto.exe
+          test -s flutter_windows.dll
+          test -s data/app.so
+          test -s vcruntime140.dll
+          7z a -tzip "$GITHUB_WORKSPACE/dist/$ASSET_PREFIX-Windows-x64.zip" .
+
+      - name: Package Linux x64 application
+        if: matrix.platform == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+          flutter build linux --release --no-pub --build-name "$APP_VERSION"
+          test -x build/linux/x64/release/bundle/neprosto
+          mv build/linux/x64/release/bundle "$RUNNER_TEMP/NeProSto"
+          tar -czf "dist/$ASSET_PREFIX-Linux-x64.tar.gz" -C "$RUNNER_TEMP" NeProSto
+
+      - name: Package WebAssembly site
+        if: matrix.platform == 'WebAssembly'
+        run: |
+          flutter build web --wasm --release --no-pub --no-web-resources-cdn --build-name "$APP_VERSION"
+          cd build/web
+          test -s main.dart.wasm
+          zip -qrX "$GITHUB_WORKSPACE/dist/$ASSET_PREFIX-web.zip" . -x '.*' '*/.*'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/*-macOS.dmg
+            dist/*-Windows-x64.zip
+            dist/*-Linux-x64.tar.gz
+            dist/*-web.zip
