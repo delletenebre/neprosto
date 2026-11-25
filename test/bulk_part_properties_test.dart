@@ -85,7 +85,10 @@ void main() {
       await t.enterText(input(2), '9*2');
       await t.tap(finish);
       await t.pumpAndSettle();
-      await t.tap(find.text('ЛДСП · дуб'));
+      await t.tap(find.byType(DropdownButton<FinishPreset>));
+      await t.pumpAndSettle();
+      await t.tap(find.text('ЛДСП · дуб').hitTestable());
+      await t.pumpAndSettle();
       await t.tap(find.text('Применить').hitTestable());
       await t.pumpAndSettle();
       expect(e.project, same(project));

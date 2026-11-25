@@ -516,6 +516,44 @@ void main() {
       expect(travelToStop(moved, {1, 2}, axis(2)), null);
     },
   );
+  test(
+    'A dragged group slides along one rotated face and stops at the next',
+    () {
+      final parts = Project('', [
+        bar(1, 0, 0, 0, 20, width: 10),
+        bar(2, 20, 50, 0, 20, width: 10),
+        bar(3, 70, 40, 0, 5, width: 120),
+        bar(4, 0, 105, 0, 70, width: 5),
+      ]);
+      final rotated = parts.rotate(parts.byId.keys.toSet(), axis(1), 30);
+      Vector3 rotate(Vector3 v) => turn(v, axis(1), math.pi / 6);
+      final motion = MoveContacts(rotated, {1, 2});
+      final delta = motion.limitDrag(
+        Vector3.zero(),
+        rotate(Vector3(130, 100, 0)),
+        planeNormal: rotate(axis(2)),
+      );
+      near(delta, rotate(Vector3(30, 45, 0)));
+      expect(rotated.move({1, 2}, delta).overlaps, isEmpty);
+    },
+  );
+
+  test(
+    'A group can pass around stock in its gap and slide across a support',
+    () {
+      final project = Project('', [
+        bar(1, 0, 0, 0, 10, width: 10),
+        bar(2, 0, 40, 0, 10, width: 10),
+        bar(3, 40, 15, 0, 10, width: 15),
+        bar(4, 20, 0, -10, 100, width: 100, height: 10),
+      ]);
+      final target = Vector3(110, 0, 0);
+      near(
+        MoveContacts(project, {1, 2}).limitDrag(Vector3.zero(), target),
+        target,
+      );
+    },
+  );
   test('Shelf clearance tracks facing surfaces through lateral shifts, edits, rotation and reload', () {
     final a = bar(1, 0, 0, 0, 800, width: 280, height: 18),
         b = bar(2, 120, 50, 310, 600, width: 170, height: 25);

@@ -20,6 +20,8 @@ import 'package:neprosto/editor/parts_panel.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
     show PhosphorIconsRegular;
 
+import 'viewport_test_helpers.dart';
+
 void main() {
   Offset screenCenter(Beam part, Camera camera, Size size) {
     final corners = part.corners.map((point) => camera.project(point, size));
@@ -1665,7 +1667,7 @@ void main() {
       expect(dimension.a.resolve(taller), Vector3(350, 0, 10));
       expect(dimension.b.resolve(taller), Vector3(650, 0, 20));
 
-      await t.tap(find.text('Шаг · 1'));
+      await t.tap(find.text('Шаг 1'));
       await t.pumpAndSettle();
       await t.tap(find.text('Свободно'));
       await t.tap(find.text('Готово'));
@@ -1735,6 +1737,65 @@ void main() {
     await t.pumpAndSettle(const Duration(milliseconds: 100));
   });
 
+  testWidgets('Sticky drags hit thin parts and can go around them', (t) async {
+    await t.binding.setSurfaceSize(const Size(1360, 840));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final board = Beam(
+      1,
+      'Полка',
+      Vector3.zero(),
+      Vector3(40, 30, 20),
+      axis(0),
+      axis(1),
+    );
+    final wall = board.copy(
+      id: 2,
+      origin: Vector3(80, 0, 0),
+      size: Vector3(2, 80, 20),
+    );
+    final original = Project('', [board, wall]);
+    final e = Editor(original)
+      ..setView(ViewAngle.top)
+      ..select(1);
+    e.fitRequested = false;
+    e.camera.scale = 1;
+    await t.pumpWidget(NeprostoApp(editor: e));
+    await t.pumpAndSettle();
+    final drawing = find.byKey(const Key('drawing'));
+    final start =
+        t.getTopLeft(drawing) +
+        e.camera.project(board.pointAt(Vector3.all(.5)), t.getSize(drawing));
+    final drag = await t.startGesture(start, kind: PointerDeviceKind.mouse);
+    Future<void> aim(double x, double y) async {
+      await drag.moveTo(start + Offset(x, -y));
+      await t.pump();
+    }
+
+    await aim(140, 20);
+    expect(e.single!.origin, Vector3(40, 20, 0));
+    expect(e.overlaps, isEmpty);
+    await aim(60, 20);
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await t.pump();
+    expect(e.overlaps, {1, 2});
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await t.pump();
+    expect(e.single!.origin, Vector3(40, 20, 0));
+    await aim(60, 100);
+    expect(e.single!.origin, Vector3(40, 100, 0));
+    await aim(140, 100);
+    await aim(140, 20);
+    expect(e.single!.origin, Vector3(140, 20, 0));
+    await aim(-50, 20);
+    expect(e.single!.origin, Vector3(82, 20, 0));
+    expect(e.overlaps, isEmpty);
+    await drag.up();
+    await drag.removePointer();
+    e.undo();
+    expect(e.project, same(original));
+    await t.pump(kDoubleTapTimeout);
+  });
+
   testWidgets('Movement and ruler invert immediately with either modifier', (
     t,
   ) async {
@@ -1795,7 +1856,7 @@ void main() {
         expect(e.project, same(p));
       }
     }
-    await t.tap(find.text('Шаг · 1'));
+    await t.tap(find.text('Шаг 1'));
     await t.pumpAndSettle();
     await t.tap(find.text('С привязкой'));
     await t.tap(find.text('Готово'));
@@ -1843,14 +1904,7 @@ void main() {
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
       final drawing = find.byKey(const Key('drawing'));
-      final tabs = find.byKey(const ValueKey('view-tabs'));
-      for (final v in ViewAngle.values) {
-        await t.tap(find.descendant(of: tabs, matching: find.text(v.label)));
-        await t.pumpAndSettle();
-        expect(e.activeView, v);
-      }
-      await t.tap(find.text('Спереди'));
-      await t.pumpAndSettle();
+      await selectViewportView(t, ViewAngle.front);
       final pointer = t.getCenter(drawing) + const Offset(15, 12);
       final origin = e.camera.onPlane(
         pointer - t.getTopLeft(drawing),
@@ -1905,8 +1959,7 @@ void main() {
         expect(e.project.beams.single.id, part.id);
       }
       e.camera.scale = 1.7;
-      await t.tap(find.text('Перспектива'));
-      await t.pumpAndSettle();
+      await selectViewportView(t, ViewAngle.perspective);
       expect(e.camera.perspective, true);
       final size = t.getSize(drawing), at = Vector3(80, 20, 0);
       final screen = e.camera.project(at, size);
@@ -1914,8 +1967,7 @@ void main() {
         e.camera.onPlane(screen, size, WorkPlane.xy())!.distanceTo(at),
         lessThan(1e-6),
       );
-      await t.tap(find.text('Спереди'));
-      await t.pumpAndSettle();
+      await selectViewportView(t, ViewAngle.front);
       expect(e.camera.scale, 1.7);
     },
   );
@@ -2140,7 +2192,7 @@ void main() {
       final e = Editor(Project.bench())..select(1);
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
-      await t.tap(find.byTooltip('мм'));
+      await t.tap(find.byTooltip('Единицы измерения · Миллиметры'));
       await t.pumpAndSettle();
       await t.tap(find.text('Дюймы'));
       await t.pumpAndSettle();
@@ -2155,7 +2207,7 @@ void main() {
       await t.pumpAndSettle();
       expect(e.single!.size.y, closeTo(12.7, 1e-9));
       expect(t.widget<DeskTextField>(width).controller!.text, '0.5');
-      await t.tap(find.text('Шаг · 1/16″'));
+      await t.tap(find.text('Шаг 1/16'));
       await t.pumpAndSettle();
       final step = find.descendant(
         of: find.byType(DeskDialog),
@@ -2175,7 +2227,7 @@ void main() {
       await t.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await t.pumpAndSettle();
       expect(e.single!.size.y, closeTo(19.05, 1e-8));
-      await t.tap(find.text('Шаг · 1/4″'));
+      await t.tap(find.text('Шаг 1/4'));
       await t.pumpAndSettle();
       expect(find.byType(DeskSwitch), findsNothing);
       await t.tap(find.text('Готово'));
@@ -2562,7 +2614,7 @@ void main() {
       await t.pumpAndSettle();
       for (final byDefault in [true, false]) {
         if (!byDefault) {
-          await t.tap(find.text('Шаг · 1'));
+          await t.tap(find.text('Шаг 1'));
           await t.pumpAndSettle();
           await t.tap(find.text('Чертёж').last);
           await t.pumpAndSettle();

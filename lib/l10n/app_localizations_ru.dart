@@ -42,6 +42,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get beigeColor => 'Бежевый';
 
   @override
+  String get blackColor => 'Чёрный';
+
+  @override
+  String get greenColor => 'Зелёный';
+
+  @override
+  String get blueColor => 'Синий';
+
+  @override
+  String get brickColor => 'Кирпичный';
+
+  @override
   String get finishTexture => 'Текстура';
 
   @override
@@ -237,6 +249,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get view => 'Вид';
+
+  @override
+  String get views => 'Виды';
 
   @override
   String get gridVisibility => 'Видимость сетки';
@@ -982,6 +997,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get snapLabel => 'Привязка';
+
+  @override
   String get snapToAnchors => 'Привязка по опорам';
 
   @override
@@ -1317,7 +1335,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String addPartHint(Object shortcut) {
-    return 'Для построения выберите «Новая деталь» или нажмите $shortcut';
+    return 'Нажмите $shortcut, чтобы добавить деталь';
   }
 
   @override
@@ -1325,7 +1343,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String step(Object increment) {
-    return 'Шаг · $increment';
+    return 'Шаг $increment';
   }
 
   @override

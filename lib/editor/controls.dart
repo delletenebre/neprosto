@@ -34,7 +34,7 @@ class PartOffsetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, icon) = switch (axis) {
       0 => (context.strings.xFromLeft, cu.CupertinoIcons.arrow_right),
-      1 => (context.strings.yFromBack, cu.CupertinoIcons.arrow_down_left),
+      1 => (context.strings.yFromBack, cu.CupertinoIcons.arrow_down_right),
       _ => (context.strings.zFromFloor, cu.CupertinoIcons.arrow_up),
     };
     return Padding(

@@ -10,6 +10,10 @@
   "grayColor": "Серый",
   "graphiteColor": "Графит",
   "beigeColor": "Бежевый",
+  "blackColor": "Чёрный",
+  "greenColor": "Зелёный",
+  "blueColor": "Синий",
+  "brickColor": "Кирпичный",
   "finishTexture": "Текстура",
   "finishColor": "Цвет",
   "metal": "Металл",
@@ -174,6 +178,7 @@
   "upper": "Верхний",
   "fixedDimensionsFillSpan": "Весь габарит занят фиксированными размерами",
   "view": "Вид",
+  "views": "Виды",
   "gridVisibility": "Видимость сетки",
   "left": "Влево",
   "down": "Вниз",
@@ -623,6 +628,7 @@
       }
     }
   },
+  "snapLabel": "Привязка",
   "snapToAnchors": "Привязка по опорам",
   "apply": "Применить",
   "spaceLeftClick": "Пробел + ЛКМ",
@@ -854,7 +860,7 @@
   "brusDrafts": "Черновики Брус",
   "browserDraftsHint": "Черновики открытых вкладок сохраняются в этом браузере.",
   "drawing": "Чертёж",
-  "addPartHint": "Для построения выберите «Новая деталь» или нажмите {shortcut}",
+  "addPartHint": "Нажмите {shortcut}, чтобы добавить деталь",
   "@addPartHint": {
     "placeholders": {
       "shortcut": {
@@ -863,7 +869,7 @@
     }
   },
   "widthInitial": "Ш",
-  "step": "Шаг · {increment}",
+  "step": "Шаг {increment}",
   "@step": {
     "placeholders": {
       "increment": {

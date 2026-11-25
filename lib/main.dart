@@ -45,6 +45,7 @@ import 'editor/scene.dart';
 import 'editor/step.dart';
 import 'editor/storage.dart';
 import 'editor/viewport.dart';
+import 'editor/viewport_footer.dart';
 import 'editor/work_plane_picker.dart';
 
 Future<void> main() async {
@@ -67,7 +68,7 @@ Future<void> main() async {
     // An unavailable preference store must not prevent the editor from opening.
   }
   editorStrings = lookupAppLocalizations(language);
-  var tabs = ProjectTabs(Editor(Project.bench()));
+  var tabs = ProjectTabs(Editor(Project.bench().withDefaultWorkspace()));
   String? issue;
   var autosave = true, minutes = 5;
   try {
@@ -1496,113 +1497,61 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           ],
         ),
       ),
-      Container(
-        key: const ValueKey('view-tabs'),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: context.colors.chrome,
-          border: Border(
-            top: BorderSide(color: context.colors.line, width: .7),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            spacing: toolbarGap,
-            children: [
-              for (final view in ViewAngle.values)
-                Semantics(
-                  selected: view == e.selectedView,
-                  value: view == e.selectedView && e.activeView == null
-                      ? context.strings.freeView
-                      : null,
-                  child: DeskButton(
-                    plain: true,
-                    primary: view == e.activeView,
-                    active: view == e.selectedView,
-                    onPressed: () => e.setView(view),
-                    child: Text(view.label),
-                  ),
-                ),
-            ],
-          ),
-        ),
+      ViewportFooter(
+        e,
+        setRulerSnap: saveSnapDefault,
+        editSettings: editSettings,
       ),
-      if (!macControls) draftingControls(),
     ],
   );
-  Widget draftingControls() => Container(
-    height: macControls ? 30 : 37,
-    decoration: BoxDecoration(
-      color: macControls ? context.colors.chrome : context.colors.panel,
-      border: macControls
-          ? null
-          : Border(top: BorderSide(color: context.colors.line)),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 9),
-    child: Row(
-      spacing: toolbarGap,
-      children: [
-        iconAction(
-          cu.CupertinoIcons.scope,
-          e.tool == Tool.measure
-              ? context.strings.rulerSnapModifier(primaryModifierLabel)
-              : context.strings.snapToAnchors,
-          () {
-            if (e.tool == Tool.measure) {
-              saveSnapDefault(!e.snapByDefault);
-            } else {
-              e.snap = !e.snap;
-            }
-            e.hover = null;
-            e.refresh();
-          },
-          active: e.tool == Tool.measure ? e.snapByDefault : e.snap,
-          size: 15,
-        ),
-        MenuChoice<SnapMode>(
-          selected: (e.tool == Tool.measure ? e.snapByDefault : e.snap)
-              ? e.snapMode
-              : null,
-          label: context.strings.anchorLabel(
-            (e.tool == Tool.measure ? e.snapByDefault : e.snap)
-                ? e.snapMode.label
-                : context.strings.off,
+
+  Widget statusBar() {
+    final colors = context.colors;
+    final message = hint;
+    final style = TextStyle(fontSize: 11, color: colors.muted);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 27),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.chrome,
+        border: Border(top: BorderSide(color: colors.line, width: .7)),
+      ),
+      child: Row(
+        spacing: 7,
+        children: [
+          Icon(cu.CupertinoIcons.info_circle, size: 13, color: colors.muted),
+          Expanded(
+            child: Tooltip(
+              message: message,
+              excludeFromSemantics: true,
+              child: Text(
+                message,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
           ),
-          items: [for (final m in SnapMode.values) (m, m.label)],
-          change: (m) {
-            if (e.tool == Tool.measure) {
-              saveSnapDefault(true);
-            } else {
-              e.snap = true;
-            }
-            e.snapMode = m;
-            e.hover = null;
-            e.refresh();
-          },
-        ),
-        if (!macControls) const Spacer(),
-        DeskButton(
-          plain: true,
-          onPressed: editSettings,
-          child: Text(
-            context.strings.step(e.step.label(e.project.unit)),
-            style: const TextStyle(fontSize: 11),
-          ),
-        ),
-        MenuChoice<LengthUnit>(
-          selected: e.project.unit,
-          label: e.project.unit.symbol,
-          items: [for (final unit in LengthUnit.values) (unit, unit.title)],
-          change: (unit) {
-            FocusManager.instance.primaryFocus?.unfocus();
-            e.commit(e.project.copy(unit: unit));
-          },
-        ),
-      ],
-    ),
-  );
+          if (e.overlaps.isNotEmpty) ...[
+            Icon(
+              cu.CupertinoIcons.exclamationmark_triangle,
+              size: 13,
+              color: colors.danger,
+            ),
+            Text(
+              context.strings.intersectionsLabel(e.overlaps.length),
+              style: style.copyWith(color: colors.danger),
+            ),
+            SizedBox(
+              height: 13,
+              child: VerticalDivider(width: 8, color: colors.line),
+            ),
+          ],
+          Text(context.strings.partCount(e.project.beams.length), style: style),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -1663,46 +1612,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
               },
             ),
           ),
-          Container(
-            height: 30,
-            color: context.colors.chrome,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                Icon(
-                  cu.CupertinoIcons.info_circle,
-                  size: 14,
-                  color: context.colors.muted,
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    hint,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: context.colors.ink),
-                  ),
-                ),
-                if (e.overlaps.isNotEmpty)
-                  Text(
-                    context.strings.intersectionsLabel(e.overlaps.length),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.colors.danger,
-                    ),
-                  ),
-                if (macControls) draftingControls(),
-                const SizedBox(width: 12),
-                Text(
-                  context.strings.partCount(e.project.beams.length),
-                  style: mono.copyWith(
-                    fontSize: 10,
-                    color: context.colors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          statusBar(),
         ],
       );
       return appleControls
@@ -1719,8 +1629,11 @@ class AxesPainter extends CustomPainter {
   @override
   void paint(Canvas c, Size s) {
     const o = Offset(24, 28);
+    final right = camera.right, up = camera.up;
     for (var i = 0; i < 3; i++) {
-      final dir = Offset(camera.right[i], -camera.up[i]) * 19, p = o + dir;
+      final forward = offsetDirection(i);
+      final dir = Offset(forward.dot(right), -forward.dot(up)) * 19;
+      final p = o + dir;
       final color = colors.axisColor(i);
       c.drawLine(
         o,

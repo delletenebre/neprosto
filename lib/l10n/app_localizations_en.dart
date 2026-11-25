@@ -42,6 +42,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get beigeColor => 'Beige';
 
   @override
+  String get blackColor => 'Black';
+
+  @override
+  String get greenColor => 'Green';
+
+  @override
+  String get blueColor => 'Blue';
+
+  @override
+  String get brickColor => 'Brick red';
+
+  @override
   String get finishTexture => 'Texture';
 
   @override
@@ -237,6 +249,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get view => 'View';
+
+  @override
+  String get views => 'Views';
 
   @override
   String get gridVisibility => 'Grid visibility';
@@ -979,6 +994,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get snapLabel => 'Snap';
+
+  @override
   String get snapToAnchors => 'Snap to anchors';
 
   @override
@@ -1314,7 +1332,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String addPartHint(Object shortcut) {
-    return 'To draw a part, click “New part” or press $shortcut';
+    return 'Press $shortcut to add a part';
   }
 
   @override
@@ -1322,7 +1340,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String step(Object increment) {
-    return 'Step · $increment';
+    return 'Step $increment';
   }
 
   @override

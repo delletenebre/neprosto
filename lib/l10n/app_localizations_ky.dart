@@ -42,6 +42,18 @@ class AppLocalizationsKy extends AppLocalizations {
   String get beigeColor => 'Ачык күрөң';
 
   @override
+  String get blackColor => 'Кара';
+
+  @override
+  String get greenColor => 'Жашыл';
+
+  @override
+  String get blueColor => 'Көк';
+
+  @override
+  String get brickColor => 'Кыш кызыл';
+
+  @override
   String get finishTexture => 'Текстура';
 
   @override
@@ -239,6 +251,9 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get view => 'Көрүнүш';
+
+  @override
+  String get views => 'Көрүнүштөр';
 
   @override
   String get gridVisibility => 'Тордун көрүнүшү';
@@ -983,6 +998,9 @@ class AppLocalizationsKy extends AppLocalizations {
   }
 
   @override
+  String get snapLabel => 'Жабыштыруу';
+
+  @override
   String get snapToAnchors => 'Таянычтарга жабыштыруу';
 
   @override
@@ -1319,7 +1337,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String addPartHint(Object shortcut) {
-    return 'Тетик чийүү үчүн «Жаңы тетик» баскычын же $shortcut баскычын басыңыз';
+    return 'Тетик кошуу үчүн $shortcut басыңыз';
   }
 
   @override
@@ -1327,7 +1345,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String step(Object increment) {
-    return 'Кадам · $increment';
+    return 'Кадам $increment';
   }
 
   @override

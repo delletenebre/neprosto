@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'contact.dart';
 import 'model.dart';
 import 'scene.dart';
 
@@ -23,6 +24,9 @@ class _Footprint {
 /// footprints once per drag keeps pointer updates independent of mesh size.
 class MoveSnap {
   final Bounds3? workspaceLimits;
+  final MoveContacts _contacts;
+  Vector3 _lastSnapped = Vector3.zero();
+  Vector3? _freePosition;
   final List<Vector3> _axes;
   late final _Footprint _moving;
   final List<_Footprint> _fixed = [];
@@ -30,6 +34,7 @@ class MoveSnap {
 
   MoveSnap(Project project, Set<int> ids, WorkPlane plane)
     : workspaceLimits = project.moveLimits(ids),
+      _contacts = MoveContacts(project, ids),
       _axes = _basis(project.byId[ids.first]!, plane) {
     _moving = _footprint(project.beams.where((b) => ids.contains(b.id)));
     for (final b in project.beams) {
@@ -74,6 +79,33 @@ class MoveSnap {
   }
 
   void release() => _held.fillRange(0, 2, null);
+
+  void moveFreely(Vector3 delta) {
+    release();
+    _freePosition = delta;
+  }
+
+  Vector3 constrain(Vector3 delta, {Vector3? planeNormal}) {
+    final room = workspaceLimits;
+    final free = _freePosition;
+    if (free != null) {
+      // Re-enter sticky mode where the free drag left the part if it fits.
+      if ((room == null || room.clampTranslation(free) == free) &&
+          !_contacts.overlapsAt(free)) {
+        _lastSnapped = free;
+      }
+      _freePosition = null;
+    }
+    final target =
+        room?.clampTranslation(delta, planeNormal: planeNormal) ?? delta;
+    _lastSnapped = _contacts.limitDrag(
+      _lastSnapped,
+      target,
+      planeNormal: planeNormal,
+      workspace: room,
+    );
+    return _lastSnapped;
+  }
 
   ({Vector3 delta, List<MoveGuide> guides}) apply(
     Vector3 rawDelta,

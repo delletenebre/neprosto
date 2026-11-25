@@ -840,11 +840,11 @@ class DrawingViewportState extends State<DrawingViewport> {
           moveGuides = [];
         }
       }
-      final limited = moveSnap!.workspaceLimits?.clampTranslation(
+      final limited = moveSnap!.constrain(
         delta,
         planeNormal: e.hover == null ? plane.normal : null,
       );
-      if (limited != null && limited != delta) {
+      if (limited != delta) {
         delta = limited;
         moveGuides = [];
         moveSnap!.release();
@@ -860,7 +860,7 @@ class DrawingViewportState extends State<DrawingViewport> {
         e.message = context.strings.edgeAligned;
       }
     } else {
-      moveSnap!.release();
+      moveSnap!.moveFreely(delta);
     }
     e.project = delta.length2 < 1e-14 ? initial : initial.move(moving, delta);
   }

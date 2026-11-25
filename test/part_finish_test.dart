@@ -59,7 +59,8 @@ void main() {
       await tap(
         find.descendant(of: dialog, matching: find.byType(PartFinishButton)),
       );
-      await tap(find.text('ЛДСП · дуб'));
+      await tap(find.byType(DropdownButton<FinishPreset>));
+      await tap(find.text('ЛДСП · дуб').hitTestable());
       await tap(find.text('Применить').hitTestable());
       expect(editor.single!.finish, woodFinish);
     }
@@ -93,16 +94,29 @@ void main() {
 
       await tester.ensureVisible(button);
       await tap(button);
-      await tap(inside(find.text('ЛДСП · белая')));
+      final presets = inside(find.byType(DropdownButton<FinishPreset>));
+      final input = inside(find.byType(EditableText));
+      DropdownButton<FinishPreset> picker() =>
+          tester.widget<DropdownButton<FinishPreset>>(presets);
+      expect(picker().value, FinishPreset.wood);
+      expect(find.text('ЛДСП · белая').hitTestable(), findsNothing);
+      await tap(presets);
+      expect(picker().items!.map((item) => item.value), FinishPreset.values);
+      await tap(find.text('ЛДСП · белая').hitTestable());
+      expect(picker().value, FinishPreset.whiteBoard);
       final textures = inside(find.byType(DeskSegments<PartTexture>));
       PartTexture selected() =>
           tester.widget<DeskSegments<PartTexture>>(textures).value;
       expect(selected(), PartTexture.paintedMetal);
+      await tap(find.byTooltip('Дуб · #B39474'));
+      expect(picker().value, isNull);
+      expect(tester.widget<EditableText>(input).controller.text, '#B39474');
+      expect(selected(), PartTexture.paintedMetal);
       await tap(inside(find.text('Отмена')));
       expect(editor.canUndo, isFalse);
       await tap(button);
-      await tap(inside(find.text('Алюминиевый профиль')));
-      final input = inside(find.byType(EditableText));
+      await tap(presets);
+      await tap(find.text('Алюминиевый профиль').hitTestable());
       expect(tester.widget<EditableText>(input).controller.text, '#B0B8C1');
       expect(selected(), PartTexture.brushedMetal);
       Finder segment(String label) => find

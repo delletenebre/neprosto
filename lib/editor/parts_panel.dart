@@ -444,15 +444,15 @@ class _PartsPanelState extends State<PartsPanel> {
           ),
           const Divider(height: 1),
           Padding(
-            padding: macControls
-                ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
-                : const EdgeInsets.fromLTRB(12, 8, 10, 0),
-            child: DeskButton(
-              plain: macControls,
-              onPressed: widget.showPartsList,
-              key: widget.partsListButton,
-              icon: const Icon(cu.CupertinoIcons.list_bullet, size: 16),
-              label: Text(context.strings.partsList),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 33),
+              child: DeskButton(
+                onPressed: widget.showPartsList,
+                key: widget.partsListButton,
+                icon: const Icon(cu.CupertinoIcons.list_bullet, size: 15),
+                label: Text(context.strings.partsList),
+              ),
             ),
           ),
           if (!measures && (!macControls || e.selection.isNotEmpty))

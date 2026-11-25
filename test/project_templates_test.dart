@@ -419,6 +419,10 @@ void main() {
       expect(created.committed.name, 'Садовая скамья с подлокотниками');
       expect(created.committed.unit, LengthUnit.inch);
       expect(created.committed.beams, isNotEmpty);
+      expect(
+        (created.committed.workspaceSize! - Vector3(1680, 700, 940)).length,
+        closeTo(0, .00001),
+      );
       expect(created.dirty, isTrue);
       expect(created.editor.canUndo, isFalse);
       expect(tabs.items.first, same(original));
@@ -430,6 +434,7 @@ void main() {
       await tap(find.text('Пустой проект'));
       expect(tabs.value.committed.unit, LengthUnit.inch);
       expect(tabs.value.committed.beams, isEmpty);
+      expect(tabs.value.committed.workspaceSize, Vector3(3000, 3000, 2500));
     },
     variant: TargetPlatformVariant({
       TargetPlatform.macOS,

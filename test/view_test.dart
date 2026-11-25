@@ -14,8 +14,11 @@ import 'package:neprosto/editor/grid_visibility.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/editor/view_cube.dart';
+import 'package:neprosto/editor/viewport_footer.dart';
 import 'package:neprosto/editor/work_plane_picker.dart';
 import 'package:neprosto/main.dart';
+
+import 'viewport_test_helpers.dart';
 
 void main() {
   test(
@@ -45,25 +48,50 @@ void main() {
   );
 
   testWidgets(
-    'Cube and tabs select fixed views that pan and 3D views that orbit',
+    'Cube and view buttons select fixed views that pan and 3D views that orbit',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1440, 800));
       addTearDown(() => t.binding.setSurfaceSize(null));
       final e = Editor(Project.bench());
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
-      DeskButton tab(ViewAngle view) => t.widget<DeskButton>(
-        find.ancestor(
-          of: find.text(view.label),
-          matching: find.byType(DeskButton),
-        ),
+      Finder displayed(String label) => find.descendant(
+        of: find.byType(ViewportFooter),
+        matching: find.text(label),
       );
-      expect(tab(ViewAngle.perspective).primary, isTrue);
+      expect(displayed(ViewAngle.perspective.label), findsOneWidget);
+      expect(displayed(ViewAngle.iso.label), findsNothing);
+      expect(find.byTooltip(ViewAngle.iso.label), findsOneWidget);
+      for (final angle in ViewAngle.values.where(
+        (v) => v.projectionPlane != null,
+      )) {
+        expect(find.byTooltip(angle.label), findsOneWidget);
+        expect(displayed(angle.label), findsNothing);
+      }
       expect(e.camera.perspective, isTrue);
       final axes = find.byWidgetPredicate(
         (w) => w is CustomPaint && w.painter is AxesPainter,
       );
       expect(axes, findsOneWidget);
+      void expectOffsetAxes() {
+        final orientation = Camera()
+          ..yaw = e.camera.yaw
+          ..pitch = e.camera.pitch
+          ..scale = 19;
+        final painter = t.widget<CustomPaint>(axes).painter! as AxesPainter;
+        final pattern = paints;
+        const origin = Offset(24, 28);
+        for (final (i, direction) in [axis(0), -axis(1), axis(2)].indexed) {
+          pattern.line(
+            p1: origin,
+            p2: origin + orientation.project(direction, Size.zero),
+            color: painter.colors.axisColor(i),
+          );
+        }
+        expect(axes, pattern);
+      }
+
+      expectOffsetAxes();
       final canvasBounds = t.getRect(find.byKey(const Key('drawing')));
       final axesBounds = t.getRect(axes);
       expect(axesBounds.left - canvasBounds.left, closeTo(14, .01));
@@ -80,8 +108,8 @@ void main() {
       await t.tapAt(top);
       await t.pumpAndSettle();
       expect(e.activeView, ViewAngle.top);
-      expect(tab(ViewAngle.top).primary, isTrue);
-      expect(tab(ViewAngle.perspective).active, isFalse);
+      expect(displayed(ViewAngle.top.label), findsOneWidget);
+      expect(displayed(ViewAngle.perspective.label), findsNothing);
       expect(find.text('Сверху · XY'), findsNothing);
       e.camera.scale = .7;
       final origin = canvasBounds.center;
@@ -105,8 +133,7 @@ void main() {
         ViewAngle.left,
         ViewAngle.bottom,
       ]) {
-        await t.tap(find.text(view.label));
-        await t.pumpAndSettle();
+        await selectViewportView(t, view);
         final pan = e.camera.pan;
         await rightDrag();
         expect(e.camera.pan - pan, delta);
@@ -118,26 +145,25 @@ void main() {
         await t.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
         await t.pumpAndSettle();
         expect(e.camera.pan - pan, delta * 2);
-        expect(tab(view).primary, isTrue);
+        expect(displayed(view.label), findsOneWidget);
         expect(e.camera.yaw, view.yaw);
         expect(e.camera.pitch, view.pitch);
+        expectOffsetAxes();
       }
       for (final view in [ViewAngle.iso, ViewAngle.perspective]) {
-        await t.tap(find.text(view.label));
-        await t.pumpAndSettle();
+        await selectViewportView(t, view);
         await rightDrag();
         expect(e.camera.yaw, isNot(view.yaw));
         expect(e.camera.perspective, view == ViewAngle.perspective);
         expect(e.activeView, isNull);
-        expect(tab(view).active, isTrue);
-        expect(tab(view).primary, isFalse);
-        await t.tap(find.text(view.label));
-        await t.pumpAndSettle();
+        expectOffsetAxes();
+        expect(displayed(view.label), findsOneWidget);
+        expect(find.byTooltip('Свободный вид · ${view.label}'), findsOneWidget);
+        await selectViewportView(t, view);
         expect(e.camera.yaw, view.yaw);
         expect(e.camera.pitch, view.pitch);
       }
-      await t.tap(find.text('Сверху'));
-      await t.pumpAndSettle();
+      await selectViewportView(t, ViewAngle.top);
       expect(e.camera.pitch, ViewAngle.top.pitch);
       expect(e.camera.scale, .7);
     },

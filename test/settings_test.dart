@@ -172,7 +172,7 @@ void main() {
         await t.pumpAndSettle();
       }
 
-      await tap('Шаг · 1');
+      await tap('Шаг 1');
       expect(
         t
             .widget<DeskSegments<LengthUnit>>(
@@ -203,7 +203,7 @@ void main() {
       expect(editor.project, same(project));
       expect(editor.step.value(LengthUnit.inch), 1 / 16);
 
-      await tap('Шаг · 1');
+      await tap('Шаг 1');
       await tap('Миллиметры');
       await tap('0.1 мм');
       expect(stepText(), '0.1');
@@ -229,8 +229,8 @@ void main() {
       expect(t.widget<EditableText>(minutes).controller.text, '13');
       await tap('Готово');
       expect(editor.step.anglePrecision.increment, .01);
-      expect(find.byTooltip('″'), findsOneWidget);
-      expect(find.text('Шаг · 1/8″'), findsOneWidget);
+      expect(find.byTooltip('Единицы измерения · Дюймы'), findsOneWidget);
+      expect(find.text('Шаг 1/8'), findsOneWidget);
       expect(editor.step.value(LengthUnit.millimeter), 5);
       expect(editor.project.unit, LengthUnit.inch);
       expect(editor.project.beams.first.size, project.beams.first.size);
@@ -278,7 +278,7 @@ void main() {
       of: find.byKey(const ValueKey('workspace-0')),
       matching: find.byType(DeskTextField),
     );
-    expect(t.widget<DeskTextField>(width).controller!.text, '320');
+    expect(t.widget<DeskTextField>(width).controller!.text, isEmpty);
     Finder action(String label) => find.descendant(
       of: find.byType(DeskDialog),
       matching: find.text(label),
@@ -298,13 +298,32 @@ void main() {
     expect(e.project, same(p));
     await openProjectSettings(t);
     await t.enterText(name, ' Шкаф ');
-    expect(t.widget<DeskTextField>(width).controller!.text, '320');
+    expect(t.widget<DeskTextField>(width).controller!.text, isEmpty);
     await t.enterText(width, '4*50');
     final depth = find.descendant(
       of: find.byKey(const ValueKey('workspace-1')),
       matching: find.byType(DeskTextField),
     );
     await t.enterText(depth, '50');
+    await t.pumpAndSettle();
+    expect(
+      t
+          .widget<DeskButton>(
+            find.ancestor(
+              of: action('Применить'),
+              matching: find.byType(DeskButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    await t.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('workspace-2')),
+        matching: find.byType(DeskTextField),
+      ),
+      '45',
+    );
     await t.pumpAndSettle();
     await t.tap(action('Применить'));
     await t.pumpAndSettle();
@@ -422,6 +441,7 @@ void main() {
       );
       final tabs = ProjectTabs(original)..create();
       final empty = tabs.value.editor;
+      expect(empty.project.workspaceSize, Vector3(3000, 3000, 2500));
       await t.pumpWidget(NeprostoApp.withTabs(tabs));
       await t.pumpAndSettle();
       await openProjectSettings(t);
@@ -438,7 +458,7 @@ void main() {
       await t.pumpAndSettle();
       expect(empty.project.name, 'Мастерская');
       expect(find.text('Мастерская'), findsOneWidget);
-      expect(empty.project.workspaceSize, isNull);
+      expect(empty.project.workspaceSize, Vector3(3000, 3000, 2500));
       expect(Project.decode(empty.project.encode()).name, 'Мастерская');
       await openProjectSettings(t);
       await t.tap(find.text('Применить'));
@@ -448,6 +468,19 @@ void main() {
       await t.tap(find.text('Убрать границы'));
       await t.pumpAndSettle();
       expect(empty.project.workspaceSize, isNull);
+      expect(Project.decode(empty.project.encode()).workspaceSize, isNull);
+      await openProjectSettings(t);
+      for (var i = 0; i < 3; i++) {
+        final field = find.descendant(
+          of: find.byKey(ValueKey('workspace-$i')),
+          matching: find.byType(DeskTextField),
+        );
+        expect(t.widget<DeskTextField>(field).controller!.text, isEmpty);
+      }
+      final unbounded = empty.project;
+      await t.tap(apply);
+      await t.pumpAndSettle();
+      expect(empty.project, same(unbounded));
       expect(original.project.workspaceSize, Vector3(900, 800, 700));
       expect(original.canUndo, isFalse);
     },

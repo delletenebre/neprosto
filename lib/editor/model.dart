@@ -490,6 +490,14 @@ class Bounds3 {
   Vector3 get center => (low + high) * .5;
   Vector3 get rearLowerLeft => Vector3(low.x, high.y, low.z);
 
+  bool overlapsVolume(Bounds3 other) =>
+      low.x < other.high.x &&
+      high.x > other.low.x &&
+      low.y < other.high.y &&
+      high.y > other.low.y &&
+      low.z < other.high.z &&
+      high.z > other.low.z;
+
   Vector3 clampTranslation(Vector3 delta, {Vector3? planeNormal}) {
     final limited = delta.clone()..clamp(low, high);
     if (planeNormal != null &&
@@ -560,6 +568,11 @@ class Project {
 
   Project withWorkspace(Vector3? size) =>
       Project(name, beams, dimensions, unit, size, groupNames, rearY);
+
+  Project withDefaultWorkspace() => workspaceSize != null
+      ? this
+      : withWorkspace(partBounds?.high.clone() ?? Vector3(3000, 3000, 2500));
+
   Project(
     this.name,
     Iterable<Beam> beams, [

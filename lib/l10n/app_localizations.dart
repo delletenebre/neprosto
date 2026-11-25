@@ -161,6 +161,30 @@ abstract class AppLocalizations {
   /// **'Бежевый'**
   String get beigeColor;
 
+  /// No description provided for @blackColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чёрный'**
+  String get blackColor;
+
+  /// No description provided for @greenColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Зелёный'**
+  String get greenColor;
+
+  /// No description provided for @blueColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синий'**
+  String get blueColor;
+
+  /// No description provided for @brickColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кирпичный'**
+  String get brickColor;
+
   /// No description provided for @finishTexture.
   ///
   /// In ru, this message translates to:
@@ -495,6 +519,12 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Вид'**
   String get view;
+
+  /// No description provided for @views.
+  ///
+  /// In ru, this message translates to:
+  /// **'Виды'**
+  String get views;
 
   /// No description provided for @gridVisibility.
   ///
@@ -1822,6 +1852,12 @@ abstract class AppLocalizations {
   /// **'Привязка линейки без {modifier}'**
   String rulerSnapModifier(Object modifier);
 
+  /// No description provided for @snapLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязка'**
+  String get snapLabel;
+
   /// No description provided for @snapToAnchors.
   ///
   /// In ru, this message translates to:
@@ -2418,7 +2454,7 @@ abstract class AppLocalizations {
   /// No description provided for @addPartHint.
   ///
   /// In ru, this message translates to:
-  /// **'Для построения выберите «Новая деталь» или нажмите {shortcut}'**
+  /// **'Нажмите {shortcut}, чтобы добавить деталь'**
   String addPartHint(Object shortcut);
 
   /// No description provided for @widthInitial.
@@ -2430,7 +2466,7 @@ abstract class AppLocalizations {
   /// No description provided for @step.
   ///
   /// In ru, this message translates to:
-  /// **'Шаг · {increment}'**
+  /// **'Шаг {increment}'**
   String step(Object increment);
 
   /// No description provided for @width.

@@ -93,10 +93,16 @@ class EditStep {
   double value(LengthUnit unit) =>
       values[unit] ?? (unit == LengthUnit.inch ? 1 / 16 : 1);
   double millimeters(LengthUnit unit) => value(unit) * unit.factor;
-  late final _inchLabel =
-      '${LengthUnit.inch.formatStep(millimeters(LengthUnit.inch))}″';
-  String label(LengthUnit unit) =>
-      unit == LengthUnit.inch ? _inchLabel : unit.format(millimeters(unit));
+  late final _inchFraction = LengthUnit.inch.formatStep(
+    millimeters(LengthUnit.inch),
+  );
+  String label(LengthUnit unit, {bool includeInchMark = true}) {
+    if (unit == LengthUnit.inch) {
+      return includeInchMark ? '$_inchFraction″' : _inchFraction;
+    }
+    return unit.format(millimeters(unit));
+  }
+
   LengthInput input(LengthUnit unit) => (unit: unit, increment: value(unit));
   double round(double mm, LengthUnit unit) => input(unit).round(mm);
 

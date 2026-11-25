@@ -19,9 +19,7 @@ Future<void> showProjectSettings(
   final project = editor.project;
   final bounds = project.partBounds;
   final partSize = bounds == null ? null : bounds.high - bounds.low;
-  final originalSize =
-      project.workspaceSize ?? partSize ?? Vector3(3000, 3000, 2500);
-  final size = originalSize.clone();
+  final values = [for (var i = 0; i < 3; i++) project.workspaceSize?[i]];
   final invalid = <int>{};
   var name = project.name;
   var resizeProducts = false;
@@ -31,6 +29,15 @@ Future<void> showProjectSettings(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (_, update) {
+        bool canApply() =>
+            name.isNotEmpty &&
+            invalid.isEmpty &&
+            (!values.contains(null) || values.every((v) => v == null));
+        void setDimension(int i, double? value) => update(() {
+          values[i] = value;
+          invalid.remove(i);
+          resizeError = null;
+        });
         Project namedProject() =>
             name == project.name ? project : project.copy(name: name);
         void toggleResize(bool value) => update(() {
@@ -38,9 +45,13 @@ Future<void> showProjectSettings(
           resizeError = null;
         });
         void apply() {
-          if (name.isEmpty || invalid.isNotEmpty) return;
+          if (!canApply()) return;
+          final size = values.first == null
+              ? null
+              : Vector3(values[0]!, values[1]!, values[2]!);
           var next = namedProject();
-          if (resizeProducts && partSize != null) {
+          if (resizeProducts && partSize != null && size != null) {
+            final originalSize = project.workspaceSize ?? partSize;
             final ids = project.byId.keys.toSet();
             for (var i = 0; i < 3; i++) {
               if (size[i] == originalSize[i]) continue;
@@ -53,9 +64,8 @@ Future<void> showProjectSettings(
               next = resized.project;
             }
           }
-          final renameOnly = name != project.name && size == originalSize;
-          if (!renameOnly && size != project.workspaceSize) {
-            next = next.withWorkspace(size.clone());
+          if (size != project.workspaceSize) {
+            next = next.withWorkspace(size);
           }
           Navigator.pop(ctx, next);
         }
@@ -96,15 +106,12 @@ Future<void> showProjectSettings(
                         SizedBox(
                           width: 112,
                           child: ValueBox(
-                            size[i],
-                            (v) => update(() {
-                              size[i] = v;
-                              invalid.remove(i);
-                              resizeError = null;
-                            }),
+                            values[i],
+                            (v) => setDimension(i, v),
                             key: ValueKey('workspace-$i'),
                             live: true,
                             autofocus: i == 0,
+                            onCleared: () => setDimension(i, null),
                             onValidityChanged: (valid) {
                               if (!valid) update(() => invalid.add(i));
                             },
@@ -163,7 +170,7 @@ Future<void> showProjectSettings(
               ),
               DeskButton(
                 primary: true,
-                onPressed: name.isNotEmpty && invalid.isEmpty ? apply : null,
+                onPressed: canApply() ? apply : null,
                 child: Text(context.strings.apply),
               ),
             ],

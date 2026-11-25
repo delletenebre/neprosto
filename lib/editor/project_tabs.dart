@@ -203,10 +203,9 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
           ? editorStrings.numberedUntitled(n)
           : '${template.name} $n';
     }
-    open(
-      template?.copy(name: name) ?? Project(name, [], const [], unit),
-      dirty: template != null,
-    );
+    final project =
+        template?.copy(name: name) ?? Project(name, [], const [], unit);
+    open(project.withDefaultWorkspace(), dirty: template != null);
   }
 
   void close(ProjectTab tab) {

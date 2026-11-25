@@ -273,42 +273,130 @@ Project mate(
       : placed.move(selection, correction);
 }
 
-/// Swept separating-axis intervals for rigid translation, including mitred
-/// ends and a group whose members have different orientations.
-Contact? travelToStop(Project project, Set<int> ids, Vector3 direction) {
-  Contact? nearest;
-  final obstacles = project.beams
-      .where((b) => !ids.contains(b.id))
-      .expand((b) => b.solidStrips())
-      .toList();
-  for (final part in ids.expand((id) => project.byId[id]!.solidStrips())) {
-    final a = part.corners;
-    for (final target in obstacles) {
-      final b = target.corners;
-      var enter = double.negativeInfinity, exit = double.infinity;
-      for (final n in _polyAxes(part, target)) {
-        final ra = _range(a, n), rb = _range(b, n), speed = direction.dot(n);
-        if (speed.abs() < 1e-8) {
-          if (ra.hi <= rb.lo + 1e-7 || rb.hi <= ra.lo + 1e-7) {
-            exit = double.negativeInfinity;
-            break;
-          }
-        } else {
-          final t0 = (rb.lo - ra.hi) / speed, t1 = (rb.hi - ra.lo) / speed;
-          enter = math.max(enter, math.min(t0, t1));
-          exit = math.min(exit, math.max(t0, t1));
-        }
-        if (exit <= enter + 1e-8) break;
-      }
-      if (exit <= math.max(0, enter) + 1e-7) continue;
-      if (enter < -.00001 && exit < -enter) {
-        continue; // Already overlapping and moving out.
-      }
-      final distance = math.max(0.0, enter);
-      if (nearest == null || distance < nearest.travel) {
-        nearest = Contact(distance, target.id);
-      }
+class _Solid {
+  final Beam part;
+  late final corners = part.corners;
+  late final bounds = Bounds3.points(corners);
+  _Solid(this.part);
+}
+
+class _MoveContact extends Contact {
+  final Vector3 normal;
+  _MoveContact(super.travel, super.obstacle, this.normal);
+}
+
+/// Sweeps the selected stock from its last position, reusing the geometry
+/// throughout a drag. Each rabbet strip and each group member moves separately
+/// through the collision test, all with the same translation.
+class MoveContacts {
+  final _moving = <_Solid>[], _fixed = <_Solid>[];
+
+  MoveContacts(Project project, Set<int> ids) {
+    for (final part in project.beams) {
+      final solids = ids.contains(part.id) ? _moving : _fixed;
+      solids.addAll(part.solidStrips().map(_Solid.new));
     }
   }
-  return nearest;
+
+  _MoveContact? _sweep(Vector3 start, Vector3 direction, double distance) {
+    _MoveContact? nearest;
+    final path = distance.isFinite
+        ? Bounds3.points([start, start + direction * distance])
+        : null;
+    for (final a in _moving) {
+      final swept = path == null
+          ? null
+          : Bounds3(a.bounds.low + path.low, a.bounds.high + path.high);
+      for (final b in _fixed) {
+        if (swept != null && !swept.overlapsVolume(b.bounds)) continue;
+        var normal = direction;
+        var enter = double.negativeInfinity, exit = double.infinity;
+        for (final n in _polyAxes(a.part, b.part)) {
+          final ra = _range(a.corners, n), rb = _range(b.corners, n);
+          final offset = start.dot(n), speed = direction.dot(n);
+          final lo = rb.lo - ra.hi - offset, hi = rb.hi - ra.lo - offset;
+          final parallel = distance.isFinite
+              ? (speed * distance).abs() < 1e-8
+              : speed.abs() < 1e-8;
+          if (parallel) {
+            if (lo >= -1e-7 || hi <= 1e-7) {
+              exit = double.negativeInfinity;
+              break;
+            }
+          } else {
+            final t0 = lo / speed, t1 = hi / speed;
+            final entry = math.min(t0, t1);
+            if (entry > enter) {
+              enter = entry;
+              normal = n;
+            }
+            exit = math.min(exit, math.max(t0, t1));
+          }
+          if (exit <= enter + 1e-8 || enter >= distance) break;
+        }
+        if (enter >= distance || exit <= math.max(0, enter) + 1e-7) continue;
+        if (enter < -.00001 && exit <= -enter + 1e-7) {
+          continue; // Already overlapping and moving out.
+        }
+        final travel = math.max(0.0, enter);
+        if (nearest == null || travel < nearest.travel) {
+          nearest = _MoveContact(travel, b.part.id, normal);
+        }
+      }
+    }
+    return nearest;
+  }
+
+  bool overlapsAt(Vector3 offset) {
+    for (final a in _moving) {
+      final bounds = Bounds3(a.bounds.low + offset, a.bounds.high + offset);
+      final moved = a.part.copy(origin: a.part.origin + offset);
+      for (final b in _fixed) {
+        if (bounds.overlapsVolume(b.bounds) && intersects(moved, b.part)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  Vector3 limitDrag(
+    Vector3 start,
+    Vector3 target, {
+    Vector3? planeNormal,
+    Bounds3? workspace,
+  }) {
+    final delta = target - start, distance = delta.length;
+    if (distance < 1e-10) return target;
+    final direction = delta / distance;
+    final hit = _sweep(start, direction, distance);
+    if (hit == null) return target;
+    final contact = start + direction * hit.travel;
+    if (planeNormal == null || delta.dot(planeNormal).abs() > 1e-7) {
+      return contact;
+    }
+    // Slide along the intersection of the contact face and working plane.
+    final tangent = planeNormal.cross(hit.normal);
+    if (tangent.normalize() < 1e-8) return contact;
+    var slide = (target - contact).dot(tangent);
+    if (slide < 0) {
+      tangent.negate();
+      slide = -slide;
+    }
+    if (workspace != null) {
+      for (var i = 0; i < 3; i++) {
+        if (tangent[i].abs() < 1e-12) continue;
+        final wall = tangent[i] > 0 ? workspace.high[i] : workspace.low[i];
+        slide = math.min(slide, (wall - contact[i]) / tangent[i]);
+      }
+    }
+    if (slide < 1e-8) return contact;
+    final next = _sweep(contact, tangent, slide);
+    return contact + tangent * (next?.travel ?? slide);
+  }
+}
+
+Contact? travelToStop(Project project, Set<int> ids, Vector3 direction) {
+  final contacts = MoveContacts(project, ids);
+  return contacts._sweep(Vector3.zero(), direction, double.infinity);
 }

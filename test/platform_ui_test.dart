@@ -19,6 +19,77 @@ import 'package:neprosto/main.dart';
 
 void main() {
   testWidgets(
+    'Footer keeps view, snap and step accessible as the canvas gets narrower',
+    (t) async {
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      await t.binding.setSurfaceSize(const Size(1380, 760));
+      final editor = Editor(Project('Тест', []));
+      final nativeMenu = defaultTargetPlatform == TargetPlatform.macOS;
+      if (nativeMenu) {
+        const popup = MethodChannel('neprosto/popup');
+        final messenger = t.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(popup, (call) async {
+          if (call.method != 'choose') return null;
+          final items = call.arguments['items'] as List;
+          expect(items, contains(SnapMode.faceCenter.label));
+          return items.indexOf(SnapMode.faceCenter.label);
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(popup, null));
+      }
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
+      final view = find.byKey(const ValueKey(ViewAngle.perspective));
+      final toggle = find.byTooltip('Привязка по опорам');
+      final step = find.text('Шаг 1');
+      expect(find.text('Привязка'), findsOneWidget);
+      expect(t.getCenter(step).dy, closeTo(t.getCenter(view).dy, 1));
+      expect(find.byType(DeskMenu<ViewAngle>), findsNothing);
+      expect(find.byTooltip('Аксонометрия'), findsOneWidget);
+      for (final width in [880.0, 790.0]) {
+        await t.binding.setSurfaceSize(Size(width, 640));
+        await t.pumpAndSettle();
+        expect(find.text('Привязка'), findsNothing);
+        for (final angle in ViewAngle.values) {
+          final button = find.byKey(ValueKey(angle));
+          expect(button.hitTestable(), findsOneWidget);
+          await t.tap(button);
+          await t.pumpAndSettle();
+          expect(editor.activeView, angle);
+          expect(
+            find.descendant(of: button, matching: find.text(angle.label)),
+            findsOneWidget,
+          );
+        }
+        await t.tap(toggle);
+        await t.pumpAndSettle();
+        expect(editor.snap, isFalse);
+        await t.tap(find.byTooltip('Привязка по опорам · выкл.'));
+        await t.pumpAndSettle();
+        if (!nativeMenu) {
+          await t.tap(find.text(SnapMode.faceCenter.label));
+          await t.pumpAndSettle();
+        }
+        expect(editor.snapMode, SnapMode.faceCenter);
+        expect(editor.snap, isTrue);
+        for (final control in [
+          view,
+          toggle,
+          find.text(SnapMode.faceCenter.label),
+          step,
+          find.byTooltip('Единицы измерения · Миллиметры'),
+        ]) {
+          expect(control.hitTestable(), findsOneWidget);
+        }
+        expect(t.takeException(), isNull);
+      }
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
+
+  testWidgets(
     'Parts and dimensions show their creation button below the tabs',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1200, 780));
