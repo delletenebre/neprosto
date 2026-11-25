@@ -1,6 +1,6 @@
 {
-    "name": "neprosto",
-    "short_name": "neprosto",
+    "name": "NeProSto",
+    "short_name": "NeProSto",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#252f4f",

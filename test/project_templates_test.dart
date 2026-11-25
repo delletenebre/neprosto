@@ -95,138 +95,6 @@ void main() {
 
   for (final unit in [LengthUnit.millimeter, LengthUnit.inch]) {
     test(
-      'Gazebo ring supports the open gable roof and keeps the entrance clear in ${unit.name}',
-      () {
-        final doc = FurnitureTemplate.gazebo.build(unit),
-            bounds = doc.partBounds!;
-        final ring = doc.beams.where(
-          (b) => b.name == editorStrings.gazeboRingBeam,
-        );
-        final roofParts = {
-          editorStrings.roofRafter,
-          editorStrings.roofTie,
-          editorStrings.roofBatten,
-        };
-        expect(
-          doc.beams.where((b) => b.name == editorStrings.roofBoard),
-          isEmpty,
-        );
-        expect(ring, hasLength(4));
-        final plate = Bounds3.points(ring.first.corners).high.z;
-        final underside = Bounds3.points(ring.first.corners).low.z;
-        final posts = doc.beams
-            .where((b) => b.name == editorStrings.uprightPost)
-            .map((p) => Bounds3.points(p.corners))
-            .where((p) => (p.high.z - underside).abs() < 1e-6)
-            .toList();
-        expect(posts, hasLength(4));
-        bool spans(double a0, double a1, double b0, double b1) =>
-            math.min(a1, b1) - math.max(a0, b0) > 1e-6;
-        for (final beam in doc.beams) {
-          final b = Bounds3.points(beam.corners);
-          if (ring.contains(beam)) {
-            expect(b.high.z, closeTo(plate, 1e-6));
-            expect(b.low.z, closeTo(underside, 1e-6));
-            expect(
-              posts.where(
-                (p) =>
-                    spans(p.low.x, p.high.x, b.low.x, b.high.x) &&
-                    spans(p.low.y, p.high.y, b.low.y, b.high.y),
-              ),
-              hasLength(2),
-            );
-          } else if (roofParts.contains(beam.name)) {
-            expect(b.low.z, greaterThanOrEqualTo(plate - 1e-6));
-          } else {
-            expect(b.high.z, lessThanOrEqualTo(underside + 1e-6));
-          }
-        }
-        final frontPosts = posts.where((p) => p.low.y.abs() < 1e-6).toList()
-          ..sort((a, b) => a.low.x.compareTo(b.low.x));
-        expect(frontPosts, hasLength(2));
-        for (final beam in doc.beams.where(
-          (b) => !ring.contains(b) && !roofParts.contains(b.name),
-        )) {
-          final b = Bounds3.points(beam.corners);
-          expect(
-            spans(b.low.y, b.high.y, 0, frontPosts.first.high.y) &&
-                spans(
-                  b.low.x,
-                  b.high.x,
-                  frontPosts.first.high.x,
-                  frontPosts.last.low.x,
-                ),
-            isFalse,
-          );
-        }
-        final ties = doc.beams.where((b) => b.name == editorStrings.roofTie);
-        final rafters = doc.beams.where(
-          (b) => b.name == editorStrings.roofRafter,
-        );
-        final battens = doc.beams.where(
-          (b) => b.name == editorStrings.roofBatten,
-        );
-        expect(ties, hasLength(5));
-        expect(rafters, hasLength(10));
-        expect(battens, hasLength(8));
-        for (final tie in ties) {
-          final t = Bounds3.points(tie.corners);
-          expect(t.low.z, closeTo(plate, 1e-6));
-          final pair = rafters
-              .where(
-                (r) =>
-                    (r.pointAt(Vector3(0, .5, .5)).y - t.center.y).abs() < 1e-6,
-              )
-              .toList();
-          expect(pair, hasLength(2));
-          for (final r in pair) {
-            for (final k in faceCorners[0]) {
-              final heel = r.corner(k);
-              expect(heel.z, closeTo(t.high.z, 1e-6));
-              expect(heel.x, inInclusiveRange(t.low.x - 1e-6, t.high.x + 1e-6));
-              expect(heel.y, inInclusiveRange(t.low.y - 1e-6, t.high.y + 1e-6));
-            }
-          }
-          for (final k in faceCorners[1]) {
-            expect(
-              faceCorners[1].any(
-                (j) =>
-                    pair.first.corner(k).distanceTo(pair.last.corner(j)) < 1e-6,
-              ),
-              isTrue,
-            );
-          }
-          for (final batten in battens) {
-            final supported = pair.any(
-              (r) => [0.0, 1.0].every((edge) {
-                final p = r.localAt(
-                  batten.pointAt(Vector3(t.center.y / bounds.high.y, edge, 0)),
-                );
-                return p.x >= -1e-6 &&
-                    p.x <= 1 + 1e-6 &&
-                    (p.z - .5).abs() < 1e-6 &&
-                    math.min(p.y.abs(), (1 - p.y).abs()) < 1e-6;
-              }),
-            );
-            expect(
-              supported,
-              isTrue,
-              reason: 'batten ${batten.id}, tie ${tie.id}',
-            );
-          }
-        }
-        expect(
-          doc.beams.where((b) => b.name == editorStrings.benchBack),
-          isNotEmpty,
-        );
-        expect(
-          doc.beams.where((b) => b.name == editorStrings.seatSlat(1)),
-          hasLength(1),
-        );
-      },
-    );
-
-    test(
       'Sawhorse feet, cap, aprons and ties have bearing faces in ${unit.name}',
       () {
         final project = FurnitureTemplate.sawhorse.build(unit);
@@ -274,10 +142,7 @@ void main() {
     test(
       'Each planter wall course covers two inside corner posts in ${unit.name}',
       () {
-        for (final template in [
-          FurnitureTemplate.raisedBed,
-          FurnitureTemplate.trellisPlanter,
-        ]) {
+        for (final template in [FurnitureTemplate.raisedBed]) {
           final project = template.build(unit);
           final extent = project.partBounds!.high;
           final walls = project.beams.where(
@@ -383,8 +248,25 @@ void main() {
       }
 
       await chooseTemplate();
-      expect(find.text('Фирменная тумба neprosto'), findsWidgets);
-      await tap(find.text('Табуреты и скамьи'));
+      expect(find.text(editorStrings.templateHoodCabinet), findsWidgets);
+      expect(find.text(editorStrings.assembleHoodCabinet), findsOneWidget);
+      Future<void> openGarden() async {
+        final category = find.text(editorStrings.categoryGarden);
+        await t.scrollUntilVisible(
+          category,
+          100,
+          scrollable: find
+              .descendant(
+                of: find.byType(ListView).last,
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tap(category);
+      }
+
+      await openGarden();
+      await tap(find.text(editorStrings.bench).last);
       expect(
         find.descendant(
           of: find.byType(DeskDialog),
@@ -393,34 +275,26 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('1200 × 360 × 450 мм'), findsOneWidget);
-      await t.scrollUntilVisible(
-        find.text('Сад и дача'),
-        100,
-        scrollable: find
-            .descendant(
-              of: find.byType(ListView).last,
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tap(find.text('Сад и дача'));
+      expect(find.text('Миллиметры'), findsNothing);
+      expect(find.text('Дюймы'), findsNothing);
+      await tap(find.text('Отмена'));
+      await tap(find.text('Шаг 1 мм'));
       await tap(find.text('Дюймы'));
-
-      expect(
-        find.textContaining('66.14173 × 27.55906 × 37.00787 ″'),
-        findsOneWidget,
-      );
+      await tap(find.text('Готово'));
+      await chooseTemplate();
+      await openGarden();
+      expect(find.textContaining('59 × 29 × 22 ″'), findsOneWidget);
       expect(find.text(editorStrings.planSource), findsNothing);
       expect(find.text(editorStrings.planAdaptation), findsNothing);
       expect(find.text(editorStrings.stockShopping), findsNothing);
       expect(find.text(editorStrings.cuttingLayout), findsNothing);
       await tap(find.text('Создать проект'));
       final created = tabs.value;
-      expect(created.committed.name, 'Садовая скамья с подлокотниками');
+      expect(created.committed.name, editorStrings.templateRaisedBed);
       expect(created.committed.unit, LengthUnit.inch);
       expect(created.committed.beams, isNotEmpty);
       expect(
-        (created.committed.workspaceSize! - Vector3(1680, 700, 940)).length,
+        (created.committed.workspaceSize! - Vector3(59, 29, 22) * 25.4).length,
         closeTo(0, .00001),
       );
       expect(created.dirty, isTrue);
@@ -435,6 +309,12 @@ void main() {
       expect(tabs.value.committed.unit, LengthUnit.inch);
       expect(tabs.value.committed.beams, isEmpty);
       expect(tabs.value.committed.workspaceSize, Vector3(3000, 3000, 2500));
+      tabs.select(original);
+      await t.pumpAndSettle();
+      expect(original.editor.displayUnit, LengthUnit.inch);
+      expect(original.committed.unit, LengthUnit.millimeter);
+      expect(original.dirty, isFalse);
+      expect(find.text('Шаг 1/16″'), findsOneWidget);
     },
     variant: TargetPlatformVariant({
       TargetPlatform.macOS,

@@ -24,6 +24,9 @@ class DoorIcon extends StatelessWidget {
 
 class DoorSettingsDraft {
   DoorSettingsDraft(Beam part) : hinge = part.hinge, angle = part.openingAngle;
+  DoorSettingsDraft.group(GroupDoor? door)
+    : hinge = door?.hinge,
+      angle = door?.angle ?? 90;
 
   DoorHinge? hinge;
   DoorHinge _lastSide = DoorHinge.left;
@@ -45,9 +48,11 @@ class PartTypePicker extends StatelessWidget {
     this.draft, {
     required this.refresh,
     required this.submit,
+    this.group = false,
     super.key,
   });
   final DoorSettingsDraft draft;
+  final bool group;
   final VoidCallback refresh, submit;
 
   @override
@@ -90,7 +95,7 @@ class PartTypePicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: controlGap,
       children: [
-        Text(s.partType, style: caption),
+        Text(group ? s.groupType : s.partType, style: caption),
         DeskSegmentedControl<bool>(
           value: hinge != null,
           children: {false: type(false), true: type(true)},
@@ -161,13 +166,14 @@ class _HingeDiagram extends StatelessWidget {
 
   // The visible outline runs through the middle of each edge button.
   static const inset = 16.0;
+  static const edgeLength = 72.0, edgeThickness = 24.0;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     Widget edge(DoorHinge side) => SizedBox(
-      width: side.onSide ? inset * 2 : double.infinity,
-      height: side.onSide ? double.infinity : inset * 2,
+      width: side.onSide ? edgeThickness : edgeLength,
+      height: side.onSide ? edgeLength : edgeThickness,
       child: Tooltip(
         message: labels[side]!,
         child: Semantics(
@@ -191,17 +197,25 @@ class _HingeDiagram extends StatelessWidget {
       ),
       child: CustomPaint(
         painter: _DoorFace(selected, colors),
-        child: Column(
-          children: [
-            edge(DoorHinge.top),
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [edge(DoorHinge.left), edge(DoorHinge.right)],
+        child: Padding(
+          padding: const EdgeInsets.all(inset - edgeThickness / 2),
+          child: Stack(
+            children: [
+              Align(alignment: Alignment.topCenter, child: edge(DoorHinge.top)),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: edge(DoorHinge.bottom),
               ),
-            ),
-            edge(DoorHinge.bottom),
-          ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: edge(DoorHinge.left),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: edge(DoorHinge.right),
+              ),
+            ],
+          ),
         ),
       ),
     );

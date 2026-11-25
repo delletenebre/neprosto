@@ -136,9 +136,8 @@ class DrawingViewportState extends State<DrawingViewport> {
       !HardwareKeyboard.instance.isSpacePressed &&
       !HardwareKeyboard.instance.isAltPressed;
 
-  bool canResizePart(Beam part) => e.selection.contains(part.id)
-      ? e.selection.length == 1
-      : part.group == null;
+  bool canResizePart(Beam part) =>
+      e.selection.isEmpty ? part.group == null : e.single?.id == part.id;
 
   bool canResizeEdge(ResizeEdge edge) =>
       canResizePart(edge.face.beam) && edge.canResize(e.camera);
@@ -241,7 +240,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     if (point == null) return;
     final initial = before!, part = edge.face.beam;
     final dim = edge.axis, travel = (point - plane.origin).dot(plane.u);
-    final target = e.step.round(part.size[dim] + travel, initial.unit);
+    final target = e.step.round(part.size[dim] + travel, e.displayUnit);
     final resized = resizeEnd(
       part,
       dim,
@@ -393,8 +392,7 @@ class DrawingViewportState extends State<DrawingViewport> {
       final base = e.first!.point, delta = e.hover!.point - base;
       if (delta.length > 1e-7) {
         e.hover = Anchor(
-          base +
-              delta.normalized() * e.step.round(delta.length, e.project.unit),
+          base + delta.normalized() * e.step.round(delta.length, e.displayUnit),
         );
       }
     }
@@ -561,7 +559,7 @@ class DrawingViewportState extends State<DrawingViewport> {
       if (e.tool == Tool.beam) {
         e.sketch = beginSketch(a);
         if (e.sketch!.reference case final part?) {
-          final units = e.project.unit;
+          final units = e.displayUnit;
           e.message = context.strings.sketchEndHint(
             part.name,
             e.lengthInput.format(part.size.y),
@@ -645,7 +643,12 @@ class DrawingViewportState extends State<DrawingViewport> {
     if (selectionAtFirstTap.length < 2 ||
         !selectionAtFirstTap.contains(partAtPointer.id) ||
         !e.selection.contains(partAtPointer.id)) {
-      e.select(partAtPointer.id, individual: true);
+      e.select(
+        partAtPointer.id,
+        individual:
+            selectionAtFirstTap.length == 1 &&
+            selectionAtFirstTap.contains(partAtPointer.id),
+      );
     }
     final box = context.findRenderObject()! as RenderBox;
     await showPartProperties(
@@ -854,7 +857,7 @@ class DrawingViewportState extends State<DrawingViewport> {
       if (gap != null) {
         e.message = context.strings.equalGapValue(
           e.lengthInput.format(gap),
-          initial.unit.symbol,
+          e.displayUnit.symbol,
         );
       } else if (moveGuides.isNotEmpty) {
         e.message = context.strings.edgeAligned;
@@ -984,14 +987,14 @@ class DrawingViewportState extends State<DrawingViewport> {
     final motion = e.doorSwing;
     if (motion != null &&
         e.tool == Tool.select &&
-        identical(e.project.byId[motion.to.id], motion.to) &&
+        identical(e.project, motion.to) &&
         !MediaQuery.disableAnimationsOf(context)) {
       return TweenAnimationBuilder<double>(
         key: ObjectKey(motion.to),
         tween: Tween(begin: 0, end: 1),
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeInOut,
-        builder: (_, t, _) => _viewport(0, swingingDoor: motion.from, swing: t),
+        builder: (_, t, _) => _viewport(0, doorFrame: motion.frame, swing: t),
         onEnd: () {
           if (e.doorSwing == motion) e.doorSwing = null;
         },
@@ -1015,7 +1018,7 @@ class DrawingViewportState extends State<DrawingViewport> {
 
   Widget _viewport(
     double previewAngle, {
-    Beam? swingingDoor,
+    Project Function(double)? doorFrame,
     double swing = 1,
   }) {
     return LayoutBuilder(
@@ -1055,11 +1058,7 @@ class DrawingViewportState extends State<DrawingViewport> {
           var document = e.tool == Tool.rotate
               ? e.rotationPreview(previewAngle)
               : e.project;
-          if (swingingDoor != null && swing < 1) {
-            document = document.edit({
-              swingingDoor.id,
-            }, (_) => swingingDoor.swingDoor(swing));
-          }
+          if (doorFrame != null && swing < 1) document = doorFrame(swing);
           cached = Scene(document, c, size, input: e.lengthInput);
           signature = sig;
         }

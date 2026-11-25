@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:material_ui/material_ui.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
+    show PhosphorIconsRegular;
 
 import '../l10n/strings.dart';
 import 'arithmetic.dart';
@@ -260,6 +262,22 @@ class _EndCutDialogState extends State<_EndCutDialog> {
             marking(current.width, strings.faceMarkAngle),
             marking(current.thickness, strings.edgeMarkAngle),
           ),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: DeskButton(
+              plain: true,
+              icon: const Icon(PhosphorIconsRegular.arrowCounterClockwise),
+              label: Text(strings.resetEndCut),
+              onPressed:
+                  current.width.text.text == '0' &&
+                      current.thickness.text.text == '0'
+                  ? null
+                  : () => setState(() {
+                      current.width.setAngle(0);
+                      current.thickness.setAngle(0);
+                    }),
+            ),
+          ),
           if (saw != null) ...[
             const Divider(height: 1),
             DeskSegments<SawType>(sawType, {
@@ -288,13 +306,6 @@ class _EndCutDialogState extends State<_EndCutDialog> {
             ),
           ],
         ],
-      ),
-      leadingAction: DeskButton(
-        onPressed: () => setState(() {
-          current.width.setAngle(0);
-          current.thickness.setAngle(0);
-        }),
-        child: Text(strings.resetEndCut),
       ),
       actions: [
         DeskButton(

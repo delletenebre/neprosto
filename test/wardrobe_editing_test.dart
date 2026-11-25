@@ -1,11 +1,12 @@
 import 'dart:math' as math;
 
-import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:excel/excel.dart' show Excel;
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart';
+import 'package:neprosto/editor/inspector.dart';
 import 'package:neprosto/editor/part_type_picker.dart';
 import 'package:neprosto/editor/part_finish.dart';
 import 'package:neprosto/editor/model.dart';
@@ -191,22 +192,49 @@ void main() {
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
 
+      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      addTearDown(mouse.removePointer);
       Future<void> editName() async {
-        final action = find.byTooltip('Переименовать деталь');
+        final action = find.byTooltip('Свойства детали');
+        final inspector = find.byType(Inspector);
         final title = find.descendant(
-          of: action,
+          of: inspector,
           matching: find.text(panel.name),
         );
-        final pencil = find.descendant(
-          of: action,
-          matching: find.byIcon(CupertinoIcons.pencil),
+        final titleButton = find
+            .ancestor(of: title, matching: find.byType(DeskControl))
+            .first;
+        final leading = find.descendant(
+          of: titleButton,
+          matching: find.byType(DoorIcon),
         );
+        final contentStart = t
+            .getTopLeft(leading.evaluate().isEmpty ? title : leading)
+            .dx;
+        final label = find.descendant(
+          of: inspector,
+          matching: find.text('Свойства'),
+        );
+        expect(contentStart, closeTo(t.getTopLeft(label).dx, .1));
         expect(
-          t.getRect(pencil).left - t.getRect(title).right,
+          contentStart - t.getTopLeft(titleButton).dx,
           closeTo(controlGap, .1),
         );
-        expect(t.getCenter(pencil).dy, closeTo(t.getCenter(title).dy, .1));
-        await t.tap(title);
+        final settings = find.descendant(
+          of: titleButton,
+          matching: find.byIcon(PhosphorIconsRegular.slidersHorizontal),
+        );
+        expect(t.getRect(titleButton).contains(t.getCenter(settings)), isTrue);
+        expect(t.getRect(action).contains(t.getCenter(settings)), isTrue);
+        expect(t.getCenter(settings).dy, closeTo(t.getCenter(title).dy, .1));
+        await mouse.moveTo(t.getCenter(title));
+        await t.pumpAndSettle();
+        final idleColor = IconTheme.of(t.element(settings)).color;
+        await mouse.moveTo(t.getCenter(settings));
+        await t.pumpAndSettle();
+        expect(IconTheme.of(t.element(settings)).color, isNot(idleColor));
+        await t.tap(settings);
         await t.pumpAndSettle();
         expect(find.text('Название детали'), findsOneWidget);
         expect(
@@ -228,12 +256,31 @@ void main() {
 
       expect(find.byType(PartTypePicker), findsNothing);
       expect(find.byType(DoorIcon), findsNothing);
+      await t.tap(
+        find.descendant(
+          of: find.byType(Inspector),
+          matching: find.text(panel.name),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('part-dialog-name')), findsOneWidget);
+      expect(find.byKey(const ValueKey('dialog-position-0')), findsOneWidget);
+      expect(find.byType(PartTypePicker), findsNothing);
+      await t.tap(find.text('Отмена'));
+      await t.pumpAndSettle();
       await editName();
       final diagram = find.byKey(const ValueKey('hinge-diagram'));
       expect(diagram, findsNothing);
       await choose('Дверца');
       expect(find.text('Петли слева'), findsOneWidget);
       final face = t.getRect(diagram);
+      Size hoverSize(String edge) => t.getSize(
+        find.descendant(of: diagram, matching: find.byTooltip(edge)),
+      );
+      final horizontal = hoverSize('Петли сверху');
+      expect(hoverSize('Петли снизу'), horizontal);
+      expect(hoverSize('Петли слева'), horizontal.flipped);
+      expect(hoverSize('Петли справа'), horizontal.flipped);
       for (final (point, label) in [
         (face.centerRight - const Offset(16, 0), 'Петли справа'),
         (face.bottomCenter - const Offset(0, 16), 'Петли снизу'),
@@ -244,7 +291,7 @@ void main() {
         await t.pumpAndSettle();
         expect(find.text(label), findsOneWidget);
       }
-      await choose('Обычная деталь');
+      await choose('Элемент');
       expect(diagram, findsNothing);
       await choose('Дверца');
       expect(find.text('Петли сверху'), findsOneWidget);
@@ -294,12 +341,12 @@ void main() {
       expect(e.single!.doorOpen, isTrue);
       await editName();
       expect(find.text('Петли сверху'), findsOneWidget);
-      await choose('Обычная деталь');
+      await choose('Элемент');
       await t.tap(find.text('Отмена'));
       await t.pumpAndSettle();
       expect(e.single!.hinge, DoorHinge.top);
       await editName();
-      await choose('Обычная деталь');
+      await choose('Элемент');
       await t.tap(done);
       await t.pumpAndSettle();
       expect(e.single!.hinge, isNull);

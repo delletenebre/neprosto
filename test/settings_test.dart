@@ -153,7 +153,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
-    'Editing settings apply or cancel project units and keep each unit’s step',
+    'Editing settings apply or cancel global units and keep each unit’s step',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1200, 780));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -172,7 +172,7 @@ void main() {
         await t.pumpAndSettle();
       }
 
-      await tap('Шаг 1');
+      await tap('Шаг 1 см');
       expect(
         t
             .widget<DeskSegments<LengthUnit>>(
@@ -203,7 +203,7 @@ void main() {
       expect(editor.project, same(project));
       expect(editor.step.value(LengthUnit.inch), 1 / 16);
 
-      await tap('Шаг 1');
+      await tap('Шаг 1 см');
       await tap('Миллиметры');
       await tap('0.1 мм');
       expect(stepText(), '0.1');
@@ -229,10 +229,11 @@ void main() {
       expect(t.widget<EditableText>(minutes).controller.text, '13');
       await tap('Готово');
       expect(editor.step.anglePrecision.increment, .01);
-      expect(find.byTooltip('Единицы измерения · Дюймы'), findsOneWidget);
-      expect(find.text('Шаг 1/8'), findsOneWidget);
+      expect(find.byTooltip('Единицы измерения · Дюймы'), findsNothing);
+      expect(find.text('Шаг 1/8″'), findsOneWidget);
       expect(editor.step.value(LengthUnit.millimeter), 5);
-      expect(editor.project.unit, LengthUnit.inch);
+      expect(editor.displayUnit, LengthUnit.inch);
+      expect(editor.canUndo, isFalse);
       expect(editor.project.beams.first.size, project.beams.first.size);
       editor.undo();
       expect(editor.project, same(project));

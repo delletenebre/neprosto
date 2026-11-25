@@ -118,21 +118,6 @@ extension _Timber on _Parts {
     }
   }
 
-  void clampRack() {
-    final s = editorStrings;
-    for (final z in [0.0, h - board]) {
-      front(s.backPanel, 0, d - skin, z, w, skin, board);
-    }
-    for (final x in [0.0, w - stud]) {
-      post(x, d - skin - stud, 0, h, stud);
-    }
-    front(s.frameRail, 0, d - 2 * skin - stud, h - board, w, skin, board);
-    for (var i = 0; i < 9; i++) {
-      final x = (w - stud) * i / 8;
-      cross(s.rackFinger, x, 0, h - board, d - 2 * skin - stud, board, stud);
-    }
-  }
-
   // The two adjacent inside wall faces meet the two outside post faces.
   void boxWalls(double base, int courses, {double? rearHeight}) {
     final s = editorStrings, rim = base + courses * board;
@@ -151,30 +136,11 @@ extension _Timber on _Parts {
     }
   }
 
-  void planterDeck(double z, String name, {int? slats}) {
-    final clear = d - 2 * skin;
-    for (final x in [skin + stud, w - skin - 2 * stud]) {
-      cross(editorStrings.frameRail, x, skin, z - board, clear, board, stud);
-    }
-    final count = slats ?? (clear / board + 1e-7).floor();
-    for (var i = 0; i < count; i++) {
-      final x = i == 0 || i == count - 1 ? skin + stud : skin;
-      flat(
-        name,
-        x,
-        skin + i * (clear - board) / (count - 1),
-        z,
-        w - 2 * x,
-        board,
-        skin,
-      );
-    }
-  }
-
   void raisedBed() {
     boxWalls(0, 6);
+    final top = 6 * board;
     for (final y in [skin, d - skin - stud]) {
-      post((w - stud) / 2, y, 0, h, stud);
+      post((w - stud) / 2, y, 0, top, stud);
     }
     cross(
       editorStrings.frameRail,
@@ -185,35 +151,27 @@ extension _Timber on _Parts {
       stud,
       stud,
     );
-  }
-
-  void trellisPlanter() {
-    final s = editorStrings, base = measure(100, 4), lip = base + 4 * board;
-    boxWalls(base, 4, rearHeight: h);
-    planterDeck(base, s.bottomPanel);
-    front(s.frameRail, skin, d - skin, h - board, w - 2 * skin, skin, board);
-    for (var i = 1; i <= 5; i++) {
-      add(
-        s.trellisSlat,
-        i * w / 6 - stud / 2,
-        d - 2 * skin,
-        lip,
-        h - lip,
-        stud,
-        skin,
-        2,
-        0,
-      );
-    }
-    for (var i = 0; i < 6; i++) {
-      front(
-        s.trellisSlat,
-        skin,
-        d - skin,
-        lip + i * (h - board - lip - stud) / 5,
-        w - 2 * skin,
-        skin,
-        stud,
+    final rim = measure(80, 3);
+    final corners = [
+      Vector3(0, 0, top),
+      Vector3(w, 0, top),
+      Vector3(w, d, top),
+      Vector3(0, d, top),
+    ];
+    for (var i = 0; i < 4; i++) {
+      final edge = corners[(i + 1) % 4] - corners[i], along = edge.normalized();
+      beams.add(
+        Beam(
+          beams.length + 1,
+          editorStrings.bedRim,
+          corners[i] + along * (rim / 2),
+          Vector3(edge.length - rim, rim, h - top),
+          along,
+          axis(2).cross(along),
+          startCut: (y: rim, z: 0),
+          endCut: (y: -rim, z: 0),
+          finish: finish,
+        ),
       );
     }
   }
@@ -453,7 +411,7 @@ extension _GardenFurniture on _Parts {
         skin,
       );
     }
-    final bay = w * .65;
+    final bay = measure(780, 32);
     cross(
       s.frameRail,
       bay - stud,

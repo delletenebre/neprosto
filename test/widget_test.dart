@@ -1,5 +1,4 @@
 import 'package:neprosto/editor/desk_text_field.dart';
-import 'package:cupertino_ui/cupertino_ui.dart' as cu;
 import 'package:neprosto/editor/desktop.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -70,6 +69,91 @@ void main() {
   );
 
   testWidgets(
+    'Group titles select immediately, double-clicks frame, and arrows disclose',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1200, 780));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final project = Project.bench()
+          .edit({1, 2, 3}, (b) => b.copy(group: 1))
+          .edit({1}, (b) => b.copy(origin: Vector3(2500, 0, 0), hidden: true))
+          .edit({4}, (b) => b.copy(origin: Vector3(15000, 0, 0)));
+      final editor = Editor(project)..select(4);
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
+      final size = t.getSize(find.byKey(const Key('drawing')));
+      final initialCamera = editor.camera.copy();
+      final header = find.byKey(const ValueKey('group-header-1'));
+      final title = find.descendant(
+        of: header,
+        matching: find.text('Группа 1'),
+      );
+      final count = find.descendant(of: header, matching: find.text('3'));
+      final member = find.byKey(const ValueKey(2));
+      Finder arrow(IconData icon) =>
+          find.descendant(of: header, matching: find.byIcon(icon));
+
+      await t.tap(arrow(PhosphorIconsRegular.caretDown));
+      await t.pump();
+      expect(member, findsNothing);
+      expect(editor.selection, {4});
+
+      for (final collapsed in [true, false]) {
+        editor.showHiddenOutlines = !collapsed;
+        editor.select(4);
+        await t.pumpAndSettle();
+        final before = editor.camera.copy();
+        await t.tap(title, kind: PointerDeviceKind.mouse);
+        expect(editor.selection, {2, 3});
+        await t.pump();
+        expect(member, collapsed ? findsNothing : findsOneWidget);
+        expect(editor.camera.scale, before.scale);
+        expect(editor.camera.pan, before.pan);
+        expect(editor.camera.target, before.target);
+        if (!collapsed) {
+          await t.tap(count, kind: PointerDeviceKind.mouse);
+        }
+        await t.pump(kDoubleTapMinTime);
+        await t.tap(collapsed ? title : count, kind: PointerDeviceKind.mouse);
+        await t.pumpAndSettle();
+        expect(editor.selection, {2, 3});
+        expect(member, collapsed ? findsNothing : findsOneWidget);
+        final bounds =
+            [
+                  for (final b in project.beams)
+                    if (b.group == 1 &&
+                        (!b.hidden || editor.showHiddenOutlines))
+                      for (final corner in b.corners)
+                        editor.camera.project(corner, size),
+                ]
+                .map((p) => Rect.fromPoints(p, p))
+                .reduce((a, b) => a.expandToInclude(b));
+        expect(
+          (bounds.center - size.center(Offset.zero)).distance,
+          lessThan(.001),
+        );
+        expect((Offset.zero & size).contains(bounds.topLeft), isTrue);
+        expect((Offset.zero & size).contains(bounds.bottomRight), isTrue);
+        expect(editor.camera.scale, greaterThan(initialCamera.scale));
+        expect(editor.project, same(project));
+
+        if (collapsed) {
+          final framed = editor.camera.copy();
+          await t.tap(arrow(PhosphorIconsRegular.caretRight));
+          await t.pump();
+          expect(member, findsOneWidget);
+          expect(editor.selection, {2, 3});
+          expect(editor.camera.scale, framed.scale);
+          expect(editor.camera.target, framed.target);
+        }
+      }
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
+
+  testWidgets(
     'Only user groups can be renamed and collapse by group ID',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1200, 780));
@@ -86,10 +170,10 @@ void main() {
       final title = find.text('Группа 1');
       final arrow = find.descendant(
         of: group,
-        matching: find.byIcon(cu.CupertinoIcons.chevron_down),
+        matching: find.byIcon(PhosphorIconsRegular.caretDown),
       );
       expect(t.getRect(title).left - t.getRect(arrow).right, greaterThan(4));
-      await t.tap(title);
+      await t.tap(arrow);
       await t.pumpAndSettle();
       final firstPart = find.text(project.byId[1]!.name);
       expect(firstPart, findsNothing);
@@ -99,6 +183,24 @@ void main() {
       await mouse.moveTo(t.getCenter(title));
       await t.pumpAndSettle();
       final pencil = find.descendant(of: group, matching: rename);
+      final actions = find.descendant(
+        of: group,
+        matching: find.byType(DeskInlineIcon),
+      );
+      expect(actions, findsNWidgets(3));
+      for (final action in actions.evaluate()) {
+        final surface = find.descendant(
+          of: find.byWidget(action.widget),
+          matching: find.byType(Material),
+        );
+        expect(t.widget<Material>(surface).shape, isA<CircleBorder>());
+        expect(t.widget<Material>(surface).color?.a ?? 0, 0);
+        expect(t.getSize(surface), const Size.square(16));
+      }
+      final count = find.descendant(of: group, matching: find.text('2'));
+      await mouse.moveTo(t.getCenter(count));
+      await t.pumpAndSettle();
+      expect(pencil.hitTestable(), findsOneWidget);
       expect(t.getCenter(pencil).dx, greaterThan(t.getRect(title).right));
       await mouse.moveTo(t.getCenter(pencil));
       await t.tap(pencil);
@@ -127,7 +229,10 @@ void main() {
         1: 'Детали изделия',
       });
       await t.tap(
-        find.descendant(of: group, matching: find.text('Детали изделия')),
+        find.descendant(
+          of: group,
+          matching: find.byIcon(PhosphorIconsRegular.caretRight),
+        ),
       );
       await t.pumpAndSettle();
       expect(firstPart, findsOneWidget);
@@ -184,7 +289,12 @@ void main() {
       t.getRect(header).right - t.getRect(count).right,
       greaterThanOrEqualTo(12),
     );
-    await t.tap(title);
+    await t.tap(
+      find.descendant(
+        of: header,
+        matching: find.byIcon(PhosphorIconsRegular.caretDown),
+      ),
+    );
     await t.pumpAndSettle();
     Set<int> hidden() => {
       for (final b in editor.project.beams)
@@ -220,7 +330,10 @@ void main() {
     await t.tap(hide);
     await t.pumpAndSettle();
     expect(
-      find.descendant(of: show, matching: find.byIcon(cu.CupertinoIcons.eye)),
+      find.descendant(
+        of: show,
+        matching: find.byIcon(PhosphorIconsRegular.eye),
+      ),
       findsOneWidget,
     );
     await mouse.moveTo(Offset.zero);
@@ -309,6 +422,16 @@ void main() {
       findsOneWidget,
     );
     expect(t.getRect(name), namePosition);
+    final rowControl = find
+        .ancestor(of: name, matching: find.byType(DeskControl))
+        .first;
+    expect(t.getRect(rowControl).contains(t.getCenter(hide)), isTrue);
+    final buttonSurface = find.descendant(
+      of: hide,
+      matching: find.byType(Material),
+    );
+    expect(t.widget<Material>(buttonSurface).shape, isA<CircleBorder>());
+    expect(t.getSize(buttonSurface), const Size.square(16));
     await mouse.moveTo(Offset.zero);
     await t.pumpAndSettle();
     expect(hide, findsNothing);
@@ -320,7 +443,10 @@ void main() {
     await mouse.up();
     await t.pumpAndSettle();
     expect(
-      find.descendant(of: show, matching: find.byIcon(cu.CupertinoIcons.eye)),
+      find.descendant(
+        of: show,
+        matching: find.byIcon(PhosphorIconsRegular.eye),
+      ),
       findsOneWidget,
     );
     await mouse.moveTo(Offset.zero);
@@ -745,7 +871,7 @@ void main() {
   }
 
   testWidgets(
-    'Anchor placement shows its assigned key and Esc restores the inspector',
+    'Anchor placement responds to its assigned key and Esc restores the inspector',
     (t) async {
       await t.binding.setSurfaceSize(const Size(900, 650));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -777,7 +903,7 @@ void main() {
             .descendant(of: inspector, matching: find.byType(Scrollable))
             .first,
       );
-      expect(inside('K'), findsOneWidget);
+      expect(inside('K'), findsNothing);
       await t.sendKeyEvent(LogicalKeyboardKey.keyK);
       await t.pumpAndSettle();
       expect(inside('Отмена').hitTestable(), findsOneWidget);
@@ -1379,7 +1505,7 @@ void main() {
       expect(find.text('Тип детали'), findsNothing);
       for (final (i, label) in [
         'X · слева',
-        'Y · от задней стенки',
+        'Y · от стенки',
         'Z · от пола',
       ].indexed) {
         expect(
@@ -1397,7 +1523,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(DeskDialog),
-          matching: find.byIcon(cu.CupertinoIcons.pencil),
+          matching: find.byIcon(PhosphorIconsRegular.pencilSimple),
         ),
         findsNothing,
       );
@@ -1667,7 +1793,7 @@ void main() {
       expect(dimension.a.resolve(taller), Vector3(350, 0, 10));
       expect(dimension.b.resolve(taller), Vector3(650, 0, 20));
 
-      await t.tap(find.text('Шаг 1'));
+      await t.tap(find.text('Шаг 1 мм'));
       await t.pumpAndSettle();
       await t.tap(find.text('Свободно'));
       await t.tap(find.text('Готово'));
@@ -1856,7 +1982,7 @@ void main() {
         expect(e.project, same(p));
       }
     }
-    await t.tap(find.text('Шаг 1'));
+    await t.tap(find.text('Шаг 1 мм'));
     await t.pumpAndSettle();
     await t.tap(find.text('С привязкой'));
     await t.tap(find.text('Готово'));
@@ -2192,11 +2318,13 @@ void main() {
       final e = Editor(Project.bench())..select(1);
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Единицы измерения · Миллиметры'));
+      await t.tap(find.text('Шаг 1 мм'));
       await t.pumpAndSettle();
       await t.tap(find.text('Дюймы'));
       await t.pumpAndSettle();
-      expect(e.project.unit, LengthUnit.inch);
+      await t.tap(find.text('Готово'));
+      await t.pumpAndSettle();
+      expect(e.displayUnit, LengthUnit.inch);
       expect(e.single!.size.x, 1200);
       final width = find.descendant(
         of: find.byKey(const ValueKey('size-1-1')),
@@ -2207,7 +2335,7 @@ void main() {
       await t.pumpAndSettle();
       expect(e.single!.size.y, closeTo(12.7, 1e-9));
       expect(t.widget<DeskTextField>(width).controller!.text, '0.5');
-      await t.tap(find.text('Шаг 1/16'));
+      await t.tap(find.text('Шаг 1/16″'));
       await t.pumpAndSettle();
       final step = find.descendant(
         of: find.byType(DeskDialog),
@@ -2227,7 +2355,7 @@ void main() {
       await t.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await t.pumpAndSettle();
       expect(e.single!.size.y, closeTo(19.05, 1e-8));
-      await t.tap(find.text('Шаг 1/4'));
+      await t.tap(find.text('Шаг 1/4″'));
       await t.pumpAndSettle();
       expect(find.byType(DeskSwitch), findsNothing);
       await t.tap(find.text('Готово'));
@@ -2614,7 +2742,7 @@ void main() {
       await t.pumpAndSettle();
       for (final byDefault in [true, false]) {
         if (!byDefault) {
-          await t.tap(find.text('Шаг 1'));
+          await t.tap(find.text('Шаг 1 мм'));
           await t.pumpAndSettle();
           await t.tap(find.text('Чертёж').last);
           await t.pumpAndSettle();

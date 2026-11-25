@@ -563,6 +563,71 @@ class DeskIcon extends StatelessWidget {
   );
 }
 
+class DeskInlineIcon extends StatelessWidget {
+  const DeskInlineIcon({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final dark = colors.isDark;
+    final ink = dark ? m.Colors.white : m.Colors.black;
+    return m.Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 600),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 29, maxHeight: 28),
+        child: m.TextButton(
+          onPressed: () =>
+              DialogSource.invoke(DialogSource.of(context), onPressed),
+          style:
+              m.TextButton.styleFrom(
+                minimumSize: const Size.square(16),
+                fixedSize: const Size.square(16),
+                padding: EdgeInsets.zero,
+                visualDensity: m.VisualDensity.standard,
+                tapTargetSize: m.MaterialTapTargetSize.padded,
+                splashFactory: m.NoSplash.splashFactory,
+                shape: const CircleBorder(),
+              ).copyWith(
+                iconColor: WidgetStateProperty.resolveWith(
+                  (states) =>
+                      states.contains(WidgetState.hovered) ||
+                          states.contains(WidgetState.focused) ||
+                          states.contains(WidgetState.pressed)
+                      ? colors.ink
+                      : colors.muted,
+                ),
+                overlayColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.pressed)) {
+                    return ink.withValues(alpha: dark ? .22 : .17);
+                  }
+                  if (states.contains(WidgetState.hovered)) {
+                    return ink.withValues(alpha: dark ? .16 : .12);
+                  }
+                  return m.Colors.transparent;
+                }),
+                side: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.focused)
+                      ? BorderSide(color: context.colors.accent, width: 1.5)
+                      : BorderSide.none,
+                ),
+              ),
+          child: Icon(icon, size: 12),
+        ),
+      ),
+    );
+  }
+}
+
 class DeskMenu<T> extends StatelessWidget {
   const DeskMenu({
     super.key,

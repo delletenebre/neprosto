@@ -6,7 +6,6 @@ import 'package:flutter_localizations/flutter_localizations.dart'
 import 'editor/palette.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/strings.dart';
-import 'editor/desk_text_field.dart';
 import 'editor/desktop.dart';
 import 'editor/platform_ui.dart';
 
@@ -34,7 +33,7 @@ import 'editor/drawing.dart';
 import 'editor/inspector.dart';
 import 'editor/model.dart';
 import 'editor/parts_panel.dart';
-import 'editor/part_type_picker.dart';
+import 'editor/name_dialog.dart';
 import 'editor/parts_list.dart';
 import 'editor/project_settings.dart';
 import 'editor/project_picker.dart';
@@ -48,12 +47,17 @@ import 'editor/viewport.dart';
 import 'editor/viewport_footer.dart';
 import 'editor/work_plane_picker.dart';
 
+const _appName = 'NeProSto';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = SharedPreferencesAsync();
   var language = const Locale('ru');
   EditorPalette? palette;
+  LengthUnit? displayUnit;
   try {
+    final unit = await prefs.getString('display-length-unit');
+    displayUnit = LengthUnit.values.where((u) => u.name == unit).firstOrNull;
     final code = await prefs.getString('interface-language');
     language =
         editorLocales
@@ -68,7 +72,12 @@ Future<void> main() async {
     // An unavailable preference store must not prevent the editor from opening.
   }
   editorStrings = lookupAppLocalizations(language);
-  var tabs = ProjectTabs(Editor(Project.bench().withDefaultWorkspace()));
+  var tabs = ProjectTabs(
+    Editor(
+      Project.bench(displayUnit ?? LengthUnit.millimeter)
+          .withDefaultWorkspace(),
+    ),
+  );
   String? issue;
   var autosave = true, minutes = 5;
   try {
@@ -88,6 +97,7 @@ Future<void> main() async {
   }
   final editor = tabs.value.editor;
   try {
+    editor.displayUnit = displayUnit ?? editor.project.unit;
     autosave = await prefs.getBool('autosave-enabled') ?? true;
     final interval = await prefs.getInt('autosave-minutes');
     if (interval != null && interval > 0) minutes = interval;
@@ -218,7 +228,7 @@ class _NeprostoAppState extends State<NeprostoApp> {
           );
       if (!appleControls) {
         return MaterialApp(
-          title: 'neprosto',
+          title: _appName,
           debugShowCheckedModeBanner: false,
           locale: locale,
           supportedLocales: editorLocales,
@@ -232,7 +242,7 @@ class _NeprostoAppState extends State<NeprostoApp> {
         );
       }
       return cu.CupertinoApp(
-        title: 'neprosto',
+        title: _appName,
         locale: locale,
         supportedLocales: editorLocales,
         builder: (context, child) => Theme(
@@ -676,88 +686,6 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     return true;
   }
 
-  Future<String?> nameDialog(
-    String title,
-    String value, {
-    DoorSettingsDraft? door,
-    DialogSource? source,
-  }) {
-    var result = value;
-    return showDeskDialog<String>(
-      source: source,
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (_, update) {
-          final ready = result.trim().isNotEmpty && (door?.valid ?? true);
-          void submit() {
-            if (result.trim().isNotEmpty && (door?.valid ?? true)) {
-              Navigator.pop(ctx, result.trim());
-            }
-          }
-
-          return DeskDialog(
-            title: Text(title),
-            content: SizedBox(
-              width: 320,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                spacing: 12,
-                children: [
-                  DeskTextField(
-                    key: const ValueKey('rename-field'),
-                    initialValue: value,
-                    autofocus: true,
-                    onChanged: (v) => update(() => result = v),
-                    onSubmitted: (_) => submit(),
-                  ),
-                  if (door != null)
-                    PartTypePicker(
-                      door,
-                      refresh: () => update(() {}),
-                      submit: submit,
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              DeskButton(
-                plain: true,
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(context.strings.cancel),
-              ),
-              DeskButton(
-                primary: true,
-                onPressed: ready ? submit : null,
-                child: Text(context.strings.done),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> renamePart(Beam part) async {
-    final editor = e;
-    final door = DoorSettingsDraft(part);
-    final name = await nameDialog(
-      context.strings.partName,
-      part.name,
-      door: door,
-    );
-    if (name == null || !mounted || editor.project.byId[part.id] != part) {
-      return;
-    }
-    if (name == part.name &&
-        door.hinge == part.hinge &&
-        (door.hinge == null || door.angle == part.openingAngle)) {
-      return;
-    }
-    final named = name == part.name ? part : part.copy(name: name);
-    final updated = editor.configureDoor(named, door.hinge, angle: door.angle);
-    editor.commit(editor.project.edit({part.id}, (_) => updated));
-  }
-
   Future<void> showPartsList() async {
     FocusManager.instance.primaryFocus?.unfocus();
     FocusManager.instance.applyFocusChangesIfNeeded();
@@ -995,11 +923,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       e.dimensionsByDefault = result.dimensions;
       e.showHiddenOutlines = result.showHiddenOutlines;
       e.snapByDefault = result.snap;
-      if (e.project.unit != result.unit) {
-        e.commit(e.project.copy(unit: result.unit));
-      } else {
-        e.refresh();
-      }
+      e.displayUnit = result.unit;
+      e.refresh();
       final prefs = widget.preferences;
       if (prefs != null) {
         await Future.wait([
@@ -1007,6 +932,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
             prefs.setString('interface-theme', theme.name),
           if (languageChanged)
             prefs.setString('interface-language', result.locale.languageCode),
+          prefs.setString('display-length-unit', result.unit.name),
           prefs.setBool('autosave-enabled', autosave),
           prefs.setInt('autosave-minutes', autosaveMinutes),
           saveGrid(result.grid),
@@ -1095,7 +1021,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       }
       if (action == 'rename') {
         final document = tab ?? active;
-        final value = await nameDialog(
+        final value = await showNameDialog(
+          context,
           context.strings.projectName,
           document.committed.name,
           source: source,
@@ -1135,7 +1062,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         case 'new':
           final choice = await chooseProjectTemplate(
             context,
-            e.project.unit,
+            e.displayUnit,
             source: source,
           );
           if (!mounted || choice == null) return;
@@ -1228,7 +1155,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           const Mark(),
           const SizedBox(width: 8),
           const Text(
-            'neprosto',
+            _appName,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -1598,13 +1525,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                         width: compact ? 210 : 247,
                         child: box.maxWidth < 780 && e.rulerActive
                             ? parts
-                            : Inspector(
-                                e,
-                                rename: () {
-                                  final part = e.single;
-                                  if (part != null) renamePart(part);
-                                },
-                              ),
+                            : Inspector(e),
                       ),
                     ],
                   ],

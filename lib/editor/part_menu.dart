@@ -11,6 +11,7 @@ import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
 import 'hole_dialog.dart';
 import 'joint_dialog.dart';
+import 'name_dialog.dart';
 import 'scene.dart';
 import 'size_dialog.dart';
 
@@ -34,6 +35,8 @@ Future<void> showDrawingMenu(
     editor.select(partId);
   }
   final part = editor.single;
+  final group = editor.selectedGroup;
+  final groupDoor = editor.project.groupDoors[group];
   final doc = editor.project;
   final ids = {...editor.selection};
   final rows = <DeskPopupRow>[];
@@ -108,7 +111,9 @@ Future<void> showDrawingMenu(
       () => editor.setPartsHidden({clicked.id}, false),
     );
   } else {
-    heading = part?.name ?? context.strings.selectedParts(ids.length);
+    heading = group == null
+        ? part?.name ?? context.strings.selectedParts(ids.length)
+        : doc.groupName(group);
     if (facePlane != null) {
       add(
         context.strings.buildInThisPlane,
@@ -135,21 +140,36 @@ Future<void> showDrawingMenu(
         key: editor.hotkeys[Command.ungroup].label,
       );
     }
-    if (part != null) {
-      if (part.hinge != null) {
-        add(
-          part.doorOpen ? context.strings.closeDoor : context.strings.openDoor,
-          CupertinoIcons.arrow_turn_up_right,
-          'arrow.turn.up.right',
-          () => editor.toggleDoor(part.id),
-        );
-      }
+    if (group != null && groupDoor != null) {
+      add(
+        groupDoor.isOpen ? context.strings.closeDoor : context.strings.openDoor,
+        CupertinoIcons.arrow_turn_up_right,
+        'arrow.turn.up.right',
+        () => editor.toggleGroupDoor(group),
+      );
+    } else if (group == null && part != null && part.hinge != null) {
+      add(
+        part.doorOpen ? context.strings.closeDoor : context.strings.openDoor,
+        CupertinoIcons.arrow_turn_up_right,
+        'arrow.turn.up.right',
+        () => editor.toggleDoor(part.id),
+      );
+    }
+    if (group != null || part != null) {
       add(
         context.strings.nameAndDimensions,
         CupertinoIcons.pencil,
         'pencil.and.ruler',
         () => showPartProperties(context, editor, position),
       );
+      add(
+        '${context.strings.properties}…',
+        CupertinoIcons.slider_horizontal_3,
+        'slider.horizontal.3',
+        () => showSelectionProperties(context, editor),
+      );
+    }
+    if (group == null && part != null) {
       add(
         context.strings.endCutsTitle,
         CupertinoIcons.triangle,

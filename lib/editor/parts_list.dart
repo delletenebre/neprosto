@@ -10,7 +10,6 @@ import 'controller.dart';
 import 'desktop.dart';
 import 'drawing.dart';
 import 'model.dart';
-import 'step.dart';
 import 'parts_workbook.dart';
 import 'storage.dart';
 
@@ -37,7 +36,12 @@ class _PartsListState extends State<PartsList> {
     final strings = context.strings;
     String? message;
     try {
-      if (await savePartsWorkbook(project, entries, bazis: bazis)) {
+      if (await savePartsWorkbook(
+        project,
+        entries,
+        unit: widget.editor.displayUnit,
+        bazis: bazis,
+      )) {
         message = kIsWeb ? strings.downloadStarted : strings.excelFileSaved;
       }
     } catch (_) {
@@ -120,7 +124,7 @@ class _PartsListState extends State<PartsList> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.editor,
     builder: (_, _) {
-      final p = widget.editor.project, unit = p.unit;
+      final p = widget.editor.project, unit = widget.editor.displayUnit;
       final entries = rows(p);
       final count = query.trim().isEmpty
           ? context.strings.pieceCount(p.beams.length)
@@ -224,7 +228,7 @@ class _PartsListState extends State<PartsList> {
                                       child: Text(
                                         n == 4
                                             ? '${row.parts.length}'
-                                            : widget.editor.lengthInput.format(
+                                            : unit.formatStockLength(
                                                 row.number(n),
                                               ),
                                         style: mono,

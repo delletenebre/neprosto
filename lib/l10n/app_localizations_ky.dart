@@ -597,6 +597,9 @@ class AppLocalizationsKy extends AppLocalizations {
   String get partName => 'Тетиктин аталышы';
 
   @override
+  String get groupName => 'Топтун аталышы';
+
+  @override
   String get nameAndDimensions => 'Аталышы жана өлчөмдөрү…';
 
   @override
@@ -962,7 +965,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get xFromLeft => 'X · сол жактан';
 
   @override
-  String get yFromBack => 'Y · арткы дубалдан';
+  String get yFromBack => 'Y · дубалдан';
 
   @override
   String get zFromFloor => 'Z · полдон';
@@ -1021,7 +1024,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get project => 'Долбоор';
 
   @override
-  String get neprostoProject => 'neprosto долбоору';
+  String get neprostoProject => 'NeProSto долбоору';
 
   @override
   String get projectSaved => 'Долбоор сакталды';
@@ -1422,7 +1425,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get language => 'Тил';
 
   @override
-  String get aboutNeprosto => 'neprosto жөнүндө';
+  String get aboutNeprosto => 'NeProSto жөнүндө';
 
   @override
   String get fileMenu => 'Файл';
@@ -1434,7 +1437,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get services => 'Кызматтар';
 
   @override
-  String get hideNeprosto => 'neprosto колдонмосун жашыруу';
+  String get hideNeprosto => 'NeProSto колдонмосун жашыруу';
 
   @override
   String get hideOthers => 'Башкаларын жашыруу';
@@ -1443,7 +1446,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get showAll => 'Баарын көрсөтүү';
 
   @override
-  String get quitNeprosto => 'neprosto колдонмосунан чыгуу';
+  String get quitNeprosto => 'NeProSto колдонмосунан чыгуу';
 
   @override
   String get edit => 'Түзөтүү';
@@ -1769,7 +1772,19 @@ class AppLocalizationsKy extends AppLocalizations {
       'Диаметрди жана четтерге чейинки аралыкты текшериңиз. Туюк тешиктин тереңдиги тетиктин калыңдыгынан аз болушу керек.';
 
   @override
-  String get ordinaryPart => 'Жөнөкөй тетик';
+  String get ordinaryPart => 'Элемент';
+
+  @override
+  String get chestLid => 'Капкак';
+
+  @override
+  String get groupType => 'Топтун түрү';
+
+  @override
+  String get groupProperties => 'Топтун касиеттери';
+
+  @override
+  String get partProperties => 'Тетиктин касиеттери';
 
   @override
   String get bazisExport => 'БАЗИС-Раскрой үчүн';
@@ -1877,7 +1892,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get templateClampRack => 'Кыскычтар үчүн дубал кармагыч';
 
   @override
-  String get templateRaisedBed => 'Топурак үчүн бийик гүлзар';
+  String get templateRaisedBed => 'Үстү жээктелген бийик жөөк';
 
   @override
   String get templateStandingPlanter => 'Буттуу гүл кутусу';
@@ -1916,9 +1931,6 @@ class AppLocalizationsKy extends AppLocalizations {
   String get roofRafter => 'Чатыр устуну';
 
   @override
-  String get roofTie => 'Туташтыргыч устун';
-
-  @override
   String get ridgeBeam => 'Чатыр кырынын устуну';
 
   @override
@@ -1951,19 +1963,6 @@ class AppLocalizationsKy extends AppLocalizations {
       'Кыйгач тирөөч тарабынан караганда илмектер солдо. Тирөөч жүктү жогорку бош бурчтан илмектин төмөнкү тарабына өткөрөт.';
 
   @override
-  String get templateGazebo => 'Отургучтуу ачык серепкана';
-
-  @override
-  String get gazeboRingBeam => 'Үстүңкү алкак устуну';
-
-  @override
-  String get roofBatten => 'Чатырдын тор тактайы';
-
-  @override
-  String get gazeboFrameNote =>
-      'Кесүү тизмесине каркас, отургуч, чатыр устундары, туташтыргыч устундар жана тор тактайлар кирет. Чатыр жабуусун өзүнчө тандап, тор тактайлардын арасын ага ылайыктаңыз. Жыгачтын кесилишин, бирикмелерди жана анкерлерди жергиликтүү жүктөргө жана топуракка жараша текшериңиз.';
-
-  @override
   String get templateShedFloor => 'Кайчылаш тирөөчтүү пол каркасы';
 
   @override
@@ -1983,12 +1982,10 @@ class AppLocalizationsKy extends AppLocalizations {
       'Каптоого чейинки каркас көрсөтүлгөн. Тик устундар, кашек, катуулук үчүн каптоо же кыйгач тирөөчтөр жана анкерлер жергиликтүү жүккө жараша эсептелет.';
 
   @override
-  String get templateSignatureCabinet => 'neprosto фирмалык тумбасы';
+  String get templateSignatureCabinet => 'NeProSto фирмалык тумбасы';
 
   @override
-  String signatureDoor(String diameter) {
-    return 'Ø$diameter тешиктүү эшик';
-  }
+  String get signatureDoor => 'Манжа үчүн тешиги бар эшик';
 
   @override
   String get endCutsTitle => 'Учтагы кесимдер';
@@ -2058,7 +2055,7 @@ class AppLocalizationsKy extends AppLocalizations {
   }
 
   @override
-  String get resetEndCut => 'Учун тик кылуу';
+  String get resetEndCut => 'Бурчтарды нөлдөө';
 
   @override
   String get cutsIntersect =>
@@ -2111,9 +2108,6 @@ class AppLocalizationsKy extends AppLocalizations {
   String get templateConsoleTable => 'Диван артына үч бөлүктүү текче';
 
   @override
-  String get templateBathTray => 'Ваннанын үстүнө коюлуучу текче';
-
-  @override
   String get templateMachineStand => 'Торцовка араасы үчүн таяныч';
 
   @override
@@ -2129,7 +2123,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get templateCandleShelf => 'Үч бурчтуу шам текчеси';
 
   @override
-  String get templateBlanketLadder => 'Жууркан үчүн тепкич-илгич';
+  String get templateBlanketLadder => 'Сүлгү үчүн шаты';
 
   @override
   String get templateHeadphoneStand => 'Кулакчын үчүн таяныч';
@@ -2138,7 +2132,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get templatePlantPanel => 'Өсүмдүк үчүн дубал панели';
 
   @override
-  String get templateToyChest => 'Оюнчуктар үчүн короо кутусу';
+  String get templateToyChest => 'Оюнчук үчүн рейкалуу сандык';
 
   @override
   String get templateShutters => 'Үч бөлүктүү бүктөмө терезе капкагы';
@@ -2208,4 +2202,215 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get planTrivetNote =>
       'Craftsmanspace үлгүсү боюнча 12 × 7 мм рейкалар эки катмар болуп кайчылаш чапталат.';
+
+  @override
+  String get roomKitchen => 'Ашкана';
+
+  @override
+  String get roomLivingRoom => 'Конок бөлмө';
+
+  @override
+  String get roomBedroom => 'Уктоочу бөлмө';
+
+  @override
+  String get roomNursery => 'Балдар бөлмөсү';
+
+  @override
+  String get roomEntryway => 'Кире бериш';
+
+  @override
+  String get roomBathroom => 'Жуунучу бөлмө';
+
+  @override
+  String get roomOffice => 'Иш бөлмөсү';
+
+  @override
+  String get templateAssembly => 'Кантип чогултуу керек';
+
+  @override
+  String get templateHoodCabinet => 'Аба соргуч үчүн асма шкаф';
+
+  @override
+  String get templateSinkBase => 'Раковинанын алдындагы тумба';
+
+  @override
+  String get templatePlatformBed => 'Рейкалуу керебет';
+
+  @override
+  String get templateBasinShelf => 'Сифонго оюгу бар асма тумба';
+
+  @override
+  String get templateFileTrays => 'Кагаз үчүн үч кабаттуу текче';
+
+  @override
+  String get ductOpening => 'Аба түтүгүнүн тешиги';
+
+  @override
+  String get chaseSide => 'Түтүк кутусунун капталы';
+
+  @override
+  String get chaseCover => 'Кутунун алынма капкагы';
+
+  @override
+  String get hangingRail => 'Бекитүүчү планка';
+
+  @override
+  String get hingeCup => 'Илмек оюгу';
+
+  @override
+  String get plinth => 'Түп тактай';
+
+  @override
+  String get slatLedger => 'Таяныч рейка';
+
+  @override
+  String get centerRail => 'Ортодогу устун';
+
+  @override
+  String get bedSlat => 'Керебеттин рейкасы';
+
+  @override
+  String get shelfWing => 'Текченин каптал бөлүгү';
+
+  @override
+  String get paperTray => 'Кагаз текчеси';
+
+  @override
+  String get bedRim => 'Кыйгач кесилген үстүңкү жээк';
+
+  @override
+  String get assembleHoodCabinet =>
+      'Үстү менен түбүн капталдарга конфирмат менен тартыңыз. Текчелерди капталдар менен түтүк кутусунун ортосуна бекитиңиз. Кутунун маңдайын чечилме бурамалар менен карматыңыз. Түтүк бир октогу эки тешиктен өтөт. Тешиктерди, бекитүү чекиттерин жана бийиктикти аба соргучтун монтаж чиймесинен тактаңыз. Эшиктерди чөйчөкчө илмекке, шкафты бекитүүчү планкаларга орнотуңуз.';
+
+  @override
+  String get assembleSinkBase =>
+      'Түбүн жана үстүңкү планкаларды капталдарга конфирмат менен бекитиңиз. Түп тактайды ичинен бураңыз. Үстү ачык болгондуктан раковина батат, арткы туура жыгач түтүктөргө жол калтырат.';
+
+  @override
+  String get assemblePantryShelf =>
+      'Текчелерди капталдар аркылуу бурама менен бекитиңиз. Алдыңкы тосмолорду капталдардын маңдай кырларына бураңыз. Бийик кууш текчени дубалга бекитиңиз.';
+
+  @override
+  String get assembleDiningTable =>
+      'Адегенде туура жыгачтарды буттарга болт менен бекитип, эки алкак чогултуңуз. Үстүңкү тактайларды арасына жылчык калтырып, эки алкакка тең астынан бураңыз.';
+
+  @override
+  String get assembleSignatureCabinet =>
+      'Тепкич сымал корпусту шкант жана желим менен бириктирип, маңдайкы планкаларды жабыңыз. Арткы дубалдар бурчтарды кармайт. Эшикти илмекке илиңиз, тегерек тешик тутка болот.';
+
+  @override
+  String get assembleBookcase =>
+      'Туура жыгачтарды тик таянычтарга бурап, эки каптал алкак жасаңыз. Таянычтарды бекитип, текче тактайларын эки жагынан бураңыз. Үстүн дубалга бекитиңиз.';
+
+  @override
+  String get assembleCoffeeTable =>
+      'Каптал жыгачтарды буттарга шкант жана желим менен бириктириңиз. Астыңкы текчени таянычтарга коюп, фанера үстүн астынан бурчтук менен бекитиңиз.';
+
+  @override
+  String get assembleTvStand =>
+      'Корпустун панелдерин жана бөлгүчтөрдү конфирмат менен тартыңыз. Артын четинен жана бөлгүчтөргө бекитиңиз. Эки четки бөлүк эшиктүү, ортосу ачык.';
+
+  @override
+  String get assembleBedroomWardrobe =>
+      'Үстүн, түбүн жана бөлгүчтөрдү конфирмат менен бекитиңиз. Кийим таякчаларын кармагычтарга коюп, текчелерди жана артын бекитиңиз. Эшиктерди белгиленген кырынан илип, шкафты дубалга бекитиңиз.';
+
+  @override
+  String get assemblePlatformBed =>
+      'Алкактын жыгачтарын ажыратылма керебет бекиткичтери менен бириктириңиз. Ички рейкаларды бураңыз. Ортодогу устунду өз буттарына коюп, баш жана аяк жакка бекитиңиз. Рейкалар үч таянычка жатып, жылбай тургандай бекитилет.';
+
+  @override
+  String get assembleDrawerChest =>
+      'Корпусту конфирмат менен чогултуңуз. Суурманын түбү менен артын капталдарына, маңдайын ичинен бекитиңиз. Багыттагычтарды бир деңгээлге коюп, керектүү каптал боштугун сактаңыз. Корпусту дубалга бекитиңиз.';
+
+  @override
+  String get assembleToyChest =>
+      'Бурчтагы жуп таянычтарды желимдеңиз. Каптал тактайлар менен ылдыйкы алкактын учтарын ичинен кыйгач тешик аркылуу таянычка бураңыз. Түп тактайларын алкакка, капкак тактайларын туура рейкалар аркылуу астынан бекитиңиз. Арткы үстүңкү тактайга узун илмек орнотуңуз. Капкакты каалаган абалда кармачу, салмагына ылайык таяныч тандаңыз. Аба жылчыктарын ачык калтырыңыз.';
+
+  @override
+  String get assembleCubeShelf =>
+      'Бирдиктүү түптөн баштаңыз. Текче учтары жеткиликтүү кезде тепкич бөлүктөрүн ылдыйдан өйдө шкант жана эмерек тарткычы менен чогултуңуз. Дубалга бекитиңиз.';
+
+  @override
+  String get assembleStepStool =>
+      'Фанера капталдарды тик баскычтарга шкант жана желим менен бириктириңиз. Баскычтарды таянычтарга коюп, башы батырылган бурама менен бекитиңиз. Капталдардын төмөнкү кыры полго толук тийсин.';
+
+  @override
+  String get assembleShoeBench =>
+      'Түп алкагын чогултуп, үстүнө түбүн коюңуз. Капталдар менен бөлгүчтөрдү отургучка жана түбүнө шкант, желим менен бириктириңиз. Формасын сактоо үчүн артын четинен бекитиңиз.';
+
+  @override
+  String get assembleConsoleTable =>
+      'Капталдарды үстүнө жана түбүнө тартыңыз. Бөлүктөрдү чогултуп жатып текчелерди бөлгүчтөргө шкант менен бириктириңиз. Кууш консолду дубалга бекитиңиз.';
+
+  @override
+  String get assembleMirrorFrame =>
+      'Туура жыгачтарды тик мамыларга шкант менен бириктириңиз. Аралык таянычтардын арткы учун моделдеги бурч менен кесип, алкакты дубалга бекитиңиз. Күзгүнү айнек кармагычтарга орнотуңуз.';
+
+  @override
+  String get assembleBasinShelf =>
+      'Алдыңкы текчени эки каптал бөлүккө шкант жана нымга чыдамдуу желим менен бириктириңиз. Артта сифонго ачык оюк калат. Текчелерди капталдарга, артындагы планкаларды дубалга бекитиңиз. Фанера кырларын нымдан коргоңуз.';
+
+  @override
+  String get assembleBlanketLadder =>
+      'Туура таякчалар айланып кетпесин үчүн ар бир учун эки шкант менен бекитиңиз. Үстүн дубалга карматыңыз. Бул шаты сүлгү илүүгө арналган.';
+
+  @override
+  String get assembleWritingDesk =>
+      'Үстүңкү тактай капталга жана текчелүү тумбага таянат. Панелдерди конфирмат менен тартып, артындагы туура жыгачтарды бекитиңиз. Алар үстөлдү капталга кыйшаюудан кармайт.';
+
+  @override
+  String get assembleWallShelf =>
+      'Туура брустарды арттагы рейкага бураңыз. Рейканы дубалдын көтөрүүчү бөлүгүнө бекитип, фанера кабыкты кийгизиңиз да астынан каркас менен бириктириңиз.';
+
+  @override
+  String get assembleFileTrays =>
+      'Таяныч рейкаларды жуп-жубу менен бир деңгээлге желимдеңиз. Ар бирине фанера текче коюңуз. Капталдар ажырабашы үчүн артын бекитиңиз.';
+
+  @override
+  String get assembleWorkbench =>
+      'Буттарды жана үстүңкү эки калканды өз-өзүнчө желимдеңиз. Алкак жыгачтарын буттарга болт менен тартыңыз. Ортодогу жылчыкты жана жыгачтын туурасынан кеңейишине орун калтырып, үстүн астынан бекитиңиз.';
+
+  @override
+  String get assembleSawhorse =>
+      'Кыйгач буттар полго жана үстүңкү тактайга толук тийиши үчүн учтарын моделдеги бурч менен кесиңиз. Каптал жыгачтарды буттарга болт менен тартып, астыңкы кергичтерди бекитиңиз.';
+
+  @override
+  String get assembleMachineStand =>
+      'Эки учтагы алкакты чогултуп, узун жыгачтар менен тартыңыз. Фанера тактайларды үстүнөн алкакка бураңыз. Үч бөлүктүү астыңкы текче буттарды айланып өтөт.';
+
+  @override
+  String get assembleRaisedBed =>
+      'Каптал тактайларын бурчтагы жана ортодогу мамыларга сырттан бекитиңиз. Ортоңку мамыларды туура жыгач менен тартыңыз. Үстүңкү төрт жээктин эки учун тең 45° кесип, мамыларга үстүнөн бураңыз.';
+
+  @override
+  String get assembleBench =>
+      'Узун жана кыска жыгачтарды буттарга желимдүү шкант же ичинен кыйгач бурама менен бириктириңиз. Отуруучу тактайлардын аралыгын теңдеп, үстүнөн бураңыз.';
+
+  @override
+  String get assemblePicnicTable =>
+      'Адегенде эки А сымал таянычты чогултуңуз. Кыйгач буттар менен туура жыгачтарды өтмө болт жана шайба менен тартыңыз. Үстөл жана отургуч тактайларын үстүнөн бекитип, узунунан тарткычты орнотуңуз.';
+
+  @override
+  String get assembleChaise =>
+      'Каптал алкактарды чогултуңуз. Жөлөнгүчтү кесилген таянычтарга таяндырып, моделдеги кыйшайыш менен болттоңуз. Рейкаларды эки капталга бурап, сууга жылчык калтырыңыз.';
+
+  @override
+  String get assemblePottingBench =>
+      'Мамылар менен жыгачтарды сыртка ылайыктуу бурама менен бириктириңиз. Үстүңкү тактайларды бекитип, алынма лотокко орун калтырыңыз. Арткы мамылар үстүңкү текчени көтөрөт.';
+
+  @override
+  String get assembleLogStore =>
+      'Мамыларды узун жыгач менен тартып, пол тактайларын туура жыгачтарга бекитиңиз. Мамы учтарын чатырдын эңишине ылайык кесиңиз. Отун желдесин үчүн дубал рейкаларынын арасын ачык калтырыңыз.';
+
+  @override
+  String get assembleGardenGate =>
+      'Тик тактайларды эки туура жыгачка бураңыз. Кыйгач тирөөч жогорку бош бурчтан ылдыйкы илмекке чейин эки учунан такалсын. Илмектерди туура жыгачтарга бекитиңиз.';
+
+  @override
+  String get assembleBirdhouse =>
+      'Чатыр тактайларынын кыйгач кырларын чокуда бириктириңиз. Алдын ала тешип, уч панелдер менен түбүн чатырга бураңыз. Тазалоо үчүн бир четин алынма кылыңыз.';
+
+  @override
+  String get assemblePorch =>
+      'Баскычтар менен аянтчанын алкактарын чогултуп, тактайларды туура жыгачка бураңыз. Тосмо мамыларын алкакка болттоңуз. Кол кармагычты эңишке жараша кесип, мамыларга бекитиңиз. Негизге бекитүүнү жерине жараша тандаңыз.';
 }

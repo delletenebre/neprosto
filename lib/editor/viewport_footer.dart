@@ -5,7 +5,6 @@ import '../l10n/strings.dart';
 import 'controller.dart';
 import 'controls.dart';
 import 'desktop.dart';
-import 'model.dart';
 import 'palette.dart';
 import 'platform_ui.dart';
 import 'scene.dart';
@@ -29,7 +28,7 @@ class ViewportFooter extends StatelessWidget {
     final ruler = editor.tool == Tool.measure;
     final snap = ruler ? editor.snapByDefault : editor.snap;
     final mode = snap ? editor.snapMode.label : s.off;
-    final unit = editor.project.unit;
+    final unit = editor.displayUnit;
 
     void changeSnap(bool enabled, [SnapMode? mode]) {
       if (mode != null) editor.snapMode = mode;
@@ -134,22 +133,12 @@ class ViewportFooter extends StatelessWidget {
     );
 
     final step = group(
-      MenuChoice<LengthUnit>(
-        label: '${s.measurementUnits} · ${unit.title}',
-        compactLabel: unit.symbol,
-        selected: unit,
-        items: [for (final value in LengthUnit.values) (value, value.title)],
-        change: (value) {
-          FocusManager.instance.primaryFocus?.unfocus();
-          editor.commit(editor.project.copy(unit: value));
-        },
-      ),
-      leading: Tooltip(
+      Tooltip(
         message: s.editingIncrement,
         child: DeskButton(
           plain: true,
           onPressed: editSettings,
-          child: Text(s.step(editor.step.label(unit, includeInchMark: false))),
+          child: Text(s.step(editor.step.label(unit))),
         ),
       ),
     );

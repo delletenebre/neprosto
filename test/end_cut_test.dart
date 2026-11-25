@@ -218,7 +218,9 @@ void main() {
       expect(readout('Угол за пределами показанной шкалы'), findsNothing);
     }
     final previousAngle = preview().angle;
-    await t.tap(readout('Со стороны подачи'));
+    final feedView = readout('Со стороны подачи');
+    await t.ensureVisible(feedView);
+    await t.tap(feedView);
     await t.pumpAndSettle();
     expect(preview().cutaway, isFalse);
     expect(preview().angle, previousAngle);
@@ -374,10 +376,24 @@ void main() {
       expect(field(0), '0');
       await enter(0, '-35');
       checkReferenceCorner(end: true);
-      await action('Прямой торец');
+      await enter(1, '10');
+      final reset = inside(find.widgetWithText(DeskButton, 'Сбросить углы'));
+      final sawSelector = inside(find.byType(DeskSegments<SawType>));
+      expect(
+        t.getTopLeft(reset).dy,
+        greaterThan(t.getBottomRight(inputs.last).dy),
+      );
+      expect(
+        t.getBottomRight(reset).dy,
+        lessThan(t.getTopLeft(sawSelector).dy),
+      );
+      await tap(reset);
+      expect(field(0), '0');
       expect(field(1), '0');
+      expect(t.widget<DeskButton>(reset).onPressed, isNull);
       await action('Начало');
       expect(field(0), '15,5');
+      expect(field(1), '-0.1');
       await action('Отмена');
       expect(editor.single, same(rail));
       expect(editor.canUndo, isFalse);

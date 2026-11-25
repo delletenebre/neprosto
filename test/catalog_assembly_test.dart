@@ -37,12 +37,29 @@ List<Set<int>> assemblies(Project p) {
 }
 
 void main() {
-  test('Thirty different source plans cover all difficulty levels', () {
+  test('Each category lists its examples with distinct assembly notes', () {
     final plans = FurnitureTemplate.values
         .where((t) => t.source != null)
         .toList();
-    expect(plans, hasLength(30));
-    expect(plans.map((p) => p.source).toSet(), hasLength(30));
+    for (final category in TemplateCategory.values) {
+      final templates = FurnitureTemplate.values.where(
+        (t) => t.category == category,
+      );
+      expect(
+        templates.length,
+        switch (category) {
+          TemplateCategory.garden => equals(9),
+          TemplateCategory.bathroom => equals(2),
+          _ => inInclusiveRange(3, 4),
+        },
+      );
+      expect(
+        templates.map((t) => t.assemblyNote).toSet(),
+        hasLength(templates.length),
+      );
+      expect(templates.every((t) => t.assemblyNote.isNotEmpty), isTrue);
+    }
+    expect(plans.map((p) => p.source).toSet(), hasLength(plans.length));
     expect(
       plans.map((p) => p.difficulty).toSet(),
       PlanDifficulty.values.toSet(),
@@ -55,69 +72,182 @@ void main() {
         'saw-man.ru',
         'novamett.ru',
       ], contains(uri.host));
-      final mm = t.build(LengthUnit.millimeter),
-          inches = t.build(LengthUnit.inch);
-      expect(inches.beams, hasLength(mm.beams.length));
-      for (final b in mm.beams) {
-        for (var i = 0; i < 8; i++) {
+    }
+  });
+
+  test('Every template has native dimensions in both systems', () {
+    for (final t in FurnitureTemplate.values) {
+      final metric = t.build(LengthUnit.millimeter);
+      expect(
+        t.build(LengthUnit.centimeter).beams.map((b) => b.toJson()),
+        metric.beams.map((b) => b.toJson()),
+        reason: t.name,
+      );
+      for (final u in [LengthUnit.millimeter, LengthUnit.inch]) {
+        final p = u == LengthUnit.inch ? t.build(u) : metric;
+        final bounds = p.partBounds!,
+            size = (bounds.high - bounds.low) / u.factor;
+        for (final extent in size.storage) {
           expect(
-            b.corner(i).distanceTo(inches.byId[b.id]!.corner(i)),
-            lessThan(1e-6),
+            extent,
+            closeTo(extent.round(), 1e-6),
+            reason: '${t.name} ${u.name} extent',
           );
+        }
+        for (final b in p.beams) {
+          final squareCut =
+              !b.bevelled &&
+              [
+                b.along,
+                b.across,
+              ].every((axis) => axis.storage.any((v) => v.abs() > 1 - 1e-8));
+          for (final length in [if (squareCut) b.size.x, b.size.y, b.size.z]) {
+            final ticks = u == LengthUnit.inch
+                ? length / u.factor * 16
+                : length;
+            expect(
+              ticks,
+              closeTo(ticks.round(), 1e-6),
+              reason: '${t.name} ${u.name}: ${b.name}',
+            );
+          }
         }
       }
     }
   });
 
+  for (final unit in [LengthUnit.millimeter, LengthUnit.inch]) {
+    test(
+      'The duct clears both panels, the chase and the storage bays in ${unit.name}',
+      () {
+        final p = FurnitureTemplate.hoodCabinet.build(unit);
+        final ports = p.beams
+            .where(
+              (b) => b.holes.any((h) => h.name == editorStrings.ductOpening),
+            )
+            .toList();
+        expect(ports.map((b) => b.name).toSet(), {
+          editorStrings.bottomPanel,
+          editorStrings.topPanel,
+        });
+        Vector3 center(Beam b) {
+          final hole = b.holes.single;
+          expect(hole.fits(b.size), isTrue);
+          expect(hole.depth, isNull);
+          return b.origin +
+              b.along * hole.centerX(b.size) +
+              b.across * hole.centerY(b.size);
+        }
+
+        final lower = center(ports.first), upper = center(ports.last);
+        expect(upper.x, closeTo(lower.x, 1e-6));
+        expect(upper.y, closeTo(lower.y, 1e-6));
+        final diameter = unit == LengthUnit.inch ? 6.25 * 25.4 : 160;
+        for (final b in ports) {
+          expect(b.holes.single.diameter, closeTo(diameter, 1e-6));
+        }
+        for (final b in p.beams.where((b) => !ports.contains(b))) {
+          final bounds = Bounds3.points(b.corners);
+          final dx = lower.x - lower.x.clamp(bounds.low.x, bounds.high.x);
+          final dy = lower.y - lower.y.clamp(bounds.low.y, bounds.high.y);
+          expect(
+            dx * dx + dy * dy,
+            greaterThan(diameter * diameter / 4),
+            reason: b.name,
+          );
+        }
+        expect(
+          p.beams.where((b) => b.name == editorStrings.chaseSide),
+          hasLength(2),
+        );
+        expect(
+          p.beams.where((b) => b.name == editorStrings.chaseCover),
+          hasLength(1),
+        );
+        expect(
+          p.beams.where((b) => b.name == editorStrings.shelfPart),
+          hasLength(2),
+        );
+        final doors = p.beams.where((b) => b.hinge != null);
+        expect(doors.map((b) => b.hinge).toSet(), {
+          DoorHinge.left,
+          DoorHinge.right,
+        });
+        for (final door in doors) {
+          expect(door.holes, hasLength(2));
+          expect(
+            door.holes.every(
+              (hole) => hole.back && hole.depth != null && hole.fits(door.size),
+            ),
+            isTrue,
+          );
+        }
+      },
+    );
+
+    test(
+      'The rim mitres meet and the toy chest has solid timber at the lid hinge in ${unit.name}',
+      () {
+        final bed = FurnitureTemplate.raisedBed.build(unit);
+        final rim = bed.beams
+            .where((b) => b.name == editorStrings.bedRim)
+            .toList();
+        expect(rim, hasLength(4));
+        for (final (i, b) in rim.indexed) {
+          expect(b.startCut.y, b.size.y);
+          expect(b.endCut.y, -b.size.y);
+          final next = rim[(i + 1) % 4];
+          for (final k in faceCorners[1]) {
+            expect(
+              faceCorners[0].any(
+                (j) => b.corner(k).distanceTo(next.corner(j)) < 1e-6,
+              ),
+              isTrue,
+            );
+          }
+        }
+        final p = FurnitureTemplate.toyChest.build(unit);
+        final back = p.partBounds!.high.y;
+        final lid = p.beams.lastWhere(
+          (b) => b.group != null && b.name == editorStrings.topPanel,
+        );
+        final rail = p.beams.lastWhere(
+          (b) => b.group == null && b.name == editorStrings.frontPanel,
+        );
+        final lidBounds = Bounds3.points(lid.corners),
+            railBounds = Bounds3.points(rail.corners);
+        expect(lidBounds.high.y, closeTo(back, 1e-6));
+        expect(railBounds.high.y, closeTo(back, 1e-6));
+        expect(railBounds.high.z, closeTo(lidBounds.low.z, 1e-6));
+        expect(railBounds.low.x, greaterThanOrEqualTo(lidBounds.low.x));
+        expect(railBounds.high.x, lessThanOrEqualTo(lidBounds.high.x));
+      },
+    );
+  }
+
   // A reference cut (finished dimensions) per design detects lost pieces
   // and dimension/axis swaps that an overall bounding box cannot catch.
   test('Each adapted plan retains its characteristic cuts', () {
     const checks = <FurnitureTemplate, (int, double, double, double)>{
-      FurnitureTemplate.laptopTray: (1, 362, 286, 19),
-      FurnitureTemplate.bagShelf: (1, 457, 140, 19),
       FurnitureTemplate.pantryShelf: (8, 686, 25, 13),
-      FurnitureTemplate.diningTable: (5, 1828.8, 139.7, 38.1),
-      FurnitureTemplate.consoleTable: (2, 1612.9, 304.8, 19.05),
-      FurnitureTemplate.bathTray: (2, 234.95, 38.1, 19.05),
+      FurnitureTemplate.diningTable: (5, 1800, 140, 40),
+      FurnitureTemplate.consoleTable: (2, 1614, 300, 18),
       FurnitureTemplate.machineStand: (4, 882, 90, 40),
-      FurnitureTemplate.trestleBench: (1, 1295, 235, 38),
-      FurnitureTemplate.windowBox: (19, 160, 30, 20),
       FurnitureTemplate.birdhouse: (
         2,
         147,
         147,
         20,
       ), // Trapezoidal gable panels.
-      FurnitureTemplate.candleShelf: (1, 230, 140, 20),
-      FurnitureTemplate.stool: (1, 400, 300, 18),
       FurnitureTemplate.blanketLadder: (5, 450, 40, 40),
-      FurnitureTemplate.headphoneStand: (1, 273, 65, 20),
-      FurnitureTemplate.gardenBench: (
-        5,
-        1680,
-        90,
-        40,
-      ), // five full-length seat boards, plus back boards
-      FurnitureTemplate.plantPanel: (7, 1000, 140, 40),
       FurnitureTemplate.picnicTable: (9, 800, 90, 40),
       FurnitureTemplate.toyChest: (6, 840, 90, 20),
-      FurnitureTemplate.standingPlanter: (4, 340, 40, 20),
-      FurnitureTemplate.shutters: (45, 270, 90, 20),
-      FurnitureTemplate.lantern: (4, 900, 90, 20),
-      FurnitureTemplate.workbench: (12, 1524, 101.6, 38.1),
-      FurnitureTemplate.toolTote: (2, 267, 140, 19),
+      FurnitureTemplate.workbench: (12, 1500, 100, 38),
       FurnitureTemplate.mirrorFrame: (4, 410, 38, 19),
-      FurnitureTemplate.hexShelf: (
-        6,
-        178,
-        184,
-        38,
-      ), // Length on the inside edge of the mitre.
       FurnitureTemplate.bookcase: (16, 900, 90, 20),
       FurnitureTemplate.coffeeTable: (4, 382, 40, 40),
       FurnitureTemplate.wallShelf: (5, 254, 90, 40),
       FurnitureTemplate.shoeBench: (1, 1000, 312, 18),
-      FurnitureTemplate.trivet: (14, 156, 12, 7),
     };
     expect(
       checks.keys.toSet(),
@@ -135,17 +265,7 @@ void main() {
               near(b.size.y, width) &&
               near(b.size.z, thickness);
         }
-        if (t == FurnitureTemplate.gardenBench &&
-            b.name == editorStrings.benchBack) {
-          return false;
-        }
-        final cutLength = t == FurnitureTemplate.hexShelf
-            ? [
-                for (final k in [0, 2, 4, 6])
-                  b.corner(k).distanceTo(b.corner(k + 1)),
-              ].reduce(math.min)
-            : b.size.x;
-        return near(cutLength, length) &&
+        return near(b.size.x, length) &&
             near(b.size.y, width) &&
             near(b.size.z, thickness);
       });
@@ -206,16 +326,8 @@ void main() {
                 hasLength(2),
               );
             }
-          case FurnitureTemplate.shutters:
-            expect(sizes, [19, 19, 19]);
-            for (final leaf in groups) {
-              expect(
-                leaf.where(
-                  (id) => p.byId[id]!.name == editorStrings.doorPanelInfill,
-                ),
-                hasLength(15),
-              );
-            }
+          case FurnitureTemplate.hoodCabinet:
+            expect(sizes, [1, 1, p.beams.length - 2]);
           default:
             expect(
               groups,

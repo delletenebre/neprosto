@@ -104,7 +104,7 @@ class _AlignmentPanelState extends State<AlignmentPanel> {
                     spacing: toolbarGap,
                     children: [
                       Icon(
-                        cu.CupertinoIcons.scope,
+                        PhosphorIconsRegular.crosshair,
                         size: 13,
                         color: context.colors.accent,
                       ),

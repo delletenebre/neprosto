@@ -106,6 +106,7 @@ Future<ProjectFile> writeProject(Project project, ProjectFile file) async {
 Future<bool> savePartsWorkbook(
   Project p,
   List<StockRow> rows, {
+  required LengthUnit unit,
   bool bazis = false,
 }) async {
   final stem = bazis
@@ -120,7 +121,7 @@ Future<bool> savePartsWorkbook(
         );
   if (!kIsWeb && location == null) return false;
   await XFile.fromData(
-    bazis ? encodeBazisCutList(rows) : encodePartsWorkbook(p.unit, rows),
+    bazis ? encodeBazisCutList(rows) : encodePartsWorkbook(unit, rows),
     name: name,
     mimeType:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

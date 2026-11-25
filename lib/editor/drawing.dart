@@ -270,7 +270,7 @@ class DrawingPainter extends CustomPainter {
           c.drawLine(b - tick, b + tick, paint);
         }
         if (!dimensionsVisible) continue;
-        final unit = scene.project.unit;
+        final unit = scene.input.unit;
         _label(
           c,
           (start + end) / 2 + const Offset(0, -15),
@@ -300,7 +300,7 @@ class DrawingPainter extends CustomPainter {
         c.drawLine(base, top, pen);
         c.drawLine(top, tip, pen);
         if (dimensionsVisible) {
-          final unit = scene.project.unit;
+          final unit = scene.input.unit;
           _label(
             c,
             top + const Offset(0, -24),
@@ -337,7 +337,7 @@ class DrawingPainter extends CustomPainter {
     }
     if (activeEdge case final edge? when edgePointer != null) {
       final part = scene.project.byId[edge.face.beam.id]!;
-      final unit = scene.project.unit;
+      final unit = scene.input.unit;
       _label(
         c,
         edgePointer! + const Offset(0, -24),

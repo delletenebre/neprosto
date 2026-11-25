@@ -175,7 +175,8 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
       ..showHiddenOutlines = previous.showHiddenOutlines
       ..gridVisibility = previous.gridVisibility
       ..hotkeys = previous.hotkeys
-      ..step = previous.step;
+      ..step = previous.step
+      ..displayUnit = previous.displayUnit;
     value = tab;
   }
 
@@ -195,7 +196,7 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
     select(tab);
   }
 
-  void create({Project? template, LengthUnit unit = LengthUnit.millimeter}) {
+  void create({Project? template, LengthUnit? unit}) {
     final names = items.map((tab) => tab.committed.name).toSet();
     var name = template?.name ?? editorStrings.untitled;
     for (var n = 2; names.contains(name); n++) {
@@ -204,7 +205,8 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
           : '${template.name} $n';
     }
     final project =
-        template?.copy(name: name) ?? Project(name, [], const [], unit);
+        template?.copy(name: name) ??
+        Project(name, [], const [], unit ?? value.editor.displayUnit);
     open(project.withDefaultWorkspace(), dirty: template != null);
   }
 

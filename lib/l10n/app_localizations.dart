@@ -1120,6 +1120,12 @@ abstract class AppLocalizations {
   /// **'Название детали'**
   String get partName;
 
+  /// No description provided for @groupName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название группы'**
+  String get groupName;
+
   /// No description provided for @nameAndDimensions.
   ///
   /// In ru, this message translates to:
@@ -1795,7 +1801,7 @@ abstract class AppLocalizations {
   /// No description provided for @yFromBack.
   ///
   /// In ru, this message translates to:
-  /// **'Y · от задней стенки'**
+  /// **'Y · от стенки'**
   String get yFromBack;
 
   /// No description provided for @zFromFloor.
@@ -1897,7 +1903,7 @@ abstract class AppLocalizations {
   /// No description provided for @neprostoProject.
   ///
   /// In ru, this message translates to:
-  /// **'Проект neprosto'**
+  /// **'Проект NeProSto'**
   String get neprostoProject;
 
   /// No description provided for @projectSaved.
@@ -2610,7 +2616,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutNeprosto.
   ///
   /// In ru, this message translates to:
-  /// **'О neprosto'**
+  /// **'О NeProSto'**
   String get aboutNeprosto;
 
   /// No description provided for @fileMenu.
@@ -2634,7 +2640,7 @@ abstract class AppLocalizations {
   /// No description provided for @hideNeprosto.
   ///
   /// In ru, this message translates to:
-  /// **'Скрыть neprosto'**
+  /// **'Скрыть NeProSto'**
   String get hideNeprosto;
 
   /// No description provided for @hideOthers.
@@ -2652,7 +2658,7 @@ abstract class AppLocalizations {
   /// No description provided for @quitNeprosto.
   ///
   /// In ru, this message translates to:
-  /// **'Завершить neprosto'**
+  /// **'Завершить NeProSto'**
   String get quitNeprosto;
 
   /// No description provided for @edit.
@@ -3276,8 +3282,32 @@ abstract class AppLocalizations {
   /// No description provided for @ordinaryPart.
   ///
   /// In ru, this message translates to:
-  /// **'Обычная деталь'**
+  /// **'Элемент'**
   String get ordinaryPart;
+
+  /// No description provided for @chestLid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Крышка'**
+  String get chestLid;
+
+  /// No description provided for @groupType.
+  ///
+  /// In ru, this message translates to:
+  /// **'Тип группы'**
+  String get groupType;
+
+  /// No description provided for @groupProperties.
+  ///
+  /// In ru, this message translates to:
+  /// **'Свойства группы'**
+  String get groupProperties;
+
+  /// No description provided for @partProperties.
+  ///
+  /// In ru, this message translates to:
+  /// **'Свойства детали'**
+  String get partProperties;
 
   /// No description provided for @bazisExport.
   ///
@@ -3492,7 +3522,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateRaisedBed.
   ///
   /// In ru, this message translates to:
-  /// **'Высокая клумба для грунта'**
+  /// **'Высокая грядка с обвязкой'**
   String get templateRaisedBed;
 
   /// No description provided for @templateStandingPlanter.
@@ -3567,12 +3597,6 @@ abstract class AppLocalizations {
   /// **'Стропило'**
   String get roofRafter;
 
-  /// No description provided for @roofTie.
-  ///
-  /// In ru, this message translates to:
-  /// **'Затяжка'**
-  String get roofTie;
-
   /// No description provided for @ridgeBeam.
   ///
   /// In ru, this message translates to:
@@ -3627,30 +3651,6 @@ abstract class AppLocalizations {
   /// **'Петли слева при взгляде со стороны подкоса. Подкос опирается на нижнюю перекладину у петель и поддерживает верхний свободный угол.'**
   String get gateNote;
 
-  /// No description provided for @templateGazebo.
-  ///
-  /// In ru, this message translates to:
-  /// **'Открытая беседка со скамьёй'**
-  String get templateGazebo;
-
-  /// No description provided for @gazeboRingBeam.
-  ///
-  /// In ru, this message translates to:
-  /// **'Верхняя обвязка'**
-  String get gazeboRingBeam;
-
-  /// No description provided for @roofBatten.
-  ///
-  /// In ru, this message translates to:
-  /// **'Доска обрешётки'**
-  String get roofBatten;
-
-  /// No description provided for @gazeboFrameNote.
-  ///
-  /// In ru, this message translates to:
-  /// **'В раскрой входят каркас, скамья, стропила, затяжки и обрешётка. Кровельное покрытие выбирают отдельно. Шаг обрешётки уточняют под покрытие. Сечения, узлы и анкеровку проверяют по нагрузкам участка и грунту.'**
-  String get gazeboFrameNote;
-
   /// No description provided for @templateShedFloor.
   ///
   /// In ru, this message translates to:
@@ -3690,14 +3690,14 @@ abstract class AppLocalizations {
   /// No description provided for @templateSignatureCabinet.
   ///
   /// In ru, this message translates to:
-  /// **'Фирменная тумба neprosto'**
+  /// **'Фирменная тумба NeProSto'**
   String get templateSignatureCabinet;
 
   /// No description provided for @signatureDoor.
   ///
   /// In ru, this message translates to:
-  /// **'Фасад с отверстием Ø{diameter}'**
-  String signatureDoor(String diameter);
+  /// **'Фасад с отверстием для пальца'**
+  String get signatureDoor;
 
   /// No description provided for @endCutsTitle.
   ///
@@ -3816,7 +3816,7 @@ abstract class AppLocalizations {
   /// No description provided for @resetEndCut.
   ///
   /// In ru, this message translates to:
-  /// **'Прямой торец'**
+  /// **'Сбросить углы'**
   String get resetEndCut;
 
   /// No description provided for @cutsIntersect.
@@ -3909,12 +3909,6 @@ abstract class AppLocalizations {
   /// **'Консоль за диван с тремя секциями'**
   String get templateConsoleTable;
 
-  /// No description provided for @templateBathTray.
-  ///
-  /// In ru, this message translates to:
-  /// **'Полка-мостик для ванны'**
-  String get templateBathTray;
-
   /// No description provided for @templateMachineStand.
   ///
   /// In ru, this message translates to:
@@ -3948,7 +3942,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateBlanketLadder.
   ///
   /// In ru, this message translates to:
-  /// **'Лестница-вешалка для пледов'**
+  /// **'Лестница для полотенец'**
   String get templateBlanketLadder;
 
   /// No description provided for @templateHeadphoneStand.
@@ -3966,7 +3960,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateToyChest.
   ///
   /// In ru, this message translates to:
-  /// **'Уличный ящик для игрушек'**
+  /// **'Реечный ящик для игрушек'**
   String get templateToyChest;
 
   /// No description provided for @templateShutters.
@@ -4094,6 +4088,360 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Вариант по рисунку Craftsmanspace: два слоя реек 12 × 7 мм склеиваются крест-накрест.'**
   String get planTrivetNote;
+
+  /// No description provided for @roomKitchen.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кухня'**
+  String get roomKitchen;
+
+  /// No description provided for @roomLivingRoom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Гостиная'**
+  String get roomLivingRoom;
+
+  /// No description provided for @roomBedroom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Спальня'**
+  String get roomBedroom;
+
+  /// No description provided for @roomNursery.
+  ///
+  /// In ru, this message translates to:
+  /// **'Детская'**
+  String get roomNursery;
+
+  /// No description provided for @roomEntryway.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прихожая'**
+  String get roomEntryway;
+
+  /// No description provided for @roomBathroom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ванная'**
+  String get roomBathroom;
+
+  /// No description provided for @roomOffice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кабинет'**
+  String get roomOffice;
+
+  /// No description provided for @templateAssembly.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как собрать'**
+  String get templateAssembly;
+
+  /// No description provided for @templateHoodCabinet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Навесной шкаф под вытяжку'**
+  String get templateHoodCabinet;
+
+  /// No description provided for @templateSinkBase.
+  ///
+  /// In ru, this message translates to:
+  /// **'Корпус тумбы под мойку'**
+  String get templateSinkBase;
+
+  /// No description provided for @templatePlatformBed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кровать с реечным основанием'**
+  String get templatePlatformBed;
+
+  /// No description provided for @templateBasinShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подвесная тумба с вырезом под сифон'**
+  String get templateBasinShelf;
+
+  /// No description provided for @templateFileTrays.
+  ///
+  /// In ru, this message translates to:
+  /// **'Трёхъярусный лоток для бумаги'**
+  String get templateFileTrays;
+
+  /// No description provided for @ductOpening.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проход воздуховода'**
+  String get ductOpening;
+
+  /// No description provided for @chaseSide.
+  ///
+  /// In ru, this message translates to:
+  /// **'Боковина короба'**
+  String get chaseSide;
+
+  /// No description provided for @chaseCover.
+  ///
+  /// In ru, this message translates to:
+  /// **'Съёмная стенка короба'**
+  String get chaseCover;
+
+  /// No description provided for @hangingRail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Монтажная планка'**
+  String get hangingRail;
+
+  /// No description provided for @hingeCup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чашка петли'**
+  String get hingeCup;
+
+  /// No description provided for @plinth.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цоколь'**
+  String get plinth;
+
+  /// No description provided for @slatLedger.
+  ///
+  /// In ru, this message translates to:
+  /// **'Опорная рейка'**
+  String get slatLedger;
+
+  /// No description provided for @centerRail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Центральная балка'**
+  String get centerRail;
+
+  /// No description provided for @bedSlat.
+  ///
+  /// In ru, this message translates to:
+  /// **'Рейка основания'**
+  String get bedSlat;
+
+  /// No description provided for @shelfWing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Боковая часть полки'**
+  String get shelfWing;
+
+  /// No description provided for @paperTray.
+  ///
+  /// In ru, this message translates to:
+  /// **'Полка для бумаги'**
+  String get paperTray;
+
+  /// No description provided for @bedRim.
+  ///
+  /// In ru, this message translates to:
+  /// **'Борт грядки с запилами'**
+  String get bedRim;
+
+  /// No description provided for @assembleHoodCabinet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дно и крышку стяните с боковинами конфирматами. Полки закрепите между боковинами и щеками короба, лицевую стенку короба прикрутите съёмно. Труба проходит через два соосных отверстия. Положение и диаметр прохода, точки крепления снизу и высоту установки сверьте с монтажным шаблоном вашей вытяжки. Дверцы навесьте на чашечные петли, шкаф закрепите через монтажные планки.'**
+  String get assembleHoodCabinet;
+
+  /// No description provided for @assembleSinkBase.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дно и верхние стяжки соедините с боковинами конфирматами, цоколь прикрутите с внутренней стороны. Стяжки связывают открытый верх под столешницей. Задняя перемычка оставляет доступ к водопроводу и сливу.'**
+  String get assembleSinkBase;
+
+  /// No description provided for @assemblePantryShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Полки закрепите между боковинами винтами через боковые стенки. Передние ограничители прикрутите к торцам боковин. Высокий узкий стеллаж закрепите к стене.'**
+  String get assemblePantryShelf;
+
+  /// No description provided for @assembleDiningTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сначала соберите две рамные опоры, стянув поперечины с ножками болтами. Прикрепите каждую доску столешницы к обеим рамам снизу, оставив между досками зазоры.'**
+  String get assembleDiningTable;
+
+  /// No description provided for @assembleSignatureCabinet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите ступенчатый корпус на шкантах и клею, затем приклейте лицевые планки. Задние стенки удерживают корпус прямоугольным. Навесьте фасад на петли, круглое сквозное отверстие служит ручкой.'**
+  String get assembleSignatureCabinet;
+
+  /// No description provided for @assembleBookcase.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите две боковые рамы, прикрутив поперечины к стойкам. Закрепите опорные бруски и привинтите доски каждой полки к обеим опорам. Верх стеллажа закрепите к стене.'**
+  String get assembleBookcase;
+
+  /// No description provided for @assembleCoffeeTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соедините царги с ножками на шкантах с клеем. Нижнюю полку уложите на планки между царгами. Фанерную столешницу закрепите снизу через угловые крепления.'**
+  String get assembleCoffeeTable;
+
+  /// No description provided for @assembleTvStand.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соедините панели корпуса и перегородки конфирматами. Закрепите спинку по периметру и к перегородкам. Крайние секции закрываются накладными фасадами, средняя остаётся открытой.'**
+  String get assembleTvStand;
+
+  /// No description provided for @assembleBedroomWardrobe.
+  ///
+  /// In ru, this message translates to:
+  /// **'Стяните дно, крышку и перегородки конфирматами. Поставьте штанги на держатели, закрепите полки и задние панели. Петли навесьте со стороны, указанной у каждой двери. Высокий корпус закрепите к стене.'**
+  String get assembleBedroomWardrobe;
+
+  /// No description provided for @assemblePlatformBed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Царги соедините разборными кроватными стяжками. Изнутри прикрутите опорные рейки. Центральную балку поставьте на отдельные ножки и закрепите к торцевым царгам. Ламели опираются на три линии и фиксируются от сдвига.'**
+  String get assemblePlatformBed;
+
+  /// No description provided for @assembleDrawerChest.
+  ///
+  /// In ru, this message translates to:
+  /// **'Корпус соберите на конфирматах. Дно и заднюю стенку каждого ящика соедините с боковинами, затем закрепите фасад изнутри. Парные направляющие ставьте на одной высоте с учётом бокового зазора выбранного комплекта. Корпус закрепите к стене.'**
+  String get assembleDrawerChest;
+
+  /// No description provided for @assembleToyChest.
+  ///
+  /// In ru, this message translates to:
+  /// **'Склейте парные стойки. Торцы досок стенок и нижней обвязки притяните к стойкам косыми шурупами через карманы с внутренней стороны. Доски дна прикрутите сверху к обвязке, планки крышки — снизу к поперечинам. Рояльную петлю поставьте вдоль верхней задней доски. Подберите упор под вес крышки, чтобы он удерживал её в любом положении. Оставьте вентиляционные щели открытыми.'**
+  String get assembleToyChest;
+
+  /// No description provided for @assembleCubeShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Начните с общей нижней панели. Ступени собирайте снизу вверх на шкантах и мебельных стяжках, пока доступны торцы полок. Собранный стеллаж закрепите к стене.'**
+  String get assembleCubeShelf;
+
+  /// No description provided for @assembleStepStool.
+  ///
+  /// In ru, this message translates to:
+  /// **'Склейте фанерные боковины с подступенками на шкантах. Проступи положите сверху на опоры и закрепите потайными шурупами. Проверьте, что обе боковины стоят на полу всей нижней кромкой.'**
+  String get assembleStepStool;
+
+  /// No description provided for @assembleShoeBench.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите цоколь, поставьте на него дно. Стенки и перегородки стяните с сиденьем и дном на шкантах с клеем. Заднюю панель закрепите по краям, чтобы скамья сохраняла форму.'**
+  String get assembleShoeBench;
+
+  /// No description provided for @assembleConsoleTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Стяните боковины с верхней и нижней панелями. Полки соедините с перегородками шкантами при сборке каждой секции. Для узкой консоли предусмотрите крепление к стене.'**
+  String get assembleConsoleTable;
+
+  /// No description provided for @assembleMirrorFrame.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поперечины соедините со стойками на шкантах. Соберите проставки, запилите их задние торцы по модели и закрепите раму к стене. Зеркало установите на отдельные держатели для стекла.'**
+  String get assembleMirrorFrame;
+
+  /// No description provided for @assembleBasinShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'У каждой полки передняя часть и два крыла образуют открытый назад вырез под сифон. Соедините их на шкантах с влагостойким клеем, затем закрепите между боковинами. Монтажные планки за крыльями притяните к стене, торцы фанеры защитите от влаги.'**
+  String get assembleBasinShelf;
+
+  /// No description provided for @assembleBlanketLadder.
+  ///
+  /// In ru, this message translates to:
+  /// **'Перекладины соедините со стойками на двух шкантах с каждой стороны, зафиксировав их от проворачивания. Верх закрепите к стене. Лестница предназначена для полотенец.'**
+  String get assembleBlanketLadder;
+
+  /// No description provided for @assembleWritingDesk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Столешница опирается на боковину и тумбу с полками. Соедините панели конфирматами, затем закрепите задние перемычки между опорами. Перемычки удерживают стол от бокового раскачивания.'**
+  String get assembleWritingDesk;
+
+  /// No description provided for @assembleWallShelf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прикрутите поперечные бруски к задней рейке. Закрепите рейку на несущем основании стены, наденьте фанерный кожух и прикрутите его к каркасу снизу.'**
+  String get assembleWallShelf;
+
+  /// No description provided for @assembleFileTrays.
+  ///
+  /// In ru, this message translates to:
+  /// **'Приклейте опорные рейки попарно на одной высоте. Вложите в каждый ярус фанерную полку и закрепите заднюю стенку, чтобы боковины не расходились.'**
+  String get assembleFileTrays;
+
+  /// No description provided for @assembleWorkbench.
+  ///
+  /// In ru, this message translates to:
+  /// **'Склейте ножки и обе половины наборной столешницы по отдельности. Царги стяните с ножками болтами. Половины столешницы закрепите к подстолью снизу, сохранив продольный просвет и возможность сезонного движения древесины.'**
+  String get assembleWorkbench;
+
+  /// No description provided for @assembleSawhorse.
+  ///
+  /// In ru, this message translates to:
+  /// **'Запилите торцы наклонных ножек по модели, чтобы они опирались на пол и под верхнюю доску всей плоскостью. Стяните боковые фартуки с ножками болтами и закрепите нижние распорки.'**
+  String get assembleSawhorse;
+
+  /// No description provided for @assembleMachineStand.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите две торцевые рамы, стяните их продольными царгами. Закрепите фанерные настилы сверху к обвязке. Нижняя полка состоит из трёх частей и обходит ножки.'**
+  String get assembleMachineStand;
+
+  /// No description provided for @assembleRaisedBed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доски стенок прикрутите снаружи к угловым и средним стойкам уличными шурупами. Средние стойки соедините поперечной стяжкой. Все четыре верхних борта запилите с обоих концов под 45° и закрепите сверху к стойкам.'**
+  String get assembleRaisedBed;
+
+  /// No description provided for @assembleBench.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соедините продольные и поперечные царги с ножками шкантами на клею или косыми шурупами изнутри. Выставьте одинаковые зазоры между планками сиденья и прикрутите их сверху к царгам.'**
+  String get assembleBench;
+
+  /// No description provided for @assemblePicnicTable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сначала соберите две А-образные опоры. Скошенные ножки соедините с поперечинами сквозными болтами и шайбами. Положите доски стола и сидений на опоры, закрепите их сверху, затем установите продольную стяжку.'**
+  String get assemblePicnicTable;
+
+  /// No description provided for @assembleChaise.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите боковые рамы. Спинку закрепите в заданном наклоне на болтах, выдерживая запилы опор. Прикрутите рейки сиденья и спинки к обеим боковинам, оставив зазоры для стока воды.'**
+  String get assembleChaise;
+
+  /// No description provided for @assemblePottingBench.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите каркас из стоек и царг на уличных шурупах. Настил столешницы закрепите на поперечинах, оставив проём для съёмного лотка. Задние стойки несут отдельную верхнюю полку.'**
+  String get assemblePottingBench;
+
+  /// No description provided for @assembleLogStore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Стяните стойки продольной обвязкой, положите доски пола на поперечины. Верхние торцы стоек запилите по уклону крыши. Рейки стен закрепите с зазорами для проветривания дров.'**
+  String get assembleLogStore;
+
+  /// No description provided for @assembleGardenGate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прикрутите штакетины к двум поперечинам. Запилите подкос так, чтобы он упирался торцами в обе перекладины и передавал нагрузку от верхнего свободного угла к нижней петле. Петли крепите в поперечины.'**
+  String get assembleGardenGate;
+
+  /// No description provided for @assembleBirdhouse.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сведите запиленные кромки скатов в коньке. Торцевые панели и дно прикрутите к скатам через предварительно просверленные отверстия. Один торец закрепите съёмно для очистки.'**
+  String get assembleBirdhouse;
+
+  /// No description provided for @assemblePorch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Соберите рамы ступеней и площадки, закрепите настил к поперечинам. Стойки ограждения стяните с рамой болтами. Поручень подрежьте под уклон и закрепите на стойках. Крепление к основанию выбирают по месту установки.'**
+  String get assemblePorch;
 }
 
 class _AppLocalizationsDelegate

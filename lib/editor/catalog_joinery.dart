@@ -1,7 +1,5 @@
 part of 'project_templates.dart';
 
-// The catalogue drawings give finished millimetres. Beam coordinates are also
-// millimetres, including when the editor displays the project in inches.
 extension _CatalogJoinery on _Parts {
   void stile(
     String name,
@@ -37,26 +35,5 @@ extension _CatalogJoinery on _Parts {
       startPlane: (c - a).cross(y),
       endPlane: (e - b).cross(y),
     );
-  }
-
-  void rim(
-    String name,
-    List<Vector3> outside,
-    List<Vector3> inside,
-    double depth, {
-    bool depthIsStockWidth = false,
-  }) {
-    for (var i = 0; i < outside.length; i++) {
-      final j = (i + 1) % outside.length;
-      profileBoard(
-        name,
-        outside[i],
-        outside[j],
-        inside[i],
-        inside[j],
-        depth,
-        depthIsStockWidth: depthIsStockWidth,
-      );
-    }
   }
 }

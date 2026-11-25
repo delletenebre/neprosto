@@ -18,7 +18,6 @@ import 'hotkeys.dart';
 import 'controls.dart';
 import 'drawing.dart';
 import 'model.dart';
-import 'step.dart';
 import 'part_menu.dart';
 import 'part_type_picker.dart';
 
@@ -44,7 +43,33 @@ class _PartsPanelState extends State<PartsPanel> {
   int? lastPlainRow;
   Editor get e => widget.editor;
 
-  Widget partControl(Beam b, {required Widget child}) {
+  Widget serialTapTarget(
+    Widget child,
+    GestureSerialTapUpCallback? onTap,
+  ) => RawGestureDetector(
+    behavior: HitTestBehavior.opaque,
+    excludeFromSemantics: true,
+    gestures: {
+      if (onTap != null)
+        SerialTapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<SerialTapGestureRecognizer>(
+              () => SerialTapGestureRecognizer(
+                allowedButtonsFilter: (buttons) => buttons == kPrimaryButton,
+              ),
+              (recognizer) => recognizer.onSerialTapUp = onTap,
+            ),
+    },
+    child: child,
+  );
+
+  Widget item(Beam b) => Padding(
+    key: ValueKey(b.id),
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Builder(builder: (row) => partRow(row, b)),
+  );
+
+  Widget partRow(BuildContext row, Beam b) {
+    final active = e.selection.contains(b.id);
     void select([SerialTapUpDetails? tap]) {
       final k = HardwareKeyboard.instance;
       final multi = k.isShiftPressed || k.isMetaPressed || k.isControlPressed;
@@ -71,37 +96,6 @@ class _PartsPanelState extends State<PartsPanel> {
       }
     }
 
-    return DeskControl(
-      onPressed: b.hidden ? null : select,
-      child: RawGestureDetector(
-        behavior: HitTestBehavior.opaque,
-        excludeFromSemantics: true,
-        gestures: {
-          if ((!b.hidden || e.showHiddenOutlines) && !e.pickingAlignmentSupport)
-            SerialTapGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<
-                  SerialTapGestureRecognizer
-                >(
-                  () => SerialTapGestureRecognizer(
-                    allowedButtonsFilter: (buttons) =>
-                        buttons == kPrimaryButton,
-                  ),
-                  (recognizer) => recognizer.onSerialTapUp = select,
-                ),
-        },
-        child: child,
-      ),
-    );
-  }
-
-  Widget item(Beam b) => Padding(
-    key: ValueKey(b.id),
-    padding: const EdgeInsets.only(bottom: 2),
-    child: Builder(builder: (row) => partRow(row, b)),
-  );
-
-  Widget partRow(BuildContext row, Beam b) {
-    final active = e.selection.contains(b.id);
     return GestureDetector(
       onSecondaryTapUp: (details) => showDrawingMenu(
         context,
@@ -110,104 +104,135 @@ class _PartsPanelState extends State<PartsPanel> {
         partId: b.id,
         source: DialogSource.of(row),
       ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: active ? context.selectionFill : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: _PartVisibilityRow(
-          hasHiddenParts: b.hidden,
-          showHiddenIndicator: true,
-          tooltip: b.hidden
-              ? context.strings.showPart
-              : context.strings.hidePart,
-          toggleVisibility: () => e.setPartsHidden({b.id}, !b.hidden),
-          trailing: Expanded(
-            child: partControl(
-              b,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  4,
-                  macControls ? 3 : 6,
-                  7,
-                  macControls ? 3 : 6,
-                ),
-                child: Row(
-                  spacing: toolbarGap,
-                  children: [
-                    if (b.hinge case final side?)
-                      DoorIcon(
-                        side,
-                        color: b.hidden ? context.colors.disabled : null,
-                      ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            b.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: b.hidden
-                                  ? context.colors.disabled
-                                  : context.colors.ink,
-                              fontWeight: active
-                                  ? FontWeight.w600
-                                  : (macControls
-                                        ? FontWeight.w400
-                                        : FontWeight.w500),
-                            ),
+      child: _PartVisibilityRow(
+        onPressed: b.hidden ? null : select,
+        selected: active,
+        hasHiddenParts: b.hidden,
+        showHiddenIndicator: true,
+        tooltip: b.hidden ? context.strings.showPart : context.strings.hidePart,
+        toggleVisibility: () => e.setPartsHidden({b.id}, !b.hidden),
+        trailing: Expanded(
+          child: serialTapTarget(
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                4,
+                macControls ? 3 : 6,
+                7,
+                macControls ? 3 : 6,
+              ),
+              child: Row(
+                spacing: toolbarGap,
+                children: [
+                  if (b.hinge case final side?)
+                    DoorIcon(
+                      side,
+                      color: b.hidden ? context.colors.disabled : null,
+                    ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          b.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: b.hidden
+                                ? context.colors.disabled
+                                : context.colors.ink,
+                            fontWeight: active
+                                ? FontWeight.w600
+                                : (macControls
+                                      ? FontWeight.w400
+                                      : FontWeight.w500),
                           ),
-                          Text(
-                            '${e.lengthInput.format(b.size.x)} × ${e.lengthInput.format(b.size.y)} × ${e.lengthInput.format(b.size.z)}',
-                            style: mono.copyWith(
-                              fontSize: 10,
-                              color: b.hidden
-                                  ? context.colors.disabled
-                                  : context.colors.muted,
-                            ),
+                        ),
+                        Text(
+                          '${e.displayUnit.formatStockLength(b.size.x)} × ${e.displayUnit.formatStockLength(b.size.y)} × ${e.displayUnit.formatStockLength(b.size.z)}',
+                          style: mono.copyWith(
+                            fontSize: 10,
+                            color: b.hidden
+                                ? context.colors.disabled
+                                : context.colors.muted,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (e.overlaps.contains(b.id))
+                    Tooltip(
+                      message: context.strings.intersection,
+                      child: Icon(
+                        cu.CupertinoIcons.exclamationmark_triangle,
+                        size: 15,
+                        color: context.colors.danger,
                       ),
                     ),
-                    if (e.overlaps.contains(b.id))
-                      Tooltip(
-                        message: context.strings.intersection,
-                        child: Icon(
-                          cu.CupertinoIcons.exclamationmark_triangle,
-                          size: 15,
-                          color: context.colors.danger,
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
+            (!b.hidden || e.showHiddenOutlines) && !e.pickingAlignmentSupport
+                ? select
+                : null,
           ),
         ),
       ),
     );
   }
 
-  Widget groupHeader(int? id, List<Beam> members) {
+  Widget groupHeader(int? id, List<Beam> members, {required bool selected}) {
+    final visible = members.where((b) => !b.hidden);
+    final first = visible.firstOrNull;
+    void selectGroup({bool frame = false}) {
+      if (first != null) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        FocusManager.instance.applyFocusChangesIfNeeded();
+        if (e.tool != Tool.select) e.setTool(Tool.select);
+        e.select(first.id);
+      }
+      if (frame) {
+        final points = [
+          for (final b in e.showHiddenOutlines ? members : visible)
+            ...b.corners,
+        ];
+        if (points.isNotEmpty) widget.centerOn(points);
+      }
+    }
+
     final hasHidden = members.any((b) => b.hidden);
     final collapsed = collapsedGroups.contains(id);
     final title = id == null
         ? context.strings.assemblyParts
-        : e.project.groupNames[id] ?? context.strings.numberedGroup(id);
-    return _PartVisibilityRow(
+        : e.project.groupName(id);
+    final label = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 28),
+      child: Row(
+        children: [
+          if (e.project.groupDoors[id] case final door?) ...[
+            DoorIcon(door.hinge),
+            const SizedBox(width: controlGap),
+          ],
+          Expanded(
+            child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+    );
+    final header = _PartVisibilityRow(
       key: ValueKey('group-header-$id'),
       hasHiddenParts: hasHidden,
+      selected: selected,
+      onPressed: id == null || first == null ? null : selectGroup,
       tooltip: hasHidden
           ? context.strings.showGroupParts
           : context.strings.hideGroupParts,
       toggleVisibility: () =>
           e.setPartsHidden({for (final b in members) b.id}, !hasHidden),
-      leading: Expanded(
+      leading: (hovered) => Expanded(
         child: _EditableTitle(
           title: title,
+          showActions: hovered,
           tooltip: context.strings.renameGroup,
           style: TextStyle(
             fontSize: 11,
@@ -216,56 +241,63 @@ class _PartsPanelState extends State<PartsPanel> {
           ),
           rename: id == null
               ? null
-              : (name) {
-                  final project = e.project;
-                  e.commit(
-                    project.copy(groupNames: {...project.groupNames, id: name}),
-                  );
-                },
-          child: Semantics(
-            expanded: !collapsed,
-            child: DeskControl(
-              minimumSize: const Size(0, 28),
-              onPressed: () => setState(() {
-                if (collapsed) {
-                  collapsedGroups.remove(id);
-                } else {
-                  collapsedGroups.add(id);
-                }
-              }),
-              child: Row(
-                children: [
-                  Container(
-                    width: 29,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      collapsed
-                          ? cu.CupertinoIcons.chevron_right
-                          : cu.CupertinoIcons.chevron_down,
-                      size: 12,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              : (name) => e.commit(e.project.withGroupName(id, name)),
+          child: Row(
+            spacing: toolbarGap,
+            children: [
+              Semantics(
+                label: title,
+                expanded: !collapsed,
+                child: DeskInlineIcon(
+                  label: title,
+                  icon: collapsed
+                      ? PhosphorIconsRegular.caretRight
+                      : PhosphorIconsRegular.caretDown,
+                  onPressed: () => setState(() {
+                    if (collapsed) {
+                      collapsedGroups.remove(id);
+                    } else {
+                      collapsedGroups.add(id);
+                    }
+                  }),
+                ),
               ),
-            ),
+              Expanded(
+                child: id == null
+                    ? label
+                    : serialTapTarget(
+                        label,
+                        (tap) => selectGroup(frame: tap.count == 2),
+                      ),
+              ),
+            ],
           ),
         ),
       ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(left: 4, right: 12),
-        child: Text(
-          '${members.length}',
-          style: mono.copyWith(color: context.colors.muted),
+      trailing: serialTapTarget(
+        Padding(
+          padding: const EdgeInsets.only(left: 4, right: 12),
+          child: Text(
+            '${members.length}',
+            style: mono.copyWith(color: context.colors.muted),
+          ),
         ),
+        id == null
+            ? null
+            : (tap) {
+                if (tap.count == 2) selectGroup(frame: true);
+              },
       ),
+    );
+    if (id == null) return header;
+    return GestureDetector(
+      onSecondaryTapUp: first == null
+          ? null
+          : (tap) {
+              selectGroup();
+              showDrawingMenu(context, e, tap.globalPosition, partId: first.id);
+            },
+      child: Semantics(selected: selected, child: header),
     );
   }
 
@@ -292,7 +324,11 @@ class _PartsPanelState extends State<PartsPanel> {
           child: Container(
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: selected ? context.selectionFill : Colors.transparent,
+              color: selected
+                  ? context.selectionFill
+                  : hoveredDimensionId == rowId
+                  ? context.colors.ink.withValues(alpha: .06)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(5),
             ),
             child: Column(
@@ -315,11 +351,10 @@ class _PartsPanelState extends State<PartsPanel> {
                           e.selectDimension(d);
                           widget.centerOn([geometry.from, geometry.to]);
                         },
-                  trailing: iconAction(
-                    cu.CupertinoIcons.xmark,
-                    context.strings.deleteDimension,
-                    () => e.removeDimension(d),
-                    size: 14,
+                  trailing: DeskInlineIcon(
+                    icon: PhosphorIconsRegular.x,
+                    label: context.strings.deleteDimension,
+                    onPressed: () => e.removeDimension(d),
                   ),
                   rename: (name) => e.updateDimension(d, d.copy(name: name)),
                   child: Text(
@@ -366,6 +401,7 @@ class _PartsPanelState extends State<PartsPanel> {
       (groups[b.group] ??= []).add(b);
     }
     final p = e.project;
+    final selectedGroup = e.selectedGroup;
     final measures = e.rulerActive;
     final addLabel = measures
         ? context.strings.newDimension
@@ -434,7 +470,13 @@ class _PartsPanelState extends State<PartsPanel> {
                     ]
                   : [
                       for (final entry in groups.entries) ...[
-                        groupHeader(entry.key, entry.value),
+                        groupHeader(
+                          entry.key,
+                          entry.value,
+                          selected:
+                              selectedGroup != null &&
+                              entry.key == selectedGroup,
+                        ),
                         const SizedBox(height: toolbarGap),
                         if (!collapsedGroups.contains(entry.key))
                           ...entry.value.map(item),
@@ -498,7 +540,7 @@ class _EditableTitle extends StatefulWidget {
     required this.style,
     required this.child,
     this.rename,
-    this.showActions = false,
+    required this.showActions,
     this.onCenter,
     this.trailing,
   });
@@ -516,7 +558,7 @@ class _EditableTitle extends StatefulWidget {
 
 class _EditableTitleState extends State<_EditableTitle> {
   final input = TextEditingController();
-  bool hovered = false, editing = false;
+  bool editing = false;
 
   void start() {
     final title = widget.title;
@@ -544,57 +586,50 @@ class _EditableTitleState extends State<_EditableTitle> {
 
   @override
   Widget build(BuildContext context) {
-    final actionsVisible = hovered || widget.showActions;
-    return MouseRegion(
-      onEnter: (_) => setState(() => hovered = true),
-      onExit: (_) => setState(() => hovered = false),
-      child: editing
-          ? Focus(
-              onFocusChange: (focused) {
-                if (!focused) finish();
-              },
-              onKeyEvent: (_, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.escape) {
-                  finish(save: false);
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: DeskTextField(
-                controller: input,
-                autofocus: true,
-                style: widget.style.copyWith(color: context.colors.ink),
-                onSubmitted: (_) => finish(),
-              ),
-            )
-          : Row(
-              spacing: toolbarGap,
-              children: [
-                Expanded(
-                  child: DefaultTextStyle.merge(
-                    style: widget.style,
-                    child: widget.child,
-                  ),
-                ),
-                if (widget.rename != null && actionsVisible)
-                  DeskIcon(
-                    cu.CupertinoIcons.pencil,
-                    widget.tooltip,
-                    start,
-                    size: 13,
-                  ),
-                if (actionsVisible && widget.onCenter != null)
-                  DeskIcon(
-                    PhosphorIconsRegular.crosshair,
-                    context.strings.centerCamera,
-                    widget.onCenter,
-                    size: 15,
-                  ),
-                ?widget.trailing,
-              ],
+    return editing
+        ? Focus(
+            onFocusChange: (focused) {
+              if (!focused) finish();
+            },
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.escape) {
+                finish(save: false);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: DeskTextField(
+              controller: input,
+              autofocus: true,
+              style: widget.style.copyWith(color: context.colors.ink),
+              onSubmitted: (_) => finish(),
             ),
-    );
+          )
+        : Row(
+            spacing: toolbarGap,
+            children: [
+              Expanded(
+                child: DefaultTextStyle.merge(
+                  style: widget.style,
+                  child: widget.child,
+                ),
+              ),
+              if (widget.rename != null && widget.showActions)
+                DeskInlineIcon(
+                  icon: PhosphorIconsRegular.pencilSimple,
+                  label: widget.tooltip,
+                  onPressed: start,
+                ),
+              if (widget.showActions && widget.onCenter != null)
+                DeskInlineIcon(
+                  icon: PhosphorIconsRegular.crosshair,
+                  label: context.strings.centerCamera,
+                  onPressed: widget.onCenter!,
+                ),
+              ?widget.trailing,
+            ],
+          );
   }
 }
 
@@ -602,6 +637,8 @@ class _PartVisibilityRow extends StatefulWidget {
   const _PartVisibilityRow({
     super.key,
     required this.hasHiddenParts,
+    required this.selected,
+    required this.onPressed,
     this.showHiddenIndicator = false,
     required this.tooltip,
     required this.toggleVisibility,
@@ -609,10 +646,11 @@ class _PartVisibilityRow extends StatefulWidget {
     required this.trailing,
   });
 
-  final bool hasHiddenParts, showHiddenIndicator;
+  final bool hasHiddenParts, showHiddenIndicator, selected;
+  final VoidCallback? onPressed;
   final String tooltip;
   final VoidCallback toggleVisibility;
-  final Widget? leading;
+  final Widget Function(bool hovered)? leading;
   final Widget trailing;
 
   @override
@@ -626,46 +664,52 @@ class _PartVisibilityRowState extends State<_PartVisibilityRow> {
   Widget build(BuildContext context) => MouseRegion(
     onEnter: (_) => setState(() => hovered = true),
     onExit: (_) => setState(() => hovered = false),
-    child: Row(
-      spacing: toolbarGap,
-      children: [
-        ?widget.leading,
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            if (macControls &&
-                widget.showHiddenIndicator &&
-                !hovered &&
-                !widget.hasHiddenParts)
-              Icon(
-                cu.CupertinoIcons.cube,
-                size: 14,
-                color: context.colors.muted,
+    child: DeskControl(
+      onPressed: widget.onPressed,
+      background: widget.selected
+          ? context.selectionFill
+          : hovered && widget.onPressed == null
+          ? context.colors.ink.withValues(alpha: .06)
+          : null,
+      child: Row(
+        spacing: toolbarGap,
+        children: [
+          ?widget.leading?.call(hovered),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              if (macControls &&
+                  widget.showHiddenIndicator &&
+                  !hovered &&
+                  !widget.hasHiddenParts)
+                Icon(
+                  PhosphorIconsRegular.cube,
+                  size: 13,
+                  color: context.colors.muted,
+                ),
+              Visibility(
+                visible:
+                    hovered ||
+                    (widget.showHiddenIndicator && widget.hasHiddenParts),
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                maintainSemantics: true,
+                child: DeskInlineIcon(
+                  icon: widget.hasHiddenParts
+                      ? (hovered
+                            ? PhosphorIconsRegular.eye
+                            : PhosphorIconsRegular.eyeClosed)
+                      : PhosphorIconsRegular.eyeSlash,
+                  label: widget.tooltip,
+                  onPressed: widget.toggleVisibility,
+                ),
               ),
-            Visibility(
-              visible:
-                  hovered ||
-                  (widget.showHiddenIndicator && widget.hasHiddenParts),
-              maintainSize: true,
-              maintainAnimation: true,
-              maintainState: true,
-              maintainSemantics: true,
-              child: DeskIcon(
-                widget.hasHiddenParts
-                    ? (hovered
-                          ? cu.CupertinoIcons.eye
-                          : PhosphorIconsRegular.eyeClosed)
-                    : PhosphorIconsRegular.eyeSlash,
-                widget.tooltip,
-                widget.toggleVisibility,
-                size: 18,
-                foreground: hovered ? null : context.colors.disabled,
-              ),
-            ),
-          ],
-        ),
-        widget.trailing,
-      ],
+            ],
+          ),
+          widget.trailing,
+        ],
+      ),
     ),
   );
 }

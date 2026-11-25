@@ -80,7 +80,7 @@ class _EditorSettingsState extends State<EditorSettings> {
   late EditorPalette? palette = widget.palette;
   late Locale locale = widget.locale;
   SettingsPage page = SettingsPage.editing;
-  late LengthUnit unit = widget.editor.project.unit;
+  late LengthUnit unit = widget.editor.displayUnit;
   late bool snap = widget.editor.snapByDefault,
       show = widget.editor.dimensionsByDefault;
   late EditStep step = widget.editor.step;

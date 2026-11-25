@@ -56,7 +56,7 @@ Future<void> showProjectSettings(
             for (var i = 0; i < 3; i++) {
               if (size[i] == originalSize[i]) continue;
               final target = partSize[i] * (size[i] / originalSize[i]);
-              final resized = resizeAssembly(next, ids, axis(i), target);
+              final resized = resizeAssembly(next, ids, axis(i), target, displayUnit: editor.displayUnit);
               if (resized.error != null) {
                 update(() => resizeError = resized.error);
                 return;

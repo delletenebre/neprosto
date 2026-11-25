@@ -16,8 +16,9 @@ AssemblyResize resizeAssembly(
   Project project,
   Set<int> ids,
   Vector3 direction,
-  double target,
-) {
+  double target, {
+  LengthUnit? displayUnit,
+}) {
   final spans = <({Beam beam, double lo, double hi, int dim})>[];
   for (final b in project.beams.where((b) => ids.contains(b.id))) {
     final coords = b.corners.map((p) => p.dot(direction));
@@ -54,12 +55,10 @@ AssemblyResize resizeAssembly(
     return AssemblyResize(project, editorStrings.fixedDimensionsFillSpan);
   }
   if (target <= fixed) {
+    final unit = displayUnit ?? project.unit;
     return AssemblyResize(
       project,
-      editorStrings.overallSizeMustExceed(
-        project.unit.format(fixed),
-        project.unit.symbol,
-      ),
+      editorStrings.overallSizeMustExceed(unit.format(fixed), unit.symbol),
     );
   }
   final factor = (target - fixed) / free;

@@ -5,6 +5,8 @@ import 'desk_text_field.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
+    show PhosphorIconsRegular;
 
 import 'drawing.dart';
 import 'desktop.dart';
@@ -33,16 +35,16 @@ class PartOffsetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, icon) = switch (axis) {
-      0 => (context.strings.xFromLeft, cu.CupertinoIcons.arrow_right),
-      1 => (context.strings.yFromBack, cu.CupertinoIcons.arrow_down_right),
-      _ => (context.strings.zFromFloor, cu.CupertinoIcons.arrow_up),
+      0 => (context.strings.xFromLeft, PhosphorIconsRegular.arrowRight),
+      1 => (context.strings.yFromBack, PhosphorIconsRegular.arrowDownRight),
+      _ => (context.strings.zFromFloor, PhosphorIconsRegular.arrowUp),
     };
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         spacing: controlGap,
         children: [
-          Icon(icon, size: 18, color: context.colors.axisColor(axis)),
+          Icon(icon, size: 15, color: context.colors.axisColor(axis)),
           Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
           SizedBox(
             width: fieldWidth,

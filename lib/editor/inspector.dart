@@ -5,6 +5,8 @@ import 'platform_ui.dart';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
 import 'package:material_ui/material_ui.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
+    show PhosphorIconsRegular;
 
 import 'assembly.dart';
 import 'joint.dart';
@@ -14,6 +16,8 @@ import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
 import 'hole_dialog.dart';
 import 'part_type_picker.dart';
+import 'name_dialog.dart';
+import 'size_dialog.dart';
 import 'parts_workbook.dart' show stockCut;
 import 'controller.dart';
 import 'hotkeys.dart';
@@ -25,9 +29,10 @@ import 'stock_axis.dart';
 import 'step.dart';
 
 class Inspector extends StatelessWidget {
+  static const double _actionIconSize = 13;
+
   final Editor e;
-  final VoidCallback rename;
-  const Inspector(this.e, {required this.rename, super.key});
+  const Inspector(this.e, {super.key});
   List<String> get dimensions => [
     for (final axis in StockAxis.values) axis.label,
   ];
@@ -109,7 +114,7 @@ class Inspector extends StatelessWidget {
     int count,
     VoidCallback onPressed,
   ) => DeskButton(
-    icon: Icon(icon, size: 15),
+    icon: Icon(icon, size: _actionIconSize),
     label: Row(
       mainAxisSize: MainAxisSize.min,
       spacing: controlGap,
@@ -141,8 +146,8 @@ class Inspector extends StatelessWidget {
           spacing: controlGap,
           children: [
             Icon(
-              cu.CupertinoIcons.move,
-              size: 18,
+              PhosphorIconsRegular.arrowsOutCardinal,
+              size: 16,
               color: context.colors.accent,
             ),
             Expanded(
@@ -197,17 +202,33 @@ class Inspector extends StatelessWidget {
   Widget build(BuildContext context) {
     if (e.tool == Tool.move) return placementPanel(context);
     final part = e.single, selected = e.selected;
+    final group = e.selectedGroup;
+    final memberIds = group == null
+        ? e.selection
+        : e.project.assembly(e.selection.first);
+    final members = group == null
+        ? selected
+        : [for (final id in memberIds) e.project.byId[id]!];
+    final groupDoor = e.project.groupDoors[group];
+    final hinge = group == null ? part?.hinge : groupDoor?.hinge;
+    final isOpen = group == null
+        ? part?.doorOpen == true
+        : groupDoor?.isOpen == true;
     final alignmentPart = e.tool == Tool.align ? part : null;
     final showSelectionActions = e.tool == Tool.select || alignmentPart != null;
     final rotatedPart = e.tool == Tool.rotate && part != null
         ? e.displayed.byId[part.id]
         : null;
-    final bounds = selected.isEmpty
+    final bounds = members.isEmpty
         ? null
-        : Bounds3.points(selected.expand((b) => b.corners));
+        : Bounds3.points(members.expand((b) => b.corners));
     final offsets = bounds == null ? null : e.project.offsetsOf(bounds);
+    final editableTitle = part != null || group != null;
+    final titleInset = editableTitle ? controlGap : 0.0;
     final title = Text(
-      part?.name ?? context.strings.selectedParts(selected.length),
+      group == null
+          ? part?.name ?? context.strings.selectedParts(selected.length)
+          : e.project.groupName(group),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
@@ -223,34 +244,51 @@ class Inspector extends StatelessWidget {
         children: [
           if (selected.isNotEmpty) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(15, 15, 12, 12),
+              padding: EdgeInsets.fromLTRB(15 - titleInset, 15, 12, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    context.strings.properties,
-                    style: TextStyle(fontSize: 12, color: context.colors.muted),
+                  Padding(
+                    padding: EdgeInsets.only(left: titleInset),
+                    child: Text(
+                      context.strings.properties,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.colors.muted,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  if (part == null)
+                  if (!editableTitle)
                     title
                   else
                     Tooltip(
-                      message: context.strings.renamePart,
+                      message: context.strings.nameAndDimensions,
                       child: DeskControl(
-                        onPressed: rename,
-                        minimumSize: const Size(0, 26),
-                        padding: const EdgeInsetsDirectional.only(end: 4),
+                        onPressed: () {
+                          final source =
+                              DialogSource.current ?? DialogSource.of(context)!;
+                          showPartProperties(
+                            context,
+                            e,
+                            source.bounds.center,
+                            source: source,
+                          );
+                        },
+                        minimumSize: const Size(0, 28),
+                        padding: EdgeInsets.symmetric(horizontal: titleInset),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           spacing: controlGap,
                           children: [
-                            if (part.hinge case final side?) DoorIcon(side),
-                            Flexible(child: title),
-                            Icon(
-                              cu.CupertinoIcons.pencil,
-                              size: 14,
-                              color: context.colors.muted,
+                            if (hinge case final side?) DoorIcon(side),
+                            Expanded(child: title),
+                            DeskInlineIcon(
+                              icon: PhosphorIconsRegular.slidersHorizontal,
+                              label: group == null
+                                  ? context.strings.partProperties
+                                  : context.strings.groupProperties,
+                              onPressed: () =>
+                                  showSelectionProperties(context, e),
                             ),
                           ],
                         ),
@@ -259,13 +297,15 @@ class Inspector extends StatelessWidget {
                 ],
               ),
             ),
-            if (showSelectionActions && part != null && part.hinge != null)
+            if (showSelectionActions && hinge != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(15, 0, 15, 8),
                 child: DeskButton(
-                  onPressed: () => e.toggleDoor(part.id),
+                  onPressed: () => group == null
+                      ? e.toggleDoor(part!.id)
+                      : e.toggleGroupDoor(group),
                   child: Text(
-                    part.doorOpen
+                    isOpen
                         ? context.strings.closeDoor
                         : context.strings.openDoor,
                   ),
@@ -278,7 +318,10 @@ class Inspector extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(15, 0, 15, 12),
                 child: DeskButton(
                   onPressed: e.beginAlignment,
-                  icon: const Icon(cu.CupertinoIcons.scope),
+                  icon: const Icon(
+                    PhosphorIconsRegular.crosshair,
+                    size: _actionIconSize,
+                  ),
                   label: Text(context.strings.alignToReference),
                 ),
               ),
@@ -288,7 +331,10 @@ class Inspector extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
               child: DeskButton(
-                icon: const Icon(cu.CupertinoIcons.triangle, size: 16),
+                icon: const Icon(
+                  PhosphorIconsRegular.angle,
+                  size: _actionIconSize,
+                ),
                 label: Text(context.strings.miterJointMenu),
                 onPressed: () => showPartJoint(context, e),
               ),
@@ -411,7 +457,7 @@ class Inspector extends StatelessWidget {
                 child: Text(context.strings.cancel),
               ),
             ], spacing: controlGap),
-          ] else if (part != null) ...[
+          ] else if (part != null && group == null) ...[
             block(context, context.strings.partDimensions, [
               for (var i = 0; i < 3; i++)
                 StockSizeRow(
@@ -451,13 +497,13 @@ class Inspector extends StatelessWidget {
                               .map(e.lengthInput.format)
                               .toSet()
                               .join(' / '),
-                          e.project.unit.symbol,
+                          e.displayUnit.symbol,
                         ),
                       ].join('\n')
                     : '',
                 child: machiningButton(
                   context,
-                  cu.CupertinoIcons.triangle,
+                  PhosphorIconsRegular.angle,
                   context.strings.endCutsTitle,
                   part.bevelledEndCount,
                   () => showEndCuts(context, e, part),
@@ -466,7 +512,7 @@ class Inspector extends StatelessWidget {
               const SizedBox(height: 5),
               machiningButton(
                 context,
-                cu.CupertinoIcons.crop,
+                PhosphorIconsRegular.steps,
                 context.strings.rabbetTitle,
                 part.rabbets.length,
                 () => showRabbets(context, e, part),
@@ -474,7 +520,7 @@ class Inspector extends StatelessWidget {
               const SizedBox(height: 5),
               machiningButton(
                 context,
-                cu.CupertinoIcons.circle,
+                PhosphorIconsRegular.circle,
                 context.strings.panelHoles,
                 part.holes.length,
                 () => showPanelHoles(context, e, part),
@@ -502,9 +548,10 @@ class Inspector extends StatelessWidget {
                   ValueBox(bounds.high[i] - bounds.low[i], (v) {
                     final result = resizeAssembly(
                       e.project,
-                      e.selection,
+                      memberIds,
                       axis(i),
                       v,
+                      displayUnit: e.displayUnit,
                     );
                     e.message = result.error ?? '';
                     if (result.error != null) {
@@ -520,7 +567,7 @@ class Inspector extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(child: Text(dimensions[i])),
-                    lock(i, selected),
+                    lock(i, members),
                   ],
                 ),
             ], spacing: controlGap),
@@ -537,7 +584,7 @@ class Inspector extends StatelessWidget {
                       (v) {
                         e.commit(
                           e.project.move(
-                            e.selection,
+                            memberIds,
                             offsetDirection(i) * (v - offsets[i]),
                             withinWorkspace: e.movementSnapping,
                           ),
@@ -552,17 +599,19 @@ class Inspector extends StatelessWidget {
                 const SizedBox(height: 6),
                 DeskButton(
                   onPressed: () => e.setTool(Tool.move),
-                  icon: const Icon(cu.CupertinoIcons.move, size: 15),
-                  label: shortcutLabel(
-                    context,
-                    context.strings.placeAgainstReference,
-                    e.hotkeys[Command.move].label,
+                  icon: const Icon(
+                    PhosphorIconsRegular.arrowsOutCardinal,
+                    size: _actionIconSize,
                   ),
+                  label: Text(context.strings.placeAgainstReference),
                 ),
                 const SizedBox(height: 5),
                 DeskButton(
                   onPressed: () => e.setTool(Tool.rotate),
-                  icon: const Icon(cu.CupertinoIcons.arrow_clockwise, size: 17),
+                  icon: const Icon(
+                    PhosphorIconsRegular.arrowClockwise,
+                    size: _actionIconSize,
+                  ),
                   label: Text(context.strings.rotate),
                 ),
               ]),

@@ -596,6 +596,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get partName => 'Part name';
 
   @override
+  String get groupName => 'Group name';
+
+  @override
   String get nameAndDimensions => 'Name and dimensions…';
 
   @override
@@ -958,7 +961,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get xFromLeft => 'X · from left';
 
   @override
-  String get yFromBack => 'Y · from back wall';
+  String get yFromBack => 'Y · from wall';
 
   @override
   String get zFromFloor => 'Z · from floor';
@@ -1017,7 +1020,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get project => 'Project';
 
   @override
-  String get neprostoProject => 'neprosto project';
+  String get neprostoProject => 'NeProSto project';
 
   @override
   String get projectSaved => 'Project saved';
@@ -1417,7 +1420,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
-  String get aboutNeprosto => 'About neprosto';
+  String get aboutNeprosto => 'About NeProSto';
 
   @override
   String get fileMenu => 'File';
@@ -1429,7 +1432,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get services => 'Services';
 
   @override
-  String get hideNeprosto => 'Hide neprosto';
+  String get hideNeprosto => 'Hide NeProSto';
 
   @override
   String get hideOthers => 'Hide Others';
@@ -1438,7 +1441,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showAll => 'Show All';
 
   @override
-  String get quitNeprosto => 'Quit neprosto';
+  String get quitNeprosto => 'Quit NeProSto';
 
   @override
   String get edit => 'Edit';
@@ -1764,7 +1767,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Check the diameter and edge distances. A blind hole must be shallower than the part thickness.';
 
   @override
-  String get ordinaryPart => 'Plain part';
+  String get ordinaryPart => 'Element';
+
+  @override
+  String get chestLid => 'Lid';
+
+  @override
+  String get groupType => 'Group type';
+
+  @override
+  String get groupProperties => 'Group properties';
+
+  @override
+  String get partProperties => 'Part properties';
 
   @override
   String get bazisExport => 'For BAZIS Cutting';
@@ -1872,7 +1887,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateClampRack => 'Wall-mounted clamp rack';
 
   @override
-  String get templateRaisedBed => 'Open-bottom raised flower bed';
+  String get templateRaisedBed => 'Raised bed with a mitred cap';
 
   @override
   String get templateStandingPlanter => 'Planter on legs';
@@ -1911,9 +1926,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get roofRafter => 'Rafter';
 
   @override
-  String get roofTie => 'Tie beam';
-
-  @override
   String get ridgeBeam => 'Ridge beam';
 
   @override
@@ -1946,19 +1958,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Hinge on the left when viewed from the brace side. The brace transfers load from the upper latch corner to the lower hinge rail.';
 
   @override
-  String get templateGazebo => 'Open gazebo frame with bench';
-
-  @override
-  String get gazeboRingBeam => 'Ring beam';
-
-  @override
-  String get roofBatten => 'Roof batten';
-
-  @override
-  String get gazeboFrameNote =>
-      'The cut list includes the frame, bench, rafters, ties and battens. Select the roof covering separately and match the batten spacing to it. Verify timber sizes, connections and anchorage for local loads and ground conditions.';
-
-  @override
   String get templateShedFloor => 'Cabin floor with herringbone bridging';
 
   @override
@@ -1978,12 +1977,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Studwork is shown before sheathing. Design studs, headers, bracing or structural sheathing and wall anchorage for local loads.';
 
   @override
-  String get templateSignatureCabinet => 'neprosto signature cabinet';
+  String get templateSignatureCabinet => 'NeProSto signature cabinet';
 
   @override
-  String signatureDoor(String diameter) {
-    return 'Door with Ø$diameter finger pull';
-  }
+  String get signatureDoor => 'Door with finger pull';
 
   @override
   String get endCutsTitle => 'End cuts';
@@ -2053,7 +2050,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get resetEndCut => 'Square this end';
+  String get resetEndCut => 'Reset angles';
 
   @override
   String get cutsIntersect =>
@@ -2105,9 +2102,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateConsoleTable => 'Three-bay sofa console';
 
   @override
-  String get templateBathTray => 'Bathtub tray';
-
-  @override
   String get templateMachineStand => 'Miter saw stand';
 
   @override
@@ -2123,7 +2117,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateCandleShelf => 'Candle shelf with triangular trim';
 
   @override
-  String get templateBlanketLadder => 'Blanket ladder';
+  String get templateBlanketLadder => 'Leaning towel ladder';
 
   @override
   String get templateHeadphoneStand => 'Headphone stand';
@@ -2132,7 +2126,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templatePlantPanel => 'Wall panel for plants';
 
   @override
-  String get templateToyChest => 'Outdoor toy chest';
+  String get templateToyChest => 'Slatted toy chest';
 
   @override
   String get templateShutters => 'Three-panel folding shutters';
@@ -2202,4 +2196,215 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get planTrivetNote =>
       'Adapted from the Craftsmanspace pattern with two crossed layers of 12 × 7 mm strips glued together.';
+
+  @override
+  String get roomKitchen => 'Kitchen';
+
+  @override
+  String get roomLivingRoom => 'Living room';
+
+  @override
+  String get roomBedroom => 'Bedroom';
+
+  @override
+  String get roomNursery => 'Children’s room';
+
+  @override
+  String get roomEntryway => 'Entryway';
+
+  @override
+  String get roomBathroom => 'Bathroom';
+
+  @override
+  String get roomOffice => 'Home office';
+
+  @override
+  String get templateAssembly => 'Assembly';
+
+  @override
+  String get templateHoodCabinet => 'Wall cabinet for a range hood';
+
+  @override
+  String get templateSinkBase => 'Sink base cabinet';
+
+  @override
+  String get templatePlatformBed => 'Slatted platform bed';
+
+  @override
+  String get templateBasinShelf => 'Floating vanity with a trap opening';
+
+  @override
+  String get templateFileTrays => 'Three-tier letter tray';
+
+  @override
+  String get ductOpening => 'Duct opening';
+
+  @override
+  String get chaseSide => 'Duct chase side';
+
+  @override
+  String get chaseCover => 'Removable chase cover';
+
+  @override
+  String get hangingRail => 'Mounting rail';
+
+  @override
+  String get hingeCup => 'Hinge cup';
+
+  @override
+  String get plinth => 'Plinth';
+
+  @override
+  String get slatLedger => 'Support cleat';
+
+  @override
+  String get centerRail => 'Centre beam';
+
+  @override
+  String get bedSlat => 'Bed slat';
+
+  @override
+  String get shelfWing => 'Shelf wing';
+
+  @override
+  String get paperTray => 'Paper tray';
+
+  @override
+  String get bedRim => 'Mitred bed cap';
+
+  @override
+  String get assembleHoodCabinet =>
+      'Use confirmat screws to join the top and bottom to the sides. Fix the shelves between the sides and the duct chase. Screw on its removable cover. The duct passes through two aligned holes. Check opening size, position, mounting points and installation height against your hood’s template. Fit cup hinges and secure the cabinet through its mounting rails.';
+
+  @override
+  String get assembleSinkBase =>
+      'Join the bottom and top rails to the sides with confirmats. Screw the recessed plinth from the inside. The rails tie the open top beneath the worktop. The rear brace leaves the water and drain connections accessible.';
+
+  @override
+  String get assemblePantryShelf =>
+      'Screw the shelves between the sides. Fasten the front retaining strips across the front edges of the sides. Anchor the tall, shallow unit to the wall.';
+
+  @override
+  String get assembleDiningTable =>
+      'Bolt the crosspieces to the legs to make two trestles. Fasten each tabletop board from below to both trestles, keeping the gaps between boards.';
+
+  @override
+  String get assembleSignatureCabinet =>
+      'Dowel and glue the stepped carcass, then glue on the face strips. The backs keep it square. Hang the door on hinges and use the round through-hole as a finger pull.';
+
+  @override
+  String get assembleBookcase =>
+      'Screw the crosspieces to the uprights to build the two end frames. Fit the ledgers, then screw each shelf board to both supports. Anchor the top to the wall.';
+
+  @override
+  String get assembleCoffeeTable =>
+      'Dowel and glue the aprons to the legs. Rest the lower shelf on the cleats between the rails. Secure the plywood top from below with corner brackets.';
+
+  @override
+  String get assembleTvStand =>
+      'Join the carcass and dividers with confirmats. Fasten the back around its edges and to the dividers. Overlay doors cover the outer bays, with an open bay in the middle.';
+
+  @override
+  String get assembleBedroomWardrobe =>
+      'Join the top, base and dividers with confirmats. Fit the rails in sockets and fasten the shelves and backs. Mount each door on its indicated hinge edge. Anchor the tall carcass to the wall.';
+
+  @override
+  String get assemblePlatformBed =>
+      'Join the perimeter rails with knock-down bed fittings. Screw the ledgers to the inside faces. Support the centre beam on its own feet and attach it to the end rails. Secure the slats against sliding across the three supports.';
+
+  @override
+  String get assembleDrawerChest =>
+      'Assemble the carcass with confirmats. Attach each drawer bottom and back to its sides, then screw on the front from inside. Fit paired runners level, allowing the clearance specified for the hardware. Anchor the carcass to the wall.';
+
+  @override
+  String get assembleToyChest =>
+      'Glue the paired corner posts. Drive pocket screws from the inside ends of the wall boards and lower rails into the posts. Screw the floorboards to the lower rails and fasten the lid slats from underneath through the battens. Fit a piano hinge along the upper back board and a lid support rated to hold the lid in any position. Keep the ventilation gaps open.';
+
+  @override
+  String get assembleCubeShelf =>
+      'Start with the continuous base. Assemble the stepped bays from the bottom up with dowels and panel connectors while the shelf ends are accessible. Anchor the unit to the wall.';
+
+  @override
+  String get assembleStepStool =>
+      'Dowel and glue the plywood sides to the risers. Seat the treads on the supports and fasten with countersunk screws. Both side panels should bear along their full bottom edges.';
+
+  @override
+  String get assembleShoeBench =>
+      'Build the plinth and set the base on it. Dowel and glue the sides and dividers between the seat and base. Fasten the back around its edges to keep the bench square.';
+
+  @override
+  String get assembleConsoleTable =>
+      'Connect the sides to the top and base. Dowel the shelves into the dividers as each bay goes together. Provide wall anchoring for the narrow console.';
+
+  @override
+  String get assembleMirrorFrame =>
+      'Dowel the crossbars into the posts. Assemble the stand-offs, cut their wall ends to the modelled angle and anchor the frame. Fit the mirror with separate glass clips.';
+
+  @override
+  String get assembleBasinShelf =>
+      'Dowel and glue each front panel to its two wings with water-resistant glue, leaving the trap slot open at the back. Fix the shelves between the sides. Anchor the rails behind the wings to the wall and seal exposed plywood edges.';
+
+  @override
+  String get assembleBlanketLadder =>
+      'Use two dowels at each end of every rung to prevent rotation. Secure the top to the wall. This ladder is a towel rack.';
+
+  @override
+  String get assembleWritingDesk =>
+      'The desktop bears on an end panel and a shelving pedestal. Join the panels with confirmats, then secure the rear braces between the supports to resist sideways racking.';
+
+  @override
+  String get assembleWallShelf =>
+      'Screw the projecting arms to the rear ledger. Anchor the ledger to a suitable wall structure, slide on the plywood shell and secure it to the frame from below.';
+
+  @override
+  String get assembleFileTrays =>
+      'Glue each pair of cleats level on the sides. Set a plywood tray on each pair and fasten the back panel to keep the sides parallel.';
+
+  @override
+  String get assembleWorkbench =>
+      'Glue the laminated legs and each slab separately. Bolt the base rails to the legs. Fasten the slabs from below, maintaining the central gap and allowing seasonal movement across the grain.';
+
+  @override
+  String get assembleSawhorse =>
+      'Cut the splayed legs to the modelled end angles for full contact with the floor and cap. Bolt the aprons to the legs and fasten the lower ties.';
+
+  @override
+  String get assembleMachineStand =>
+      'Build both end frames and bolt them together with the long rails. Screw the plywood decks down onto the rails. The three-piece lower shelf fits around the legs.';
+
+  @override
+  String get assembleRaisedBed =>
+      'Screw the wall boards to the corner and centre posts from outside with exterior screws. Tie the centre posts together across the bed. Mitre both ends of all four cap boards at 45° and screw them down to the posts.';
+
+  @override
+  String get assembleBench =>
+      'Join the long and short aprons to the legs with glued dowels or pocket screws from inside. Space the seat slats evenly and screw them down to the rails.';
+
+  @override
+  String get assemblePicnicTable =>
+      'Build the two A-frames first. Through-bolt the splayed legs to the crosspieces with washers. Screw the tabletop and seat boards down onto the supports, then fit the longitudinal tie.';
+
+  @override
+  String get assembleChaise =>
+      'Build the two side frames. Bolt the fixed backrest at its designed angle against the cut supports. Screw the seat and back slats to both sides, leaving drainage gaps.';
+
+  @override
+  String get assemblePottingBench =>
+      'Screw the rails to the posts using exterior fasteners. Fix the worktop boards to the crosspieces, keeping the insert opening clear. The tall rear posts carry the upper shelf.';
+
+  @override
+  String get assembleLogStore =>
+      'Tie the posts together with the long rails and fix the floor slats to the crosspieces. Cut the post tops to the roof slope. Space the wall slats to ventilate the firewood.';
+
+  @override
+  String get assembleGardenGate =>
+      'Fasten the pickets to the two rails. Cut the diagonal brace to bear at both ends, from the upper latch corner down to the lower hinge. Fix the hinges into the rails.';
+
+  @override
+  String get assembleBirdhouse =>
+      'Bring the mitred roof edges together at the ridge. Drill pilot holes and fasten the end panels and base to the roof boards. Make one end removable for cleaning.';
+
+  @override
+  String get assemblePorch =>
+      'Assemble the step and landing frames and screw the decking to the crosspieces. Bolt the guard posts to the frame. Cut the handrail to the slope and fix it to the posts. Select anchorage for the installation site.';
 }

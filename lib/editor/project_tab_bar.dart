@@ -5,6 +5,8 @@ import 'platform_ui.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart' as m;
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
+    show PhosphorIconsRegular;
 
 import 'desktop.dart';
 import 'project_tabs.dart';
@@ -197,17 +199,11 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
           if (showClose)
             PositionedDirectional(
               start: macControls ? 3 : 0,
-              child: macControls
-                  ? _MacTabCloseButton(
-                      label: context.strings.closeProjectTab(name),
-                      onPressed: () => widget.close(tab),
-                    )
-                  : DeskIcon(
-                      CupertinoIcons.xmark,
-                      context.strings.closeProjectTab(name),
-                      () => widget.close(tab),
-                      size: 13,
-                    ),
+              child: DeskInlineIcon(
+                icon: PhosphorIconsRegular.x,
+                label: context.strings.closeProjectTab(name),
+                onPressed: () => widget.close(tab),
+              ),
             ),
         ],
       ),
@@ -279,59 +275,4 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
       );
     },
   );
-}
-
-class _MacTabCloseButton extends StatelessWidget {
-  const _MacTabCloseButton({required this.label, required this.onPressed});
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = context.colors.isDark;
-    final ink = dark ? m.Colors.white : m.Colors.black;
-    return m.Tooltip(
-      message: label,
-      waitDuration: const Duration(milliseconds: 600),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 29, maxHeight: 28),
-        child: m.TextButton(
-          onPressed: () =>
-              DialogSource.invoke(DialogSource.of(context), onPressed),
-          style:
-              m.TextButton.styleFrom(
-                minimumSize: const Size.square(16),
-                fixedSize: const Size.square(16),
-                padding: EdgeInsets.zero,
-                visualDensity: m.VisualDensity.standard,
-                tapTargetSize: m.MaterialTapTargetSize.padded,
-                splashFactory: m.NoSplash.splashFactory,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ).copyWith(
-                overlayColor: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.pressed)) {
-                    return ink.withValues(alpha: dark ? .18 : .14);
-                  }
-                  if (states.contains(WidgetState.hovered)) {
-                    return ink.withValues(alpha: dark ? .10 : .20);
-                  }
-                  return m.Colors.transparent;
-                }),
-                side: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.focused)
-                      ? BorderSide(color: context.colors.accent, width: 1.5)
-                      : BorderSide.none,
-                ),
-              ),
-          child: Icon(
-            CupertinoIcons.xmark,
-            size: 11,
-            color: ink.withValues(alpha: dark ? .40 : .44),
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -38,6 +38,17 @@ enum LengthUnit {
     return v == '-0' || v.isEmpty ? '0' : v;
   }
 
+  String formatStockLength(double mm) {
+    if (this != inch) return format(mm);
+    final ticks = (mm / factor * 16).round();
+    if ((mm - ticks * factor / 16).abs() > 1e-6) return format(mm);
+    final whole = ticks ~/ 16, remainder = ticks % 16;
+    if (remainder == 0) return '$whole';
+    final divisor = remainder.gcd(16);
+    final fraction = '${remainder ~/ divisor}/${16 ~/ divisor}';
+    return whole == 0 ? fraction : '$whole $fraction';
+  }
+
   String get symbol => switch (this) {
     LengthUnit.millimeter => editorStrings.mm,
     LengthUnit.centimeter => editorStrings.cm,
@@ -550,6 +561,14 @@ class Project {
       Vector3(bounds.low.x, rearY - bounds.high.y, bounds.low.z);
   Map<int, String> _groupNames = const {};
   Map<int, String> get groupNames => _groupNames;
+  String groupName(int id) => groupNames[id] ?? editorStrings.numberedGroup(id);
+  Project withGroupName(int id, String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed == groupName(id)) return this;
+    return copy(groupNames: {...groupNames, id: trimmed});
+  }
+  Map<int, GroupDoor> _groupDoors = const {};
+  Map<int, GroupDoor> get groupDoors => _groupDoors;
   late final Bounds3? partBounds = beams.isEmpty
       ? null
       : Bounds3.points(beams.expand((b) => b.corners));
@@ -566,8 +585,16 @@ class Project {
     ];
   }
 
-  Project withWorkspace(Vector3? size) =>
-      Project(name, beams, dimensions, unit, size, groupNames, rearY);
+  Project withWorkspace(Vector3? size) => Project(
+    name,
+    beams,
+    dimensions,
+    unit,
+    size,
+    groupNames,
+    rearY,
+    groupDoors,
+  );
 
   Project withDefaultWorkspace() => workspaceSize != null
       ? this
@@ -581,8 +608,15 @@ class Project {
     this.workspaceSize,
     Map<int, String> groupNames = const {},
     this._savedRearY,
+    Map<int, GroupDoor> doors = const {},
   ]) : beams = List.unmodifiable(beams),
        dimensions = List.unmodifiable(dimensions) {
+    if (doors.isNotEmpty) {
+      _groupDoors = Map.unmodifiable({
+        for (final id in this.beams.map((b) => b.group).nonNulls)
+          id: ?doors[id],
+      });
+    }
     if (groupNames.isNotEmpty) {
       _groupNames = Map.unmodifiable({
         for (final id in this.beams.map((b) => b.group).nonNulls)
@@ -611,6 +645,7 @@ class Project {
     Iterable<Dimension>? dimensions,
     LengthUnit? unit,
     Map<int, String>? groupNames,
+    Map<int, GroupDoor>? groupDoors,
   }) => Project(
     name ?? this.name,
     beams ?? this.beams,
@@ -619,6 +654,7 @@ class Project {
     workspaceSize,
     groupNames ?? this.groupNames,
     rearY,
+    groupDoors ?? this.groupDoors,
   );
   Set<int> assembly(int id) {
     final b = byId[id];
@@ -662,13 +698,38 @@ class Project {
     final pivot = Bounds3.points(
       beams.where((b) => ids.contains(b.id)).expand((b) => b.corners),
     ).center;
-    final angle = degrees * math.pi / 180;
-    return edit(
-      ids,
-      (b) => b.copy(
-        origin: pivot + turn(b.origin - pivot, normal, angle),
-        along: turn(b.along, normal, angle).normalized(),
-        across: turn(b.across, normal, angle).normalized(),
+    return _rotateAround(ids, normal, pivot, degrees * math.pi / 180);
+  }
+
+  Project _rotateAround(
+    Set<int> ids,
+    Vector3 normal,
+    Vector3 pivot,
+    double angle, {
+    int? toggleGroup,
+  }) {
+    final rotatedGroups = groupDoors.keys.toSet();
+    for (final b in beams) {
+      if (!ids.contains(b.id)) rotatedGroups.remove(b.group);
+    }
+    return copy(
+      groupDoors: {
+        ...groupDoors,
+        for (final group in rotatedGroups)
+          group: groupDoors[group]!.rotated(
+            normal,
+            angle,
+            toggle: group == toggleGroup,
+          ),
+      },
+      beams: beams.map(
+        (b) => !ids.contains(b.id)
+            ? b
+            : b.copy(
+                origin: pivot + turn(b.origin - pivot, normal, angle),
+                along: turn(b.along, normal, angle).normalized(),
+                across: turn(b.across, normal, angle).normalized(),
+              ),
       ),
     );
   }
@@ -700,6 +761,10 @@ class Project {
     if (groupNames.isNotEmpty)
       'groupNames': {
         for (final e in groupNames.entries) e.key.toString(): e.value,
+      },
+    if (groupDoors.isNotEmpty)
+      'groupDoors': {
+        for (final e in groupDoors.entries) e.key.toString(): e.value.toJson(),
       },
     'beams': beams.map((b) => b.toJson()).toList(),
     'dimensions': dimensions
@@ -740,6 +805,10 @@ class Project {
           int.parse(entry.key as String): entry.value as String,
       },
       (rearY as num?)?.toDouble(),
+      {
+        for (final entry in (data['groupDoors'] as Map? ?? const {}).entries)
+          int.parse(entry.key as String): GroupDoor.fromJson(entry.value),
+      },
     );
     if (p.beams.length != p.byId.length ||
         p.dimensions
@@ -750,7 +819,8 @@ class Project {
     return p;
   }
 
-  factory Project.bench() {
+  factory Project.bench([LengthUnit unit = LengthUnit.millimeter]) {
+    double q(double mm, double inches) => unit == LengthUnit.inch ? inches * unit.factor : mm;
     final beams = <Beam>[];
     void add(String name, Vector3 start, Vector3 size, Vector3 x, Vector3 y) {
       beams.add(Beam(beams.length + 1, name, start, size, x, y));
@@ -759,41 +829,41 @@ class Project {
     for (var i = 0; i < 4; i++) {
       add(
         editorStrings.seatSlat(i + 1),
-        Vector3(0, i * 92, 414),
-        Vector3(1200, 84, 36),
+        Vector3(0, i * q(92, 3.5625), q(414, 16.5)),
+        Vector3(q(1200, 48), q(84, 3.3125), q(36, 1.5)),
         axis(0),
         axis(1),
       );
     }
-    for (final x in [65.0, 1080.0]) {
-      for (final y in [25.0, 280.0]) {
+    for (final x in [q(65, 2.5), q(1080, 43.25)]) {
+      for (final y in [q(25, 1), q(280, 10.75)]) {
         add(
           editorStrings.leg(beams.length - 3),
           Vector3(x, y, 0),
-          Vector3(414, 55, 55),
+          Vector3(q(414, 16.5), q(55, 2.25), q(55, 2.25)),
           axis(2),
           axis(0),
         );
       }
     }
-    for (final y in [37.0, 298.0]) {
+    for (final y in [q(37, 1.5), q(298, 11.25)]) {
       add(
         editorStrings.sideRail(beams.length - 7),
-        Vector3(120, y, 329),
-        Vector3(960, 25, 85),
+        Vector3(q(120, 4.75), y, q(329, 13)),
+        Vector3(q(960, 38.5), q(25, 1), q(85, 3.5)),
         axis(0),
         axis(1),
       );
     }
-    for (final x in [105.0, 1120.0]) {
+    for (final x in [q(105, 4.25), q(1120, 45)]) {
       add(
         editorStrings.crossRail(beams.length - 9),
-        Vector3(x, 80, 329),
-        Vector3(200, 25, 85),
+        Vector3(x, q(80, 3.25), q(329, 13)),
+        Vector3(q(200, 7.5), q(25, 1), q(85, 3.5)),
         axis(1),
         -axis(0),
       );
     }
-    return Project(editorStrings.bench, beams);
+    return Project(editorStrings.bench, beams, const [], unit);
   }
 }

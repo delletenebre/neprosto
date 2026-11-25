@@ -595,6 +595,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get partName => 'Название детали';
 
   @override
+  String get groupName => 'Название группы';
+
+  @override
   String get nameAndDimensions => 'Название и размеры…';
 
   @override
@@ -961,7 +964,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get xFromLeft => 'X · слева';
 
   @override
-  String get yFromBack => 'Y · от задней стенки';
+  String get yFromBack => 'Y · от стенки';
 
   @override
   String get zFromFloor => 'Z · от пола';
@@ -1020,7 +1023,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get project => 'Проект';
 
   @override
-  String get neprostoProject => 'Проект neprosto';
+  String get neprostoProject => 'Проект NeProSto';
 
   @override
   String get projectSaved => 'Проект сохранён';
@@ -1419,7 +1422,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get language => 'Язык';
 
   @override
-  String get aboutNeprosto => 'О neprosto';
+  String get aboutNeprosto => 'О NeProSto';
 
   @override
   String get fileMenu => 'Файл';
@@ -1431,7 +1434,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get services => 'Службы';
 
   @override
-  String get hideNeprosto => 'Скрыть neprosto';
+  String get hideNeprosto => 'Скрыть NeProSto';
 
   @override
   String get hideOthers => 'Скрыть остальные';
@@ -1440,7 +1443,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get showAll => 'Показать все';
 
   @override
-  String get quitNeprosto => 'Завершить neprosto';
+  String get quitNeprosto => 'Завершить NeProSto';
 
   @override
   String get edit => 'Правка';
@@ -1766,7 +1769,19 @@ class AppLocalizationsRu extends AppLocalizations {
       'Проверьте диаметр и отступы от краёв. Глубина глухого отверстия должна быть меньше толщины детали.';
 
   @override
-  String get ordinaryPart => 'Обычная деталь';
+  String get ordinaryPart => 'Элемент';
+
+  @override
+  String get chestLid => 'Крышка';
+
+  @override
+  String get groupType => 'Тип группы';
+
+  @override
+  String get groupProperties => 'Свойства группы';
+
+  @override
+  String get partProperties => 'Свойства детали';
 
   @override
   String get bazisExport => 'Для БАЗИС-Раскрой';
@@ -1874,7 +1889,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templateClampRack => 'Гребёнка для струбцин';
 
   @override
-  String get templateRaisedBed => 'Высокая клумба для грунта';
+  String get templateRaisedBed => 'Высокая грядка с обвязкой';
 
   @override
   String get templateStandingPlanter => 'Деревянное кашпо на ножках';
@@ -1913,9 +1928,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get roofRafter => 'Стропило';
 
   @override
-  String get roofTie => 'Затяжка';
-
-  @override
   String get ridgeBeam => 'Коньковая балка';
 
   @override
@@ -1948,19 +1960,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Петли слева при взгляде со стороны подкоса. Подкос опирается на нижнюю перекладину у петель и поддерживает верхний свободный угол.';
 
   @override
-  String get templateGazebo => 'Открытая беседка со скамьёй';
-
-  @override
-  String get gazeboRingBeam => 'Верхняя обвязка';
-
-  @override
-  String get roofBatten => 'Доска обрешётки';
-
-  @override
-  String get gazeboFrameNote =>
-      'В раскрой входят каркас, скамья, стропила, затяжки и обрешётка. Кровельное покрытие выбирают отдельно. Шаг обрешётки уточняют под покрытие. Сечения, узлы и анкеровку проверяют по нагрузкам участка и грунту.';
-
-  @override
   String get templateShedFloor => 'Каркас пола бытовки с распорками «ёлочкой»';
 
   @override
@@ -1980,12 +1979,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Показан каркас до обшивки. По местным нагрузкам рассчитывают стойки, перемычки, обшивку или укосины для жёсткости и анкеровку стен.';
 
   @override
-  String get templateSignatureCabinet => 'Фирменная тумба neprosto';
+  String get templateSignatureCabinet => 'Фирменная тумба NeProSto';
 
   @override
-  String signatureDoor(String diameter) {
-    return 'Фасад с отверстием Ø$diameter';
-  }
+  String get signatureDoor => 'Фасад с отверстием для пальца';
 
   @override
   String get endCutsTitle => 'Торцевые срезы';
@@ -2055,7 +2052,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get resetEndCut => 'Прямой торец';
+  String get resetEndCut => 'Сбросить углы';
 
   @override
   String get cutsIntersect =>
@@ -2107,9 +2104,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templateConsoleTable => 'Консоль за диван с тремя секциями';
 
   @override
-  String get templateBathTray => 'Полка-мостик для ванны';
-
-  @override
   String get templateMachineStand => 'Подставка для торцовочной пилы';
 
   @override
@@ -2125,7 +2119,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templateCandleShelf => 'Полка-подсвечник с треугольниками';
 
   @override
-  String get templateBlanketLadder => 'Лестница-вешалка для пледов';
+  String get templateBlanketLadder => 'Лестница для полотенец';
 
   @override
   String get templateHeadphoneStand => 'Настольная подставка для наушников';
@@ -2134,7 +2128,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templatePlantPanel => 'Настенная панель для растений';
 
   @override
-  String get templateToyChest => 'Уличный ящик для игрушек';
+  String get templateToyChest => 'Реечный ящик для игрушек';
 
   @override
   String get templateShutters => 'Трёхстворчатые складные ставни';
@@ -2206,4 +2200,215 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get planTrivetNote =>
       'Вариант по рисунку Craftsmanspace: два слоя реек 12 × 7 мм склеиваются крест-накрест.';
+
+  @override
+  String get roomKitchen => 'Кухня';
+
+  @override
+  String get roomLivingRoom => 'Гостиная';
+
+  @override
+  String get roomBedroom => 'Спальня';
+
+  @override
+  String get roomNursery => 'Детская';
+
+  @override
+  String get roomEntryway => 'Прихожая';
+
+  @override
+  String get roomBathroom => 'Ванная';
+
+  @override
+  String get roomOffice => 'Кабинет';
+
+  @override
+  String get templateAssembly => 'Как собрать';
+
+  @override
+  String get templateHoodCabinet => 'Навесной шкаф под вытяжку';
+
+  @override
+  String get templateSinkBase => 'Корпус тумбы под мойку';
+
+  @override
+  String get templatePlatformBed => 'Кровать с реечным основанием';
+
+  @override
+  String get templateBasinShelf => 'Подвесная тумба с вырезом под сифон';
+
+  @override
+  String get templateFileTrays => 'Трёхъярусный лоток для бумаги';
+
+  @override
+  String get ductOpening => 'Проход воздуховода';
+
+  @override
+  String get chaseSide => 'Боковина короба';
+
+  @override
+  String get chaseCover => 'Съёмная стенка короба';
+
+  @override
+  String get hangingRail => 'Монтажная планка';
+
+  @override
+  String get hingeCup => 'Чашка петли';
+
+  @override
+  String get plinth => 'Цоколь';
+
+  @override
+  String get slatLedger => 'Опорная рейка';
+
+  @override
+  String get centerRail => 'Центральная балка';
+
+  @override
+  String get bedSlat => 'Рейка основания';
+
+  @override
+  String get shelfWing => 'Боковая часть полки';
+
+  @override
+  String get paperTray => 'Полка для бумаги';
+
+  @override
+  String get bedRim => 'Борт грядки с запилами';
+
+  @override
+  String get assembleHoodCabinet =>
+      'Дно и крышку стяните с боковинами конфирматами. Полки закрепите между боковинами и щеками короба, лицевую стенку короба прикрутите съёмно. Труба проходит через два соосных отверстия. Положение и диаметр прохода, точки крепления снизу и высоту установки сверьте с монтажным шаблоном вашей вытяжки. Дверцы навесьте на чашечные петли, шкаф закрепите через монтажные планки.';
+
+  @override
+  String get assembleSinkBase =>
+      'Дно и верхние стяжки соедините с боковинами конфирматами, цоколь прикрутите с внутренней стороны. Стяжки связывают открытый верх под столешницей. Задняя перемычка оставляет доступ к водопроводу и сливу.';
+
+  @override
+  String get assemblePantryShelf =>
+      'Полки закрепите между боковинами винтами через боковые стенки. Передние ограничители прикрутите к торцам боковин. Высокий узкий стеллаж закрепите к стене.';
+
+  @override
+  String get assembleDiningTable =>
+      'Сначала соберите две рамные опоры, стянув поперечины с ножками болтами. Прикрепите каждую доску столешницы к обеим рамам снизу, оставив между досками зазоры.';
+
+  @override
+  String get assembleSignatureCabinet =>
+      'Соберите ступенчатый корпус на шкантах и клею, затем приклейте лицевые планки. Задние стенки удерживают корпус прямоугольным. Навесьте фасад на петли, круглое сквозное отверстие служит ручкой.';
+
+  @override
+  String get assembleBookcase =>
+      'Соберите две боковые рамы, прикрутив поперечины к стойкам. Закрепите опорные бруски и привинтите доски каждой полки к обеим опорам. Верх стеллажа закрепите к стене.';
+
+  @override
+  String get assembleCoffeeTable =>
+      'Соедините царги с ножками на шкантах с клеем. Нижнюю полку уложите на планки между царгами. Фанерную столешницу закрепите снизу через угловые крепления.';
+
+  @override
+  String get assembleTvStand =>
+      'Соедините панели корпуса и перегородки конфирматами. Закрепите спинку по периметру и к перегородкам. Крайние секции закрываются накладными фасадами, средняя остаётся открытой.';
+
+  @override
+  String get assembleBedroomWardrobe =>
+      'Стяните дно, крышку и перегородки конфирматами. Поставьте штанги на держатели, закрепите полки и задние панели. Петли навесьте со стороны, указанной у каждой двери. Высокий корпус закрепите к стене.';
+
+  @override
+  String get assemblePlatformBed =>
+      'Царги соедините разборными кроватными стяжками. Изнутри прикрутите опорные рейки. Центральную балку поставьте на отдельные ножки и закрепите к торцевым царгам. Ламели опираются на три линии и фиксируются от сдвига.';
+
+  @override
+  String get assembleDrawerChest =>
+      'Корпус соберите на конфирматах. Дно и заднюю стенку каждого ящика соедините с боковинами, затем закрепите фасад изнутри. Парные направляющие ставьте на одной высоте с учётом бокового зазора выбранного комплекта. Корпус закрепите к стене.';
+
+  @override
+  String get assembleToyChest =>
+      'Склейте парные стойки. Торцы досок стенок и нижней обвязки притяните к стойкам косыми шурупами через карманы с внутренней стороны. Доски дна прикрутите сверху к обвязке, планки крышки — снизу к поперечинам. Рояльную петлю поставьте вдоль верхней задней доски. Подберите упор под вес крышки, чтобы он удерживал её в любом положении. Оставьте вентиляционные щели открытыми.';
+
+  @override
+  String get assembleCubeShelf =>
+      'Начните с общей нижней панели. Ступени собирайте снизу вверх на шкантах и мебельных стяжках, пока доступны торцы полок. Собранный стеллаж закрепите к стене.';
+
+  @override
+  String get assembleStepStool =>
+      'Склейте фанерные боковины с подступенками на шкантах. Проступи положите сверху на опоры и закрепите потайными шурупами. Проверьте, что обе боковины стоят на полу всей нижней кромкой.';
+
+  @override
+  String get assembleShoeBench =>
+      'Соберите цоколь, поставьте на него дно. Стенки и перегородки стяните с сиденьем и дном на шкантах с клеем. Заднюю панель закрепите по краям, чтобы скамья сохраняла форму.';
+
+  @override
+  String get assembleConsoleTable =>
+      'Стяните боковины с верхней и нижней панелями. Полки соедините с перегородками шкантами при сборке каждой секции. Для узкой консоли предусмотрите крепление к стене.';
+
+  @override
+  String get assembleMirrorFrame =>
+      'Поперечины соедините со стойками на шкантах. Соберите проставки, запилите их задние торцы по модели и закрепите раму к стене. Зеркало установите на отдельные держатели для стекла.';
+
+  @override
+  String get assembleBasinShelf =>
+      'У каждой полки передняя часть и два крыла образуют открытый назад вырез под сифон. Соедините их на шкантах с влагостойким клеем, затем закрепите между боковинами. Монтажные планки за крыльями притяните к стене, торцы фанеры защитите от влаги.';
+
+  @override
+  String get assembleBlanketLadder =>
+      'Перекладины соедините со стойками на двух шкантах с каждой стороны, зафиксировав их от проворачивания. Верх закрепите к стене. Лестница предназначена для полотенец.';
+
+  @override
+  String get assembleWritingDesk =>
+      'Столешница опирается на боковину и тумбу с полками. Соедините панели конфирматами, затем закрепите задние перемычки между опорами. Перемычки удерживают стол от бокового раскачивания.';
+
+  @override
+  String get assembleWallShelf =>
+      'Прикрутите поперечные бруски к задней рейке. Закрепите рейку на несущем основании стены, наденьте фанерный кожух и прикрутите его к каркасу снизу.';
+
+  @override
+  String get assembleFileTrays =>
+      'Приклейте опорные рейки попарно на одной высоте. Вложите в каждый ярус фанерную полку и закрепите заднюю стенку, чтобы боковины не расходились.';
+
+  @override
+  String get assembleWorkbench =>
+      'Склейте ножки и обе половины наборной столешницы по отдельности. Царги стяните с ножками болтами. Половины столешницы закрепите к подстолью снизу, сохранив продольный просвет и возможность сезонного движения древесины.';
+
+  @override
+  String get assembleSawhorse =>
+      'Запилите торцы наклонных ножек по модели, чтобы они опирались на пол и под верхнюю доску всей плоскостью. Стяните боковые фартуки с ножками болтами и закрепите нижние распорки.';
+
+  @override
+  String get assembleMachineStand =>
+      'Соберите две торцевые рамы, стяните их продольными царгами. Закрепите фанерные настилы сверху к обвязке. Нижняя полка состоит из трёх частей и обходит ножки.';
+
+  @override
+  String get assembleRaisedBed =>
+      'Доски стенок прикрутите снаружи к угловым и средним стойкам уличными шурупами. Средние стойки соедините поперечной стяжкой. Все четыре верхних борта запилите с обоих концов под 45° и закрепите сверху к стойкам.';
+
+  @override
+  String get assembleBench =>
+      'Соедините продольные и поперечные царги с ножками шкантами на клею или косыми шурупами изнутри. Выставьте одинаковые зазоры между планками сиденья и прикрутите их сверху к царгам.';
+
+  @override
+  String get assemblePicnicTable =>
+      'Сначала соберите две А-образные опоры. Скошенные ножки соедините с поперечинами сквозными болтами и шайбами. Положите доски стола и сидений на опоры, закрепите их сверху, затем установите продольную стяжку.';
+
+  @override
+  String get assembleChaise =>
+      'Соберите боковые рамы. Спинку закрепите в заданном наклоне на болтах, выдерживая запилы опор. Прикрутите рейки сиденья и спинки к обеим боковинам, оставив зазоры для стока воды.';
+
+  @override
+  String get assemblePottingBench =>
+      'Соберите каркас из стоек и царг на уличных шурупах. Настил столешницы закрепите на поперечинах, оставив проём для съёмного лотка. Задние стойки несут отдельную верхнюю полку.';
+
+  @override
+  String get assembleLogStore =>
+      'Стяните стойки продольной обвязкой, положите доски пола на поперечины. Верхние торцы стоек запилите по уклону крыши. Рейки стен закрепите с зазорами для проветривания дров.';
+
+  @override
+  String get assembleGardenGate =>
+      'Прикрутите штакетины к двум поперечинам. Запилите подкос так, чтобы он упирался торцами в обе перекладины и передавал нагрузку от верхнего свободного угла к нижней петле. Петли крепите в поперечины.';
+
+  @override
+  String get assembleBirdhouse =>
+      'Сведите запиленные кромки скатов в коньке. Торцевые панели и дно прикрутите к скатам через предварительно просверленные отверстия. Один торец закрепите съёмно для очистки.';
+
+  @override
+  String get assemblePorch =>
+      'Соберите рамы ступеней и площадки, закрепите настил к поперечинам. Стойки ограждения стяните с рамой болтами. Поручень подрежьте под уклон и закрепите на стойках. Крепление к основанию выбирают по месту установки.';
 }

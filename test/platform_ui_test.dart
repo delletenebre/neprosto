@@ -19,6 +19,55 @@ import 'package:neprosto/main.dart';
 
 void main() {
   testWidgets(
+    'Mac context menu opens part and group properties directly after dimensions',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1320, 900));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      const popup = MethodChannel('neprosto/popup');
+      final messenger = t.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(popup, (call) async {
+        if (call.method != 'contextMenu') return null;
+        final labels = call.arguments['items'] as List;
+        final dimensions = labels.indexOf('Название и размеры…');
+        expect(dimensions, greaterThanOrEqualTo(0));
+        expect(labels[dimensions + 1], 'Свойства…');
+        return dimensions + 1;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(popup, null));
+      final project = Project.bench().edit({1, 2}, (b) => b.copy(group: 1));
+      await t.pumpWidget(NeprostoApp(editor: Editor(project)));
+      await t.pumpAndSettle();
+      for (final (id, title) in [
+        (3, 'Название детали'),
+        (1, 'Название группы'),
+      ]) {
+        final row = find.descendant(
+          of: find.byType(PartsPanel),
+          matching: find.text(project.byId[id]!.name),
+        );
+        await t.tap(
+          row,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await t.pumpAndSettle();
+        final dialog = find.byType(DeskDialog);
+        expect(
+          find.descendant(of: dialog, matching: find.text(title)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: dialog, matching: find.text('Элемент')),
+          findsOneWidget,
+        );
+        await t.tap(find.text('Отмена'));
+        await t.pumpAndSettle();
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
     'Footer keeps view, snap and step accessible as the canvas gets narrower',
     (t) async {
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -40,7 +89,7 @@ void main() {
       await t.pumpAndSettle();
       final view = find.byKey(const ValueKey(ViewAngle.perspective));
       final toggle = find.byTooltip('Привязка по опорам');
-      final step = find.text('Шаг 1');
+      final step = find.text('Шаг 1 мм');
       expect(find.text('Привязка'), findsOneWidget);
       expect(t.getCenter(step).dy, closeTo(t.getCenter(view).dy, 1));
       expect(find.byType(DeskMenu<ViewAngle>), findsNothing);
@@ -76,7 +125,6 @@ void main() {
           toggle,
           find.text(SnapMode.faceCenter.label),
           step,
-          find.byTooltip('Единицы измерения · Миллиметры'),
         ]) {
           expect(control.hitTestable(), findsOneWidget);
         }
@@ -197,6 +245,19 @@ void main() {
       editor.undo();
       expect(editor.project, same(project));
       expect(editor.canUndo, false);
+      final otherEdge = screen(Vector3(50, 94, 10));
+      await mouse.moveTo(otherEdge);
+      await t.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await t.pump();
+      expect(painter().resizePart, isNull);
+      expect(painter().activeEdge, isNull);
+      await mouse.down(otherEdge);
+      await mouse.up();
+      await t.pump();
+      expect(editor.selection, {1, 2});
+      expect(painter().resizePart, isNull);
+      expect(editor.project, same(project));
+      await t.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await mouse.removePointer();
       await t.pump(kDoubleTapTimeout);
     },
@@ -739,12 +800,7 @@ void main() {
         DefaultTextStyle.of(context).style.color,
         EditorPalette.onHighlight,
       );
-      expect(
-        t
-            .widget<cu.CupertinoSlidingSegmentedControl<LengthUnit>>(units)
-            .thumbColor,
-        EditorPalette.highlight,
-      );
+      expect(units, findsNothing);
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 

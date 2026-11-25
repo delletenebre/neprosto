@@ -19,7 +19,8 @@ enum Tool { select, move, beam, ruler, measure, face, rotate, align, gap }
 class Editor extends ChangeNotifier {
   Project project;
   EditStep step = EditStep();
-  LengthInput get lengthInput => step.input(project.unit);
+  late LengthUnit displayUnit = project.unit;
+  LengthInput get lengthInput => step.input(displayUnit);
   EditorHotkeys hotkeys = EditorHotkeys();
   void Function(Project)? onDocumentChange;
   Set<int> selection = {};
@@ -314,7 +315,7 @@ class Editor extends ChangeNotifier {
     final direction =
         axis(dim) *
         (screenDirection[dim] >= 0 ? sign.toDouble() : -sign.toDouble());
-    var travel = step.millimeters(project.unit);
+    var travel = step.millimeters(displayUnit);
     final limits = movementSnapping ? project.moveLimits(selection) : null;
     final wall = limits == null
         ? double.infinity
@@ -337,8 +338,8 @@ class Editor extends ChangeNotifier {
     } else {
       if (travel > wall) travel = wall;
       message = editorStrings.nudgeDistance(
-        project.unit.format(travel),
-        project.unit.symbol,
+        displayUnit.format(travel),
+        displayUnit.symbol,
       );
     }
     if (travel < 1e-7) {
@@ -420,7 +421,7 @@ class Editor extends ChangeNotifier {
   }
 
   Editor(this.project);
-  ({Beam from, Beam to})? doorSwing;
+  ({Project to, Project Function(double) frame})? doorSwing;
   Beam configureDoor(Beam part, DoorHinge? hinge, {double? angle}) =>
       part.withDoorHinge(
         hinge,
@@ -429,11 +430,56 @@ class Editor extends ChangeNotifier {
         angle: angle,
       );
   void toggleDoor(int id) {
-    final door = project.byId[id];
+    final start = project;
+    final door = start.byId[id];
     if (door == null || door.hinge == null || door.hidden) return;
-    final openedOrClosed = door.swingDoor(1);
-    doorSwing = (from: door, to: openedOrClosed);
-    commit(project.edit({id}, (_) => openedOrClosed));
+    _animateDoor((t) => start.edit({id}, (_) => door.swingDoor(t)));
+  }
+
+  void toggleGroupDoor(int group) {
+    final door = project.groupDoors[group];
+    if (door != null) _animateDoor(door.swing(project, group));
+  }
+
+  void _animateDoor(Project Function(double) frame) {
+    final next = frame(1);
+    doorSwing = (to: next, frame: frame);
+    commit(next);
+  }
+
+  Project configureGroupDoor(
+    Project doc,
+    int group,
+    DoorHinge? hinge,
+    double angle,
+  ) {
+    final old = doc.groupDoors[group];
+    if (hinge == old?.hinge && (hinge == null || angle == old?.angle)) {
+      return doc;
+    }
+    if (hinge != null && !validDoorAngle(angle)) return doc;
+    final closed = old != null && old.isOpen ? old.swing(doc, group)(1) : doc;
+    final doors = {...closed.groupDoors};
+    final previous = doors.remove(group);
+    if (hinge != null) {
+      final parts = closed.beams.where((b) => b.group == group).toList();
+      if (parts.length < 2) return doc;
+      doors[group] = previous == null
+          ? GroupDoor.fit(
+              parts,
+              hinge,
+              angle,
+              camera.towardEye(
+                Bounds3.points(parts.expand((b) => b.corners)).center,
+              ),
+              camera.up,
+            )
+          : GroupDoor(hinge, previous.right, previous.top, angle: angle);
+    }
+    final changed = closed.copy(groupDoors: doors);
+    return old?.isOpen == true && hinge != null
+        ? doors[group]!.swing(changed, group)(1)
+        : changed;
   }
 
   bool get canUndo => _past.isNotEmpty;
@@ -442,6 +488,16 @@ class Editor extends ChangeNotifier {
       project.beams.where((b) => selection.contains(b.id)).toList();
   Beam? get single =>
       selection.length == 1 ? project.byId[selection.first] : null;
+  int? get selectedGroup {
+    if (selection.isEmpty) return null;
+    final id = selection.first, group = project.byId[id]?.group;
+    if (group == null ||
+        !setEquals(selection, project.visibleGeometry.assembly(id))) {
+      return null;
+    }
+    return project.assembly(id).length >= 2 ? group : null;
+  }
+
   void refresh() => notifyListeners();
   void _updateWorkspaceView(Project next) {
     if (project.workspaceSize == next.workspaceSize) return;
@@ -689,7 +745,16 @@ class Editor extends ChangeNotifier {
     }
     var next = project.nextId, nextGroup = project.nextGroup;
     final groups = <int, int>{};
-    final copies = selected
+    final copiedDoors = selection
+        .map((id) => project.byId[id]?.group)
+        .nonNulls
+        .where(project.groupDoors.containsKey)
+        .toSet();
+    for (final b in project.beams) {
+      if (!b.hidden && !selection.contains(b.id)) copiedDoors.remove(b.group);
+    }
+    final copies = project.beams
+        .where((b) => selection.contains(b.id) || copiedDoors.contains(b.group))
         .map(
           (b) => b.copy(
             id: next++,
@@ -708,6 +773,10 @@ class Editor extends ChangeNotifier {
           ...project.groupNames,
           for (final entry in groups.entries)
             entry.value: ?project.groupNames[entry.key],
+        },
+        groupDoors: {
+          ...project.groupDoors,
+          for (final g in copiedDoors) groups[g]!: project.groupDoors[g]!,
         },
       ),
     );

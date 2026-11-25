@@ -18,8 +18,7 @@ Future<NewProjectChoice?> chooseProjectTemplate(
 }) => showDeskDialog<NewProjectChoice>(
   source: source,
   context: context,
-  builder: (_) =>
-      _TemplatePicker(unit == LengthUnit.inch ? unit : LengthUnit.millimeter),
+  builder: (_) => _TemplatePicker(unit),
 );
 
 class _TemplatePicker extends StatefulWidget {
@@ -30,14 +29,13 @@ class _TemplatePicker extends StatefulWidget {
 }
 
 class _TemplatePickerState extends State<_TemplatePicker> {
-  var selected = FurnitureTemplate.signatureCabinet;
-  late var unit = widget.unit;
+  var selected = FurnitureTemplate.hoodCabinet;
+  LengthUnit get unit => widget.unit;
   late var project = selected.build(unit);
   bool expanded = true;
 
-  void select(FurnitureTemplate next, LengthUnit units) => setState(() {
+  void select(FurnitureTemplate next) => setState(() {
     selected = next;
-    unit = units;
     project = selected.build(unit);
   });
 
@@ -60,7 +58,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
       setState(() => expanded = !expanded);
     } else {
       expanded = true;
-      select(templatesIn(category).first, unit);
+      select(templatesIn(category).first);
     }
   }
 
@@ -110,7 +108,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
               selected: template == selected,
               child: DeskControl(
                 background: template == selected ? context.selectionFill : null,
-                onPressed: () => select(template, unit),
+                onPressed: () => select(template),
                 padding: const EdgeInsets.fromLTRB(30, 6, 8, 6),
                 child: Align(
                   alignment: Alignment.centerLeft,
@@ -165,7 +163,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
           children: [
             for (final label in [
               materialLabel,
-              if (selected.difficulty case final difficulty?) difficulty.label,
+              selected.difficulty.label,
               sizeLabel([size.x, size.y, size.z]),
               s.partCount(project.beams.length),
             ])
@@ -183,6 +181,20 @@ class _TemplatePickerState extends State<_TemplatePicker> {
             ),
           ),
         ),
+        const SizedBox(height: 8),
+        Text(
+          context.strings.templateAssembly,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          selected.assemblyNote,
+          style: TextStyle(
+            color: context.colors.ink,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
       ],
     );
   }
@@ -190,19 +202,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
   @override
   Widget build(BuildContext context) => DeskDialog(
     maxWidth: 800,
-    title: Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 16,
-      runSpacing: 6,
-      children: [
-        Text(context.strings.newProject),
-        DeskSegments(unit, {
-          LengthUnit.millimeter: context.strings.millimeters,
-          LengthUnit.inch: context.strings.inches,
-        }, (value) => select(selected, value)),
-      ],
-    ),
+    title: Text(context.strings.newProject),
     insetContent: false,
     content: LayoutBuilder(
       builder: (context, constraints) {
@@ -227,8 +227,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                         for (final category in TemplateCategory.values)
                           (category, category.label),
                       ],
-                      change: (category) =>
-                          select(templatesIn(category).first, unit),
+                      change: (category) => select(templatesIn(category).first),
                       child: menuLabel(selected.category.label),
                     ),
                     DeskMenu<FurnitureTemplate>(
@@ -238,7 +237,7 @@ class _TemplatePickerState extends State<_TemplatePicker> {
                         for (final template in templatesIn(selected.category))
                           (template, template.title),
                       ],
-                      change: (template) => select(template, unit),
+                      change: select,
                       child: menuLabel(selected.title),
                     ),
                   ],
@@ -304,19 +303,22 @@ class _Preview extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final camera = Camera();
-    if (template == FurnitureTemplate.signatureCabinet) {
+    final model = template == FurnitureTemplate.hoodCabinet
+        ? project.edit({
+            for (final b in project.beams)
+              if (b.hinge != null) b.id,
+          }, (b) => b.swingDoor(1))
+        : project;
+    if (template == FurnitureTemplate.signatureCabinet ||
+        template == FurnitureTemplate.hoodCabinet) {
       camera
         ..yaw = .38
         ..pitch = .23;
-    } else if (template == FurnitureTemplate.gazebo) {
-      camera
-        ..yaw = -.35
-        ..pitch = .24;
     }
-    camera.fit(project, size);
+    camera.fit(model, size);
     camera.scale *= 1.18;
     DrawingPainter(
-      scene: Scene(project, camera, size),
+      scene: Scene(model, camera, size),
       selection: const {},
       dimensions: false,
       dimensionsVisible: false,
