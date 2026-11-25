@@ -132,7 +132,7 @@ class PartTypePicker extends StatelessWidget {
                             refresh();
                           },
                           key: const ValueKey('dialog-door-angle'),
-                          unit: '°',
+                          angle: true,
                           live: true,
                           onSubmitted: submit,
                           onValidityChanged: (ok) {

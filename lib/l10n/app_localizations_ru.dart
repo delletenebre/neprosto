@@ -530,6 +530,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get precision => 'Точность';
 
   @override
+  String get anglePrecision => 'Точность углов';
+
+  @override
   String get editingIncrement => 'Шаг редактирования';
 
   @override
@@ -1287,9 +1290,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get stepOff => 'Шаг выкл.';
-
-  @override
   String get width => 'Ширина';
 
   @override
@@ -1656,6 +1656,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get showHoleNumbers => 'Показать номера на схеме';
 
   @override
+  String holeDepthRange(String limit) {
+    return 'Глубина должна быть больше нуля и меньше толщины детали ($limit).';
+  }
+
+  @override
+  String holeDiameterRange(String limit) {
+    return 'Диаметр должен быть больше нуля и не больше $limit.';
+  }
+
+  @override
+  String holeOffsetRange(String minimum, String maximum) {
+    return 'Отступ от края должен быть от $minimum до $maximum.';
+  }
+
+  @override
   String get holeDiameter => 'Диаметр';
 
   @override
@@ -1942,6 +1957,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sawCutLine => 'Линия пропила';
 
   @override
+  String get sawFenceKey => 'Упор';
+
+  @override
+  String get sawBladeKey => 'Диск';
+
+  @override
+  String get sawFeed => 'Подача';
+
+  @override
   String get sawCrosscutFence => 'Поперечный упор';
 
   @override
@@ -1951,7 +1975,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sawHandPlan => 'Сверху · ход пилы';
 
   @override
-  String get sawTablePlan => 'Сверху · подача от себя';
+  String get sawTablePlan => 'Сверху · передний край внизу';
 
   @override
   String get sawMiterSight => 'От рукоятки вдоль реза';
@@ -1960,7 +1984,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sawHandSight => 'Сзади пилы по ходу реза';
 
   @override
-  String get sawTableSight => 'От переднего края стола';
+  String get sawTableSight => 'В разрезе';
+
+  @override
+  String get sawFeedView => 'Со стороны подачи';
 
   @override
   String sawFenceNear(String angle) {

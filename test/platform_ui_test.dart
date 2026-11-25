@@ -394,7 +394,14 @@ void main() {
 
       await t.tap(find.byTooltip('Настройки'));
       await t.pumpAndSettle();
-      expect(find.byType(apple ? cu.CupertinoSwitch : Switch), findsWidgets);
+      final step = find.byKey(const ValueKey('input-step'));
+      expect(
+        find.descendant(
+          of: step,
+          matching: find.byType(apple ? cu.CupertinoTextField : TextFormField),
+        ),
+        findsOneWidget,
+      );
       final done = find.text('Готово');
       expect(done, findsOneWidget);
       expect(

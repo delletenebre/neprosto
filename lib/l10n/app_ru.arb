@@ -386,6 +386,7 @@
   "zoom": "Масштаб",
   "actionsMenu": "Меню действий",
   "precision": "Точность",
+  "anglePrecision": "Точность углов",
   "editingIncrement": "Шаг редактирования",
   "measurementUnits": "Единицы измерения",
   "millimeters": "Миллиметры",
@@ -857,7 +858,6 @@
       }
     }
   },
-  "stepOff": "Шаг выкл.",
   "width": "Ширина",
   "widthLabel": "Ширина, {unit}",
   "@widthLabel": {
@@ -1004,6 +1004,12 @@
   "addHole": "Добавить отверстие",
   "holeName": "Название отверстия",
   "showHoleNumbers": "Показать номера на схеме",
+  "holeDepthRange": "Глубина должна быть больше нуля и меньше толщины детали ({limit}).",
+  "@holeDepthRange": {"placeholders": {"limit": {"type": "String"}}},
+  "holeDiameterRange": "Диаметр должен быть больше нуля и не больше {limit}.",
+  "@holeDiameterRange": {"placeholders": {"limit": {"type": "String"}}},
+  "holeOffsetRange": "Отступ от края должен быть от {minimum} до {maximum}.",
+  "@holeOffsetRange": {"placeholders": {"minimum": {"type": "String"}, "maximum": {"type": "String"}}},
   "holeDiameter": "Диаметр",
   "throughHole": "Сквозное",
   "blindHole": "Глухое",
@@ -1109,13 +1115,17 @@
   "handheldSaw": "Ручная циркулярная",
   "tableSaw": "Пильный стол",
   "sawCutLine": "Линия пропила",
+  "sawFenceKey": "Упор",
+  "sawBladeKey": "Диск",
+  "sawFeed": "Подача",
   "sawCrosscutFence": "Поперечный упор",
   "sawMiterPlan": "Сверху · рукоятка снизу",
   "sawHandPlan": "Сверху · ход пилы",
-  "sawTablePlan": "Сверху · подача от себя",
+  "sawTablePlan": "Сверху · передний край внизу",
   "sawMiterSight": "От рукоятки вдоль реза",
   "sawHandSight": "Сзади пилы по ходу реза",
-  "sawTableSight": "От переднего края стола",
+  "sawTableSight": "В разрезе",
+  "sawFeedView": "Со стороны подачи",
   "sawFenceNear": "{angle}° · правый край к себе",
   "@sawFenceNear": {
     "placeholders": {

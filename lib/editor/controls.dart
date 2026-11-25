@@ -4,7 +4,6 @@ import 'platform_ui.dart';
 import 'desk_text_field.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'drawing.dart';
@@ -118,13 +117,23 @@ Widget sectionTitle(String label, {Widget? trailing}) => Row(
 );
 
 class Units extends InheritedWidget {
-  const Units(this.input, {super.key, required super.child});
+  const Units(
+    this.input, {
+    this.anglePrecision = AnglePrecision.initial,
+    super.key,
+    required super.child,
+  });
   final LengthInput input;
+  final AnglePrecision anglePrecision;
   static LengthInput of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<Units>()?.input ??
       (unit: LengthUnit.millimeter, increment: null);
   @override
-  bool updateShouldNotify(Units old) => old.input != input;
+  bool updateShouldNotify(Units old) =>
+      old.input != input || old.anglePrecision != anglePrecision;
+  static AnglePrecision angleOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<Units>()?.anglePrecision ??
+      AnglePrecision.initial;
 }
 
 /// Keeps untouched geometry exact while its text is shown at editing precision.
@@ -159,25 +168,6 @@ class _DraftLengthFieldState extends State<DraftLengthField> {
   void initState() {
     super.initState();
     focus.addListener(normalize);
-    focus.onKeyEvent = (_, event) {
-      final field = widget.controller;
-      final step = field.input.stepMm, value = field.millimeters;
-      if (event is KeyUpEvent || step == null || value == null) {
-        return KeyEventResult.ignored;
-      }
-      final key = event.logicalKey;
-      if (key != LogicalKeyboardKey.arrowUp &&
-          key != LogicalKeyboardKey.arrowDown) {
-        return KeyEventResult.ignored;
-      }
-      field.setMillimeters(
-        field.input.round(
-          value + (key == LogicalKeyboardKey.arrowUp ? step : -step),
-        ),
-      );
-      widget.changed();
-      return KeyEventResult.handled;
-    };
   }
 
   void normalize() {
@@ -199,12 +189,27 @@ class _DraftLengthFieldState extends State<DraftLengthField> {
   Widget build(BuildContext context) => DeskTextField(
     controller: widget.controller,
     focusNode: focus,
-    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    onStep: (direction) {
+      final field = widget.controller;
+      final value = field.millimeters ?? 0;
+      field.setMillimeters(
+        field.input.round(value + direction * field.input.arrowStepMm),
+      );
+      widget.changed();
+    },
     onChanged: (_) {
       widget.controller.edited();
       widget.changed();
     },
-    onSubmitted: (_) => focus.unfocus(),
+    onSubmitted: (text) {
+      final field = widget.controller;
+      final value = field.millimeters;
+      if (value != null && !isNumberLiteral(text)) {
+        field.setMillimeters(value);
+      } else {
+        focus.unfocus();
+      }
+    },
     suffix: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 7),
       child: Text(
@@ -220,7 +225,7 @@ class ValueBox extends StatefulWidget {
     this.value,
     this.changed, {
     super.key,
-    this.unit,
+    this.angle = false,
     this.formatValue,
     this.signed = false,
     this.live = false,
@@ -233,9 +238,9 @@ class ValueBox extends StatefulWidget {
     this.placeholder,
   });
   final double? value;
-  final String? unit, placeholder;
+  final String? placeholder;
   final String Function(double)? formatValue;
-  final bool signed, live, autofocus, enabled;
+  final bool angle, signed, live, autofocus, enabled;
   final VoidCallback? onSubmitted, onCleared;
   final ValueChanged<bool>? onValidityChanged;
   final ValueChanged<bool>? onFocusChanged;
@@ -247,11 +252,12 @@ class ValueBox extends StatefulWidget {
 class _ValueBoxState extends State<ValueBox> {
   final text = TextEditingController();
   LengthInput input = (unit: LengthUnit.millimeter, increment: null);
+  AnglePrecision anglePrecision = AnglePrecision.initial;
   bool edited = false;
   String format(double? n) {
     if (n == null) return '';
     if (widget.formatValue case final formatter?) return formatter(n);
-    return widget.unit == null ? input.format(n) : mm(n);
+    return widget.angle ? anglePrecision.format(n) : input.format(n);
   }
 
   bool get cleared => widget.onCleared != null && text.text.trim().isEmpty;
@@ -259,30 +265,24 @@ class _ValueBoxState extends State<ValueBox> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final next = Units.of(context);
-    if (text.text.isEmpty || next != input) {
+    final nextAngle = Units.angleOf(context);
+    if (text.text.isEmpty ||
+        next != input ||
+        (widget.angle && nextAngle != anglePrecision)) {
       input = next;
+      anglePrecision = nextAngle;
       edited = false;
       text.text = format(widget.value);
     }
   }
 
   final focus = FocusNode();
-  KeyEventResult arrow(FocusNode node, KeyEvent ev) {
-    final increment = widget.unit == null ? input.stepMm : 1.0;
-    if (!widget.enabled || ev is KeyUpEvent || increment == null) {
-      return KeyEventResult.ignored;
-    }
-    final dir = ev.logicalKey == LogicalKeyboardKey.arrowUp
-        ? 1
-        : ev.logicalKey == LogicalKeyboardKey.arrowDown
-        ? -1
-        : 0;
-    if (dir == 0) return KeyEventResult.ignored;
-    final base = parse(text.text) ?? widget.value;
-    if (base == null) return KeyEventResult.ignored;
-    final sum = base + dir * increment;
-    final n = widget.unit == null ? input.round(sum) : sum;
-    if (widget.signed || n > 0) {
+  void arrow(int direction) {
+    final base = parse(text.text) ?? widget.value ?? 0;
+    final n = widget.angle
+        ? anglePrecision.round(base + direction * anglePrecision.increment)
+        : input.round(base + direction * input.arrowStepMm);
+    if (n.abs() <= 1e8 && (widget.signed || n > 0)) {
       text.text = format(n);
       text.selection = TextSelection(
         baseOffset: 0,
@@ -291,14 +291,12 @@ class _ValueBoxState extends State<ValueBox> {
       widget.changed(n);
       widget.onValidityChanged?.call(true);
     }
-    return KeyEventResult.handled;
   }
 
   @override
   void initState() {
     super.initState();
     focus.addListener(_focus);
-    focus.onKeyEvent = arrow;
   }
 
   void _focus() {
@@ -315,7 +313,10 @@ class _ValueBoxState extends State<ValueBox> {
   }
 
   double? parse(String s) {
-    final n = widget.unit == null ? input.parse(s) : calculate(s);
+    final inputValue = widget.angle ? calculate(s) : input.parse(s);
+    final n = widget.angle && inputValue != null
+        ? anglePrecision.round(inputValue)
+        : inputValue;
     return n != null && n.isFinite && n.abs() <= 1e8 && (widget.signed || n > 0)
         ? n
         : null;
@@ -363,6 +364,7 @@ class _ValueBoxState extends State<ValueBox> {
       focusNode: focus,
       autofocus: widget.autofocus,
       enabled: widget.enabled,
+      onStep: arrow,
       placeholder: widget.placeholder,
       style: mono.copyWith(
         fontSize: 12,
@@ -370,10 +372,15 @@ class _ValueBoxState extends State<ValueBox> {
       ),
       textAlign: TextAlign.right,
       onSubmitted: (_) {
-        if (widget.onSubmitted != null) {
-          if (cleared || parse(text.text) != null) widget.onSubmitted!();
-        } else {
+        final value = parse(text.text);
+        if (value != null &&
+            text.text != format(value) &&
+            !isNumberLiteral(text.text)) {
+          _commit();
+        } else if (widget.onSubmitted == null) {
           focus.unfocus();
+        } else if (cleared || value != null) {
+          widget.onSubmitted!();
         }
       },
       onChanged: (s) {
@@ -390,7 +397,7 @@ class _ValueBoxState extends State<ValueBox> {
       suffix: Padding(
         padding: const EdgeInsets.only(right: 6),
         child: Text(
-          widget.unit ?? input.unit.symbol,
+          widget.angle ? '°' : input.unit.symbol,
           style: TextStyle(
             fontSize: 10,
             color: widget.enabled

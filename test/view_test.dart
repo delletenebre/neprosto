@@ -8,6 +8,7 @@ import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/grid_painter.dart';
 import 'package:neprosto/editor/palette.dart';
+import 'package:neprosto/editor/grid_plane_icon.dart';
 import 'package:neprosto/editor/grid_visibility.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/scene.dart';
@@ -194,6 +195,14 @@ void main() {
       expect(buttonBackground(), EditorPalette.light.pale);
       await t.tap(find.text('По осям'));
       await t.pumpAndSettle();
+      for (final plane in GridPlane.values) {
+        final row = find.byKey(ValueKey('grid-${plane.name}'));
+        final icon = find.descendant(
+          of: row,
+          matching: find.byType(GridPlaneIcon),
+        );
+        expect(t.widget<GridPlaneIcon>(icon).plane, plane);
+      }
       await t.tap(find.byKey(const ValueKey('grid-xy')));
       await t.pumpAndSettle();
       expect(e.gridVisibility.planes, isEmpty);

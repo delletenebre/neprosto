@@ -532,6 +532,9 @@ class AppLocalizationsKy extends AppLocalizations {
   String get precision => 'Тактык';
 
   @override
+  String get anglePrecision => 'Бурчтардын тактыгы';
+
+  @override
   String get editingIncrement => 'Түзөтүү кадамы';
 
   @override
@@ -1289,9 +1292,6 @@ class AppLocalizationsKy extends AppLocalizations {
   }
 
   @override
-  String get stepOff => 'Кадам өчүк';
-
-  @override
   String get width => 'Туурасы';
 
   @override
@@ -1659,6 +1659,21 @@ class AppLocalizationsKy extends AppLocalizations {
   String get showHoleNumbers => 'Схемада номерлерди көрсөтүү';
 
   @override
+  String holeDepthRange(String limit) {
+    return 'Тереңдик нөлдөн чоң жана тетиктин калыңдыгынан ($limit) кичине болушу керек.';
+  }
+
+  @override
+  String holeDiameterRange(String limit) {
+    return 'Диаметр нөлдөн чоң жана $limit өлчөмүнөн ашпашы керек.';
+  }
+
+  @override
+  String holeOffsetRange(String minimum, String maximum) {
+    return 'Четтен аралык $minimum менен $maximum ортосунда болушу керек.';
+  }
+
+  @override
   String get holeDiameter => 'Диаметр';
 
   @override
@@ -1945,6 +1960,15 @@ class AppLocalizationsKy extends AppLocalizations {
   String get sawCutLine => 'Кесүү сызыгы';
 
   @override
+  String get sawFenceKey => 'Таяныч';
+
+  @override
+  String get sawBladeKey => 'Диск';
+
+  @override
+  String get sawFeed => 'Берүү';
+
+  @override
   String get sawCrosscutFence => 'Туурасынан кесүү таянычы';
 
   @override
@@ -1954,7 +1978,7 @@ class AppLocalizationsKy extends AppLocalizations {
   String get sawHandPlan => 'Үстүнөн · араанын жүрүшү';
 
   @override
-  String get sawTablePlan => 'Үстүнөн · өзүңүздөн ары';
+  String get sawTablePlan => 'Үстүнөн · алдыңкы чети төмөндө';
 
   @override
   String get sawMiterSight => 'Туткадан кесимди бойлой';
@@ -1963,7 +1987,10 @@ class AppLocalizationsKy extends AppLocalizations {
   String get sawHandSight => 'Араанын артынан, кесимди бойлой';
 
   @override
-  String get sawTableSight => 'Үстөлдүн алдыңкы четинен';
+  String get sawTableSight => 'Кесилиште';
+
+  @override
+  String get sawFeedView => 'Берүү жагынан';
 
   @override
   String sawFenceNear(String angle) {

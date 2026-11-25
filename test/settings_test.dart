@@ -191,16 +191,15 @@ void main() {
       await tap('1/32″');
       expect(stepText(), '1/32');
       await tap('Шаг редактирования');
-      expect(field, findsNothing);
-      expect(find.text('1/100″'), findsNothing);
-      expect(find.text('1/32″'), findsNothing);
-      await tap('Шаг редактирования');
+      expect(find.byType(DeskSwitch), findsNothing);
       expect(stepText(), '1/32');
       await tap('1/16″');
       expect(stepText(), '1/16');
       await tap('1/100″');
       expect(stepText(), '1/100');
+      await tap('1°');
       await tap('Отмена');
+      expect(editor.step.anglePrecision.increment, .1);
       expect(editor.project, same(project));
       expect(editor.step.value(LengthUnit.inch), 1 / 16);
 
@@ -215,7 +214,21 @@ void main() {
       expect(stepText(), '5');
       await tap('Дюймы');
       expect(stepText(), '1/8');
+      await tap('0.01°');
+      await tap('Сохранение');
+      final minutes = find.descendant(
+        of: find.byType(DeskDialog),
+        matching: find.byType(EditableText),
+      );
+      await t.enterText(minutes, '5+2 *2');
+      await t.sendKeyEvent(LogicalKeyboardKey.enter);
+      await t.pump();
+      expect(t.widget<EditableText>(minutes).controller.text, '14');
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await t.pump();
+      expect(t.widget<EditableText>(minutes).controller.text, '13');
       await tap('Готово');
+      expect(editor.step.anglePrecision.increment, .01);
       expect(find.byTooltip('″'), findsOneWidget);
       expect(find.text('Шаг · 1/8″'), findsOneWidget);
       expect(editor.step.value(LengthUnit.millimeter), 5);
@@ -223,6 +236,20 @@ void main() {
       expect(editor.project.beams.first.size, project.beams.first.size);
       editor.undo();
       expect(editor.project, same(project));
+      editor.select(1);
+      editor.setTool(Tool.rotate);
+      await t.pumpAndSettle();
+      final angle = find.byKey(const Key('angle'));
+      await t.enterText(angle, '5+2 *2');
+      await t.sendKeyEvent(LogicalKeyboardKey.enter);
+      await t.pumpAndSettle();
+      expect(
+        find.descendant(of: angle, matching: find.text('14')),
+        findsOneWidget,
+      );
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await t.pumpAndSettle();
+      expect(editor.angle, closeTo(13.99, 1e-10));
     },
     variant: TargetPlatformVariant({
       TargetPlatform.macOS,

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
@@ -60,22 +61,39 @@ void main() {
       );
       final apply = find.widgetWithText(DeskButton, 'Применить');
       final diagram = find.byKey(const ValueKey('hole-diagram'));
+      Offset positionOf(int i) =>
+          t.getCenter(number(i)) - t.getTopLeft(diagram);
 
       await tap(find.text('Открыть'));
       await tap(number(2));
-      final originalPosition = t.getCenter(number(2));
+      final originalPosition = positionOf(2);
       await edit('depth', '12');
-      expect(t.getCenter(number(2)), originalPosition);
+      expect(positionOf(2), originalPosition);
       expect(t.widget<Icon>(warnings).color, EditorPalette.light.danger);
+      const depthHint =
+          'Глубина должна быть больше нуля и меньше толщины детали (12 мм).';
+      expect(
+        t.widget<Text>(find.text('Глубина')).style?.color,
+        EditorPalette.light.danger,
+      );
+      expect(find.text(depthHint), findsNothing);
+      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(t.getCenter(find.byTooltip(depthHint).last));
+      await t.pump(const Duration(seconds: 1));
+      await t.pumpAndSettle();
+      expect(find.text(depthHint), findsOneWidget);
+      await mouse.removePointer();
+      await t.pumpAndSettle();
       expect(t.widget<DeskButton>(apply).onPressed, isNull);
       await edit('depth', '');
-      expect(t.getCenter(number(2)), originalPosition);
+      expect(positionOf(2), originalPosition);
       await edit('horizontal', '150');
-      final editedPosition = t.getCenter(number(2));
+      final editedPosition = positionOf(2);
       expect(editedPosition, isNot(originalPosition));
       await edit('horizontal', '2+');
       await edit('diameter', '');
-      expect(t.getCenter(number(2)), editedPosition);
+      expect(positionOf(2), editedPosition);
       await edit('horizontal', '9000');
       expect(t.getRect(diagram).contains(t.getCenter(number(2))), isTrue);
       await tap(number(1));
@@ -140,9 +158,13 @@ void main() {
     final diagram = find.byKey(const ValueKey('hole-diagram'));
     Finder number(int i) => find.byKey(ValueKey('hole-number-$i'));
     final name = find.descendant(
-      of: find.byKey(const ValueKey('hole-name')),
+      of: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byKey(const ValueKey('hole-name')),
+      ),
       matching: find.byType(EditableText),
     );
+    final pencil = find.byTooltip('Переименовать…');
     final listHeading = find.text('Отверстия (1)');
     await tap(add);
     expect(t.getRect(listHeading).right, lessThan(t.getRect(diagram).left));
@@ -157,9 +179,11 @@ void main() {
     expect(find.text('Отверстие 2 из 2'), findsNothing);
     expect(t.getRect(number(1)).overlaps(t.getRect(number(2))), isFalse);
     final toggle = find.text('Показать номера на схеме');
+    final checkbox = find.byType(Checkbox);
     final centre = t.getCenter(diagram);
     expect(t.getRect(toggle).bottom, lessThanOrEqualTo(t.getRect(diagram).top));
-    await tap(toggle);
+    await tap(checkbox);
+    expect(t.widget<Checkbox>(checkbox).value, isFalse);
     expect(number(1), findsNothing);
     expect(number(2), findsNothing);
     expect(t.getCenter(diagram), centre);
@@ -168,14 +192,24 @@ void main() {
     await tap(toggle);
     expect(number(1), findsOneWidget);
     expect(number(2), findsOneWidget);
+    expect(name, findsNothing);
+    expect(t.getRect(pencil).left - t.getRect(second).right, closeTo(5, 1));
+    await tap(pencil);
     await t.enterText(name, 'Петля');
+    await t.testTextInput.receiveAction(TextInputAction.done);
     await t.pumpAndSettle();
     expect(find.text('№ 2 · Петля'), findsOneWidget);
     expect(find.text('Ø35 мм · Глухое · Сторона Б'), findsOneWidget);
     await tap(first);
     expect(find.byKey(const ValueKey('hole-depth')), findsNothing);
     await tap(number(2));
+    await tap(pencil);
     expect(t.widget<EditableText>(name).controller.text, 'Петля');
+    await t.enterText(name, 'Отменить');
+    await t.sendKeyEvent(LogicalKeyboardKey.escape);
+    await t.pumpAndSettle();
+    expect(name, findsNothing);
+    expect(find.text('№ 2 · Петля'), findsOneWidget);
     expect(find.byKey(const ValueKey('hole-depth')), findsOneWidget);
     await tap(add);
     await tap(find.text('Сторона А').hitTestable());
@@ -187,6 +221,13 @@ void main() {
       await tap(add);
     }
     expect(find.text('№ 11 · Ø5 мм').hitTestable(), findsOneWidget);
+    expect(t.getSize(number(11)).height, t.getSize(number(1)).height);
+    expect(
+      t.getSize(number(11)).width,
+      greaterThan(t.getSize(number(1)).width),
+    );
+    await tap(number(10));
+    expect(find.text('№ 10 · Ø5 мм').hitTestable(), findsOneWidget);
     expect(first.hitTestable(), findsNothing);
     // The first through hole was added at the centre of the panel.
     await tap(diagram);
@@ -208,6 +249,7 @@ void main() {
     expect(Beam.fromJson(saved.toJson()).holes.first.name, 'Петля');
     await tap(find.text('Открыть'));
     await tap(toggle);
+    await tap(pencil);
     await t.enterText(name, 'Шкант');
     await tap(find.text('Отмена'));
     expect(editor.project.beams.single, same(saved));
@@ -215,6 +257,7 @@ void main() {
     expect(number(1), findsNothing);
     await tap(toggle);
     expect(number(1), findsOneWidget);
+    await tap(pencil);
     await t.enterText(name, 'Верхняя петля');
     await tap(find.text('Применить'));
     expect(editor.project.beams.single.holes.first.name, 'Верхняя петля');

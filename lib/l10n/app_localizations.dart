@@ -994,6 +994,12 @@ abstract class AppLocalizations {
   /// **'Точность'**
   String get precision;
 
+  /// No description provided for @anglePrecision.
+  ///
+  /// In ru, this message translates to:
+  /// **'Точность углов'**
+  String get anglePrecision;
+
   /// No description provided for @editingIncrement.
   ///
   /// In ru, this message translates to:
@@ -2349,12 +2355,6 @@ abstract class AppLocalizations {
   /// **'Шаг · {increment}'**
   String step(Object increment);
 
-  /// No description provided for @stepOff.
-  ///
-  /// In ru, this message translates to:
-  /// **'Шаг выкл.'**
-  String get stepOff;
-
   /// No description provided for @width.
   ///
   /// In ru, this message translates to:
@@ -3069,6 +3069,24 @@ abstract class AppLocalizations {
   /// **'Показать номера на схеме'**
   String get showHoleNumbers;
 
+  /// No description provided for @holeDepthRange.
+  ///
+  /// In ru, this message translates to:
+  /// **'Глубина должна быть больше нуля и меньше толщины детали ({limit}).'**
+  String holeDepthRange(String limit);
+
+  /// No description provided for @holeDiameterRange.
+  ///
+  /// In ru, this message translates to:
+  /// **'Диаметр должен быть больше нуля и не больше {limit}.'**
+  String holeDiameterRange(String limit);
+
+  /// No description provided for @holeOffsetRange.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отступ от края должен быть от {minimum} до {maximum}.'**
+  String holeOffsetRange(String minimum, String maximum);
+
   /// No description provided for @holeDiameter.
   ///
   /// In ru, this message translates to:
@@ -3615,6 +3633,24 @@ abstract class AppLocalizations {
   /// **'Линия пропила'**
   String get sawCutLine;
 
+  /// No description provided for @sawFenceKey.
+  ///
+  /// In ru, this message translates to:
+  /// **'Упор'**
+  String get sawFenceKey;
+
+  /// No description provided for @sawBladeKey.
+  ///
+  /// In ru, this message translates to:
+  /// **'Диск'**
+  String get sawBladeKey;
+
+  /// No description provided for @sawFeed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подача'**
+  String get sawFeed;
+
   /// No description provided for @sawCrosscutFence.
   ///
   /// In ru, this message translates to:
@@ -3636,7 +3672,7 @@ abstract class AppLocalizations {
   /// No description provided for @sawTablePlan.
   ///
   /// In ru, this message translates to:
-  /// **'Сверху · подача от себя'**
+  /// **'Сверху · передний край внизу'**
   String get sawTablePlan;
 
   /// No description provided for @sawMiterSight.
@@ -3654,8 +3690,14 @@ abstract class AppLocalizations {
   /// No description provided for @sawTableSight.
   ///
   /// In ru, this message translates to:
-  /// **'От переднего края стола'**
+  /// **'В разрезе'**
   String get sawTableSight;
+
+  /// No description provided for @sawFeedView.
+  ///
+  /// In ru, this message translates to:
+  /// **'Со стороны подачи'**
+  String get sawFeedView;
 
   /// No description provided for @sawFenceNear.
   ///

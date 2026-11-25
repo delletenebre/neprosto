@@ -4,6 +4,7 @@ import 'palette.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 
 import 'desktop.dart';
+import 'grid_plane_icon.dart';
 import 'grid_visibility.dart';
 
 class GridControls extends StatelessWidget {
@@ -31,6 +32,15 @@ class GridControls extends StatelessWidget {
               onPressed: () => changed(value.toggle(plane)),
               child: Row(
                 children: [
+                  GridPlaneIcon(plane, size: 25),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${plane.axes} · ${plane.label}',
+                      style: TextStyle(fontSize: 13, color: context.colors.ink),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Icon(
                     value.planes.contains(plane)
                         ? CupertinoIcons.check_mark_circled_solid
@@ -39,11 +49,6 @@ class GridControls extends StatelessWidget {
                     color: value.planes.contains(plane)
                         ? plane.color
                         : context.colors.muted,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${plane.axes} · ${plane.label}',
-                    style: TextStyle(fontSize: 13, color: context.colors.ink),
                   ),
                 ],
               ),

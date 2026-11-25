@@ -44,8 +44,22 @@ double roundToIncrement(double value, double increment) {
 
 typedef LengthInput = ({LengthUnit unit, double? increment});
 
+enum AnglePrecision {
+  whole(1),
+  tenth(.1),
+  hundredth(.01);
+
+  const AnglePrecision(this.increment);
+  final double increment;
+  static const initial = tenth;
+
+  double round(double degrees) => roundToIncrement(degrees, increment);
+  String format(double degrees) => mm(round(degrees));
+}
+
 extension LengthInputValues on LengthInput {
   double? get stepMm => increment == null ? null : increment! * unit.factor;
+  double get arrowStepMm => stepMm ?? unit.factor;
 
   double round(double mm) =>
       increment == null ? mm : roundToIncrement(mm, stepMm!);
@@ -70,9 +84,11 @@ extension LengthInputValues on LengthInput {
 }
 
 class EditStep {
-  final bool enabled;
+  final AnglePrecision? _anglePrecision;
+  AnglePrecision get anglePrecision =>
+      _anglePrecision ?? AnglePrecision.initial;
   final Map<LengthUnit, double> values;
-  EditStep({this.enabled = true, Map<LengthUnit, double> values = const {}})
+  EditStep({this._anglePrecision, Map<LengthUnit, double> values = const {}})
     : values = Map.unmodifiable(values);
   double value(LengthUnit unit) =>
       values[unit] ?? (unit == LengthUnit.inch ? 1 / 16 : 1);
@@ -81,14 +97,15 @@ class EditStep {
       '${LengthUnit.inch.formatStep(millimeters(LengthUnit.inch))}″';
   String label(LengthUnit unit) =>
       unit == LengthUnit.inch ? _inchLabel : unit.format(millimeters(unit));
-  LengthInput input(LengthUnit unit) =>
-      (unit: unit, increment: enabled ? value(unit) : null);
+  LengthInput input(LengthUnit unit) => (unit: unit, increment: value(unit));
   double round(double mm, LengthUnit unit) => input(unit).round(mm);
 
-  EditStep change(LengthUnit unit, double v, bool use) =>
-      EditStep(enabled: use, values: {...values, unit: v});
+  EditStep change(LengthUnit unit, double v) =>
+      EditStep(values: {...values, unit: v}, anglePrecision: anglePrecision);
+  EditStep withAnglePrecision(AnglePrecision value) =>
+      EditStep(values: values, anglePrecision: value);
   String encode() => jsonEncode({
-    'enabled': enabled,
+    'angleIncrement': anglePrecision.increment,
     'values': {for (final e in values.entries) e.key.name: e.value},
   });
   factory EditStep.decode(String source) {
@@ -100,6 +117,9 @@ class EditStep {
         values[unit] = n.toDouble();
       }
     }
-    return EditStep(enabled: data['enabled'] != false, values: values);
+    final anglePrecision = AnglePrecision.values
+        .where((precision) => precision.increment == data['angleIncrement'])
+        .firstOrNull;
+    return EditStep(values: values, anglePrecision: anglePrecision);
   }
 }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show listEquals, precisionErrorTolerance;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/strings.dart';
@@ -122,10 +123,13 @@ class _HoleDialogState extends State<_HoleDialog> {
     for (final h in widget.part.holes) _HoleDraft(h, widget.input),
   ];
   final listScroll = ScrollController();
+  final nameInput = TextEditingController();
+  String? nameBeforeEditing;
   int selected = 0;
   late bool viewBack = current?.blind == true ? current!.back : !upright;
   bool get flipped => viewBack == upright;
   void selectHole(int index) {
+    nameBeforeEditing = null;
     selected = index;
     if (current?.blind == true) viewBack = current!.back;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -158,6 +162,7 @@ class _HoleDialogState extends State<_HoleDialog> {
   @override
   void dispose() {
     listScroll.dispose();
+    nameInput.dispose();
     for (final draft in drafts) {
       draft.dispose();
     }
@@ -231,15 +236,73 @@ class _HoleDialogState extends State<_HoleDialog> {
     selectHole(drafts.length - 1);
   }
 
-  Widget labeled(String label, Widget child) => Column(
+  String? fieldError(_HoleDraft d, LengthEditingController field) {
+    final value = field.millimeters;
+    final s = context.strings;
+    String length(double mm) =>
+        '${widget.input.unit.format(mm)} ${widget.input.unit.symbol}';
+    if (field == d.depth) {
+      return value == null || value <= 0 || value >= size.z
+          ? s.holeDepthRange(length(size.z))
+          : null;
+    }
+    final maxDiameter = math.min(size.x, size.y);
+    if (field == d.diameter) {
+      return value == null || value <= 0 || value > maxDiameter
+          ? s.holeDiameterRange(length(maxDiameter))
+          : null;
+    }
+    final span = field == d.x ? size.x : size.y;
+    final diameter = d.diameter.millimeters;
+    final radius = diameter != null && diameter > 0 && diameter <= maxDiameter
+        ? diameter / 2
+        : 0.0;
+    return value == null || value < radius || value + radius > span
+        ? s.holeOffsetRange(length(radius), length(span - radius))
+        : null;
+  }
+
+  Widget labeled(String label, Widget child, {String? error}) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     mainAxisSize: MainAxisSize.min,
     spacing: 5,
     children: [
-      Text(label, style: TextStyle(fontSize: 12, color: context.colors.muted)),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: error == null
+                    ? context.colors.muted
+                    : context.colors.danger,
+              ),
+            ),
+          ),
+          if (error != null)
+            Tooltip(
+              message: error,
+              child: Icon(
+                Icons.warning_amber_rounded,
+                size: 15,
+                color: context.colors.danger,
+              ),
+            ),
+        ],
+      ),
       ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 32),
-        child: child,
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            border: error == null
+                ? null
+                : Border.all(color: context.colors.danger),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: child,
+        ),
       ),
     ],
   );
@@ -247,6 +310,7 @@ class _HoleDialogState extends State<_HoleDialog> {
   Widget number(String label, String key, LengthEditingController controller) =>
       labeled(
         label,
+        error: fieldError(current!, controller),
         Semantics(
           label: label,
           child: DraftLengthField(
@@ -520,16 +584,17 @@ class _HoleDialogState extends State<_HoleDialog> {
     Rect face,
     Size viewport,
   ) sync* {
-    final fontSize = MediaQuery.textScalerOf(context).scale(11);
+    const fontSize = 10.0;
+    final scaledFont = MediaQuery.textScalerOf(context).scale(fontSize);
     final occupied = [
       for (final m in marks)
         Rect.fromCircle(center: m.center, radius: math.max(6.0, m.radius)),
     ];
     for (final mark in marks) {
       final number = '${mark.index + 1}';
-      final height = fontSize + 7;
-      final width = math.max(height, number.length * fontSize * .75 + 8);
-      final gap = math.max(6.0, mark.radius) + 2;
+      final height = scaledFont + 3;
+      final width = math.max(height, number.length * scaledFont * .7 + 4);
+      final gap = math.max(6.0, mark.radius) + 1;
       // Prefer a free spot on the panel, close to the hole. Near an edge or
       // in a row of closely spaced holes, try the other sides first.
       late Rect label;
@@ -563,7 +628,7 @@ class _HoleDialogState extends State<_HoleDialog> {
           if (score == 0) break;
         }
       }
-      occupied.add(label.inflate(2));
+      occupied.add(label.inflate(1));
       yield Positioned.fromRect(
         rect: label,
         child: Semantics(
@@ -571,23 +636,28 @@ class _HoleDialogState extends State<_HoleDialog> {
           child: DeskControl(
             key: ValueKey('hole-number-${mark.index + 1}'),
             outlined: true,
+            borderRadius: BorderRadius.circular(3),
             background: mark.selected
                 ? EditorPalette.highlight
                 : context.colors.field,
             onPressed: () => setState(() => selectHole(mark.index)),
-            child: Text(
-              number,
-              semanticsLabel: context.strings.holeSelection(
-                mark.index + 1,
-                drafts.length,
-              ),
-              style: TextStyle(
-                fontSize: 11,
-                height: 1,
-                fontWeight: FontWeight.w600,
-                color: mark.selected
-                    ? EditorPalette.onHighlight
-                    : context.colors.ink,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                number,
+                maxLines: 1,
+                semanticsLabel: context.strings.holeSelection(
+                  mark.index + 1,
+                  drafts.length,
+                ),
+                style: TextStyle(
+                  fontSize: fontSize,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  color: mark.selected
+                      ? EditorPalette.onHighlight
+                      : context.colors.ink,
+                ),
               ),
             ),
           ),
@@ -625,9 +695,12 @@ class _HoleDialogState extends State<_HoleDialog> {
                       mainAxisSize: MainAxisSize.min,
                       spacing: 6,
                       children: [
-                        DeskSwitch(
+                        Checkbox.adaptive(
                           value: widget.editor.showHoleNumbers,
-                          onChanged: toggleNumbers,
+                          onChanged: (value) => toggleNumbers(value!),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                         Flexible(
                           child: Text(
@@ -661,8 +734,60 @@ class _HoleDialogState extends State<_HoleDialog> {
     );
   }
 
+  void startRename(_HoleDraft draft) {
+    nameInput.value = TextEditingValue(
+      text: draft.name,
+      selection: TextSelection(baseOffset: 0, extentOffset: draft.name.length),
+    );
+    setState(() => nameBeforeEditing = draft.name);
+  }
+
+  Widget inlineName(_HoleDraft draft) => Focus(
+    canRequestFocus: false,
+    onFocusChange: (focused) {
+      if (!focused &&
+          mounted &&
+          current == draft &&
+          nameBeforeEditing != null) {
+        setState(() => nameBeforeEditing = null);
+      }
+    },
+    child: CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () => setState(() {
+          draft.name = nameBeforeEditing!;
+          nameBeforeEditing = null;
+        }),
+      },
+      child: Semantics(
+        key: const ValueKey('hole-name'),
+        label: context.strings.holeName,
+        child: DeskTextField(
+          controller: nameInput,
+          autofocus: true,
+          onChanged: (value) => draft.name = value.trim(),
+          onSubmitted: (_) => setState(() => nameBeforeEditing = null),
+        ),
+      ),
+    ),
+  );
+
   Widget holeList(Set<int> invalid, {required bool compact}) {
     final s = context.strings, colors = context.colors;
+    Widget rowAction(IconData icon, String tooltip, VoidCallback action) =>
+        SizedBox.square(
+          dimension: 22,
+          child: Material(
+            type: MaterialType.transparency,
+            child: DeskIcon(
+              icon,
+              tooltip,
+              action,
+              size: 14,
+              borderRadius: BorderRadius.circular(11),
+            ),
+          ),
+        );
     final list = Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -692,10 +817,72 @@ class _HoleDialogState extends State<_HoleDialog> {
                     ? '${s.blindHole} · ${draft.back ? s.faceB : s.faceA}'
                     : s.throughHole;
                 final active = i == selected;
+                final editing = active && nameBeforeEditing != null;
                 final title = draft.name.isEmpty ? 'Ø$dimension' : draft.name;
-                final details = draft.name.isEmpty
+                final details = draft.name.isEmpty && !editing
                     ? type
                     : 'Ø$dimension · $type';
+                final summary = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      spacing: 5,
+                      children: [
+                        if (invalid.contains(i))
+                          Tooltip(
+                            message: [
+                              for (final field in [
+                                draft.diameter,
+                                draft.x,
+                                draft.y,
+                                if (draft.blind) draft.depth,
+                              ])
+                                ?fieldError(draft, field),
+                            ].join('\n'),
+                            child: Icon(
+                              Icons.warning_amber_rounded,
+                              size: 16,
+                              color: colors.danger,
+                            ),
+                          ),
+                        if (editing) ...[
+                          Text('№ ${i + 1}'),
+                          Expanded(child: inlineName(draft)),
+                        ] else ...[
+                          Flexible(
+                            child: Text(
+                              '№ ${i + 1} · $title',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (active)
+                            rowAction(
+                              Icons.edit_outlined,
+                              s.rename,
+                              () => startRename(draft),
+                            ),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      details,
+                      maxLines: editing ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.15,
+                        color: colors.muted,
+                      ),
+                    ),
+                  ],
+                );
+                const padding = EdgeInsets.symmetric(horizontal: 10);
                 return DecoratedBox(
                   decoration: BoxDecoration(
                     color: active ? context.selectionFill : null,
@@ -707,61 +894,21 @@ class _HoleDialogState extends State<_HoleDialog> {
                       Expanded(
                         child: Semantics(
                           selected: active,
-                          child: DeskControl(
-                            onPressed: () => setState(() => selectHole(i)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Row(
-                                    spacing: 5,
-                                    children: [
-                                      if (invalid.contains(i))
-                                        Tooltip(
-                                          message: s.invalidHole,
-                                          child: Icon(
-                                            Icons.warning_amber_rounded,
-                                            size: 16,
-                                            color: colors.danger,
-                                          ),
-                                        ),
-                                      Flexible(
-                                        child: Text(
-                                          '№ ${i + 1} · $title',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    details,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      height: 1.15,
-                                      color: colors.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          child: active
+                              ? Padding(padding: padding, child: summary)
+                              : DeskControl(
+                                  onPressed: () =>
+                                      setState(() => selectHole(i)),
+                                  padding: padding,
+                                  child: summary,
+                                ),
                         ),
                       ),
                       if (active)
                         Padding(
                           padding: const EdgeInsets.only(right: 4),
                           child: Center(
-                            child: DeskIcon(
+                            child: rowAction(
                               Icons.delete_outline,
                               s.delete,
                               () => setState(() {
@@ -817,7 +964,7 @@ class _HoleDialogState extends State<_HoleDialog> {
     ],
   );
 
-  Widget properties(_HoleDraft d, int? invalid) {
+  Widget properties(_HoleDraft d) {
     final s = context.strings;
     final separator = Divider(height: 1, color: context.colors.line);
     return Column(
@@ -872,24 +1019,6 @@ class _HoleDialogState extends State<_HoleDialog> {
               ),
             ],
           ),
-        if (invalid != null)
-          Text(
-            '№ ${invalid + 1} · ${s.invalidHole}',
-            style: TextStyle(color: context.colors.danger),
-          ),
-        labeled(
-          s.holeName,
-          Semantics(
-            key: const ValueKey('hole-name'),
-            label: s.holeName,
-            child: DeskTextField(
-              key: ObjectKey(d),
-              initialValue: d.name,
-              placeholder: '№ ${selected + 1}',
-              onChanged: (value) => setState(() => d.name = value.trim()),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -940,14 +1069,7 @@ class _HoleDialogState extends State<_HoleDialog> {
                     : 210,
                 invalid,
               );
-              final form = d == null
-                  ? null
-                  : properties(
-                      d,
-                      invalid.contains(selected)
-                          ? selected
-                          : invalid.firstOrNull,
-                    );
+              final form = d == null ? null : properties(d);
               if (!footerAdds) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

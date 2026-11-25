@@ -531,6 +531,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get precision => 'Precision';
 
   @override
+  String get anglePrecision => 'Angle precision';
+
+  @override
   String get editingIncrement => 'Editing increment';
 
   @override
@@ -1284,9 +1287,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get stepOff => 'Step off';
-
-  @override
   String get width => 'Width';
 
   @override
@@ -1654,6 +1654,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showHoleNumbers => 'Show numbers on the diagram';
 
   @override
+  String holeDepthRange(String limit) {
+    return 'Depth must be greater than zero and less than the part thickness ($limit).';
+  }
+
+  @override
+  String holeDiameterRange(String limit) {
+    return 'Diameter must be greater than zero and at most $limit.';
+  }
+
+  @override
+  String holeOffsetRange(String minimum, String maximum) {
+    return 'The edge distance must be between $minimum and $maximum.';
+  }
+
+  @override
   String get holeDiameter => 'Diameter';
 
   @override
@@ -1940,6 +1955,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sawCutLine => 'Cut line';
 
   @override
+  String get sawFenceKey => 'Fence';
+
+  @override
+  String get sawBladeKey => 'Blade';
+
+  @override
+  String get sawFeed => 'Feed';
+
+  @override
   String get sawCrosscutFence => 'Miter gauge';
 
   @override
@@ -1949,7 +1973,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sawHandPlan => 'Top view · saw travel';
 
   @override
-  String get sawTablePlan => 'Top view · feed away';
+  String get sawTablePlan => 'Top view · front edge at bottom';
 
   @override
   String get sawMiterSight => 'From the handle along the cut';
@@ -1958,7 +1982,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sawHandSight => 'From behind the saw along the cut';
 
   @override
-  String get sawTableSight => 'From the front of the table';
+  String get sawTableSight => 'Cutaway';
+
+  @override
+  String get sawFeedView => 'Infeed view';
 
   @override
   String sawFenceNear(String angle) {

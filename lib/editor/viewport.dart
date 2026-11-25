@@ -384,8 +384,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     if (e.tool == Tool.beam &&
         e.first != null &&
         e.hover != null &&
-        e.hover!.beam == null &&
-        e.step.enabled) {
+        e.hover!.beam == null) {
       final base = e.first!.point, delta = e.hover!.point - base;
       if (delta.length > 1e-7) {
         e.hover = Anchor(

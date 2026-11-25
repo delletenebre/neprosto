@@ -202,7 +202,11 @@ class _NeprostoAppState extends State<NeprostoApp> {
           ListenableBuilder(
             listenable: editor,
             child: child,
-            builder: (_, child) => Units(editor.lengthInput, child: child!),
+            builder: (_, child) => Units(
+              editor.lengthInput,
+              anglePrecision: editor.step.anglePrecision,
+              child: child!,
+            ),
           );
       if (!appleControls) {
         return MaterialApp(
@@ -1546,9 +1550,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           plain: true,
           onPressed: editSettings,
           child: Text(
-            e.step.enabled
-                ? context.strings.step(e.step.label(e.project.unit))
-                : context.strings.stepOff,
+            context.strings.step(e.step.label(e.project.unit)),
             style: const TextStyle(fontSize: 11),
           ),
         ),

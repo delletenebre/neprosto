@@ -540,6 +540,9 @@ void main() {
       if (key == LogicalKeyboardKey.enter) {
         await t.testTextInput.receiveAction(TextInputAction.done);
         await t.pumpAndSettle();
+        expect(t.widget<DeskTextField>(field).controller!.text, '52');
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pumpAndSettle();
         expect(e.single!.size.z, 52);
         e.undo();
         await t.pumpAndSettle();
@@ -2012,6 +2015,12 @@ void main() {
       final typed = editor.displayed.byId[1]!;
       await t.testTextInput.receiveAction(TextInputAction.done);
       await t.pumpAndSettle();
+      expect(
+        find.descendant(of: field, matching: find.text('45')),
+        findsOneWidget,
+      );
+      await t.sendKeyEvent(LogicalKeyboardKey.enter);
+      await t.pumpAndSettle();
       expect(editor.tool, Tool.select);
       expect(editor.single!.along, typed.along);
       editor.undo();
@@ -2063,11 +2072,10 @@ void main() {
       expect(e.single!.size.y, closeTo(19.05, 1e-8));
       await t.tap(find.text('Шаг · 1/4″'));
       await t.pumpAndSettle();
-      await t.tap(find.byType(DeskSwitch).last);
-      await t.pumpAndSettle();
+      expect(find.byType(DeskSwitch), findsNothing);
       await t.tap(find.text('Готово'));
       await t.pumpAndSettle();
-      expect(e.step.enabled, false);
+      expect(e.lengthInput.increment, .25);
     },
   );
   testWidgets('Control and Command both undo, redo and zoom at the pointer', (

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../l10n/strings.dart';
 import 'arithmetic.dart';
 import 'controller.dart';
+import 'controls.dart';
 import 'desk_text_field.dart';
 import 'desktop.dart';
 import 'drawing.dart';
@@ -14,6 +15,7 @@ import 'model.dart';
 import 'palette.dart';
 import 'scene.dart';
 import 'step.dart';
+import 'table_saw_preview.dart';
 
 part 'saw_settings.dart';
 
@@ -29,6 +31,7 @@ Future<void> showEndCuts(
       part,
       editor.camera,
       editor.lengthInput,
+      editor.step.anglePrecision,
       end ??
           (part.startCut == (y: 0.0, z: 0.0) &&
               part.endCut != (y: 0.0, z: 0.0)),
@@ -44,10 +47,17 @@ Future<void> showEndCuts(
 }
 
 class _EndCutDialog extends StatefulWidget {
-  const _EndCutDialog(this.part, this.camera, this.input, this.initialEnd);
+  const _EndCutDialog(
+    this.part,
+    this.camera,
+    this.input,
+    this.precision,
+    this.initialEnd,
+  );
   final Beam part;
   final Camera camera;
   final LengthInput input;
+  final AnglePrecision precision;
   final bool initialEnd;
   @override
   State<_EndCutDialog> createState() => _EndCutDialogState();
@@ -55,35 +65,61 @@ class _EndCutDialog extends StatefulWidget {
 
 // An untouched field retains the exact plane from a template or saved file.
 class _MarkField {
-  _MarkField(this.originalOffset, this.span) {
+  _MarkField(this.originalOffset, this.span, this.precision) {
     final angle = markingAngle(originalOffset, span);
-    final rounded = mm(angle);
-    initialText =
+    final rounded = precision.format(angle);
+    final initialText =
         (angle != 0 && rounded == '0') || double.parse(rounded).abs() == 90
         ? angle.toString()
         : rounded;
     text = TextEditingController(text: initialText);
   }
   final double originalOffset, span;
-  late final String initialText;
+  final AnglePrecision precision;
   late final TextEditingController text;
+  bool edited = false;
 
-  double get offset {
-    final value = text.text.trim().replaceAll(',', '.').replaceAll('−', '-');
-    if (value == initialText) return originalOffset;
-    final degrees = calculate(value);
-    return degrees == null ? 0 : markingOffset(degrees, span) ?? 0;
+  double? get degrees {
+    final value = calculate(text.text);
+    return value == null ? null : precision.round(value);
+  }
+
+  double get offset =>
+      edited ? markingOffset(degrees ?? 0, span) ?? 0 : originalOffset;
+
+  void normalize() {
+    final value = degrees;
+    if (edited && value != null && markingOffset(value, span) != null) {
+      setAngle(value);
+    }
+  }
+
+  void step(int direction) {
+    final next = precision.round(
+      (degrees ?? 0) + direction * precision.increment,
+    );
+    if (markingOffset(next, span) != null) setAngle(next);
+  }
+
+  void setAngle(double angle) {
+    edited = true;
+    final value = precision.format(angle);
+    text.value = TextEditingValue(
+      text: value,
+      selection: TextSelection(baseOffset: 0, extentOffset: value.length),
+    );
   }
 }
 
 class _EndCutDialogState extends State<_EndCutDialog> {
   late bool end = widget.initialEnd;
   _SawType sawType = _SawType.miter;
+  bool tableCutaway = true;
   late final fields = [
     for (final cut in [widget.part.startCut, widget.part.endCut])
       (
-        width: _MarkField(cut.y, widget.part.size.y),
-        thickness: _MarkField(cut.z, widget.part.size.z),
+        width: _MarkField(cut.y, widget.part.size.y, widget.precision),
+        thickness: _MarkField(cut.z, widget.part.size.z, widget.precision),
       ),
   ];
 
@@ -117,11 +153,9 @@ class _EndCutDialogState extends State<_EndCutDialog> {
                 key: ObjectKey(f),
                 controller: f.text,
                 placeholder: '0',
-                keyboardType: const TextInputType.numberWithOptions(
-                  signed: true,
-                  decimal: true,
-                ),
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => setState(() => f.edited = true),
+                onStep: (direction) => setState(() => f.step(direction)),
+                onSubmitted: (_) => setState(f.normalize),
                 suffix: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Text('°'),
@@ -137,12 +171,15 @@ class _EndCutDialogState extends State<_EndCutDialog> {
                   colors,
                   DefaultTextStyle.of(context).style,
                   context.strings.start,
+                  widget.precision,
                 ),
               ),
             ),
             Text(
               context.strings.angleToLongEdge(
-                mm(90 - markingAngle(offset, f.span).abs()),
+                widget.precision.format(
+                  90 - markingAngle(offset, f.span).abs(),
+                ),
               ),
               style: TextStyle(fontSize: 12, color: colors.muted),
             ),
@@ -234,16 +271,27 @@ class _EndCutDialogState extends State<_EndCutDialog> {
               style: TextStyle(fontSize: 12, color: colors.muted),
             ),
             _diagramPair(
-              _SawSetting(tool: sawType, blade: false, angle: saw.miter),
-              _SawSetting(tool: sawType, blade: true, angle: saw.bevel),
+              _SawSetting(
+                tool: sawType,
+                blade: false,
+                angle: saw.miter,
+                tableCutaway: tableCutaway,
+              ),
+              _SawSetting(
+                tool: sawType,
+                blade: true,
+                angle: saw.bevel,
+                tableCutaway: tableCutaway,
+                changeView: (cutaway) => setState(() => tableCutaway = cutaway),
+              ),
             ),
           ],
         ],
       ),
       leadingAction: DeskButton(
         onPressed: () => setState(() {
-          current.width.text.text = '0';
-          current.thickness.text.text = '0';
+          current.width.setAngle(0);
+          current.thickness.setAngle(0);
         }),
         child: Text(strings.resetEndCut),
       ),
@@ -371,8 +419,10 @@ class _MarkDiagram extends CustomPainter {
     this.colors,
     this.labelStyle,
     this.startLabel,
+    this.precision,
   );
   final double slope;
+  final AnglePrecision precision;
   final bool end;
   final EditorPalette colors;
   final TextStyle labelStyle;
@@ -435,7 +485,7 @@ class _MarkDiagram extends CustomPainter {
     }
     final label = TextPainter(
       text: TextSpan(
-        text: '${mm(sweep.abs() * 180 / math.pi)}°',
+        text: '${precision.format(sweep.abs() * 180 / math.pi)}°',
         style: labelStyle.copyWith(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -474,6 +524,7 @@ class _MarkDiagram extends CustomPainter {
   bool shouldRepaint(_MarkDiagram old) =>
       old.end != end ||
       old.slope != slope ||
+      old.precision != precision ||
       old.colors != colors ||
       old.startLabel != startLabel ||
       old.labelStyle != labelStyle;

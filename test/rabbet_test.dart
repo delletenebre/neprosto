@@ -126,7 +126,7 @@ void main() {
       addTearDown(() => t.binding.setSurfaceSize(null));
       final shelf = blank.copy(size: Vector3(1200, 600, 20));
       final e = Editor(Project('', [shelf], [], LengthUnit.centimeter))
-        ..step = EditStep(enabled: false)
+        ..step = EditStep(values: {LengthUnit.centimeter: .1})
         ..select(shelf.id, individual: true);
       await t.pumpWidget(NeprostoApp(editor: e));
       await t.pumpAndSettle();

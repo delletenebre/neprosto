@@ -125,7 +125,7 @@ class _JointDialogState extends State<JointDialog> {
                     child: ValueBox(
                       inside,
                       (v) => setState(() => inside = v),
-                      unit: '°',
+                      angle: true,
                       live: true,
                     ),
                   ),
@@ -191,7 +191,9 @@ class _JointDialogState extends State<JointDialog> {
                   ),
                 ),
                 Text(
-                  context.strings.miterEndAngle(mm(j.saw)),
+                  context.strings.miterEndAngle(
+                    Units.angleOf(context).format(j.saw),
+                  ),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(

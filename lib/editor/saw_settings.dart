@@ -2,23 +2,30 @@ part of 'end_cut_dialog.dart';
 
 enum _SawType { miter, handheld, table }
 
+const _stockTint = Color(0xffd6aa75);
+const _fenceTint = Color(0xff426c85);
+
 class _SawSetting extends StatelessWidget {
   const _SawSetting({
     required this.tool,
     required this.blade,
     required this.angle,
+    required this.tableCutaway,
+    this.changeView,
   });
 
   final _SawType tool;
   final bool blade;
   final double angle;
+  final bool tableCutaway;
+  final ValueChanged<bool>? changeView;
 
   @override
   Widget build(BuildContext context) {
     final s = context.strings, colors = context.colors;
     // Handheld travel points away from the operator, opposite the miter handle.
     final reading = !blade && tool == _SawType.handheld ? -angle : angle;
-    final rounded = (angle.abs() * 100).round() / 100;
+    final rounded = Units.angleOf(context).round(angle.abs());
     final degrees = NumberFormat('0.##', s.localeName).format(rounded);
     final value = switch ((rounded, blade, tool)) {
       (0, _, _) => '0°',
@@ -47,35 +54,95 @@ class _SawSetting extends StatelessWidget {
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
           SizedBox(
-            height: 106,
-            child: CustomPaint(
-              painter: !blade && tool != _SawType.miter
-                  ? _SawPlan(tool, reading, colors)
-                  : _SawDial(
-                      tool: tool,
-                      blade: blade,
-                      reading: reading,
-                      colors: colors,
-                      labelStyle: DefaultTextStyle.of(context).style,
-                    ),
+            height: 150,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: CustomPaint(
+                    painter: blade && tool == _SawType.table
+                        ? TableSawPreview(
+                            reading,
+                            tableCutaway,
+                            colors,
+                            DefaultTextStyle.of(context).style,
+                          )
+                        : !blade && tool != _SawType.miter
+                        ? _SawPlan(
+                            tool,
+                            reading,
+                            colors,
+                            s.sawFeed,
+                            tableCutaway,
+                            DefaultTextStyle.of(context).style,
+                          )
+                        : _SawDial(
+                            tool: tool,
+                            blade: blade,
+                            reading: reading,
+                            colors: colors,
+                            labelStyle: DefaultTextStyle.of(context).style,
+                          ),
+                  ),
+                ),
+                if (!blade && tool == _SawType.table)
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 9,
+                    children: [
+                      for (final (label, color) in [
+                        (s.part, colors.diagramColor(_stockTint)),
+                        (s.sawFenceKey, colors.diagramColor(_fenceTint)),
+                        (s.sawBladeKey, colors.danger),
+                      ])
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: const SizedBox(width: 10, height: 5),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              label,
+                              style: TextStyle(fontSize: 10, color: colors.ink),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+              ],
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (blade) ...[
-                Icon(Icons.visibility_outlined, size: 13, color: colors.muted),
-                const SizedBox(width: 4),
-              ],
-              Flexible(
-                child: Text(
-                  view,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: colors.muted),
+          if (blade && tool == _SawType.table)
+            DeskSegments<bool>(tableCutaway, {
+              true: s.sawTableSight,
+              false: s.sawFeedView,
+            }, changeView!)
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (blade) ...[
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 13,
+                    color: colors.muted,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    view,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: colors.muted),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           Text(
             value,
             textAlign: TextAlign.center,
@@ -108,12 +175,12 @@ class _SawDial extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final mid = size.width / 2;
-    final radius = math.min(size.height - 33, mid - 16);
+    final radius = math.min(math.min(size.height * .56, 86.0), mid - 17);
     if (radius <= 0) return;
     // In plan the handle points toward the operator. In front elevation the
     // blade points upward. In both views a right setting is on the right.
     final vertical = blade ? -1.0 : 1.0;
-    final pivot = Offset(mid, blade ? size.height - 13 : 13);
+    final pivot = Offset(mid, blade ? size.height * .69 : size.height * .17);
     Offset direction(double degrees) {
       final radians = degrees * math.pi / 180;
       return Offset(math.sin(radians), vertical * math.cos(radians));
@@ -121,31 +188,39 @@ class _SawDial extends CustomPainter {
 
     final limit = math.max(blade ? 45 : 60, (reading.abs() / 15).ceil() * 15);
     final span = limit * math.pi / 180;
+    final scale = Rect.fromCircle(center: pivot, radius: radius);
     canvas.drawArc(
-      Rect.fromCircle(center: pivot, radius: radius),
+      scale,
       vertical * math.pi / 2 - span,
       2 * span,
       false,
       Paint()
-        ..color = colors.chrome
+        ..color = colors.line
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 10,
+        ..strokeWidth = 1,
     );
     final tick = Paint();
     for (var degree = -limit; degree <= limit; degree++) {
       final major = degree % 15 == 0;
       final fifth = degree % 5 == 0;
       final ray = direction(degree.toDouble());
-      final tickLength = major
-          ? 10.0
-          : fifth
+      final length = major
           ? 7.0
-          : 3.0;
-      final inner = pivot + ray * (radius - 5);
+          : fifth
+          ? 4.5
+          : 2.0;
       tick
-        ..color = fifth ? colors.ink : colors.muted
-        ..strokeWidth = major ? 1.6 : .8;
-      canvas.drawLine(inner, inner + ray * tickLength, tick);
+        ..color = major
+            ? colors.ink
+            : fifth
+            ? colors.muted
+            : colors.line
+        ..strokeWidth = major ? 1.2 : .8;
+      canvas.drawLine(
+        pivot + ray * (radius - length),
+        pivot + ray * radius,
+        tick,
+      );
       if (!major) continue;
       final text = TextPainter(
         text: TextSpan(
@@ -160,63 +235,36 @@ class _SawDial extends CustomPainter {
       )..layout();
       text.paint(
         canvas,
-        pivot + ray * (radius + 13) - text.size.center(Offset.zero),
+        pivot + ray * (radius + 10) - text.size.center(Offset.zero),
       );
       text.dispose();
     }
 
-    // The fence sits behind the miter pivot. The blade stands on the bed.
     final ray = direction(reading);
-    final hub = pivot + ray * ((radius - 7) / 2);
-    final bedY = switch ((blade, tool)) {
-      (true, _SawType.handheld) => pivot.dy - 6,
-      (true, _SawType.table) => hub.dy - 3,
-      _ => pivot.dy - 4 * vertical,
-    };
-    final bedWidth = radius * .78;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(mid, bedY),
-          width: bedWidth * 2,
-          height: 3,
-        ),
-        const Radius.circular(1.5),
-      ),
-      Paint()..color = colors.muted,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(
-          mid,
-          bedY + (blade && tool == _SawType.handheld ? 4 : 4 * vertical),
-        ),
-        width: bedWidth * 1.65,
-        height: 5,
-      ),
-      Paint()..color = colors.diagramColor(const Color(0xffdfbd91)),
-    );
-
     final pen = Paint()..color = colors.danger;
     if (blade) {
-      // On the table saw the arbor is under the table and only the upper
-      // portion of the blade projects above the workpiece.
-      canvas.save();
-      if (tool == _SawType.table) {
-        canvas.clipRect(Rect.fromLTRB(0, 0, size.width, bedY - 1));
-      }
-      _drawBlade(canvas, size, pivot, radius);
-      canvas.restore();
-      if (tool == _SawType.handheld) {
-        canvas.drawLine(
-          Offset(mid - bedWidth * .66, bedY),
-          Offset(mid + bedWidth * .66, bedY),
-          Paint()
-            ..color = colors.muted
-            ..strokeWidth = 3,
-        );
-      }
+      _drawBladeView(canvas, size, pivot, radius, ray);
     } else {
+      final fenceWidth = radius * .8;
+      canvas.drawRRect(
+        RRect.fromLTRBR(
+          mid - fenceWidth,
+          pivot.dy - 6,
+          mid + fenceWidth,
+          pivot.dy - 3,
+          const Radius.circular(1.5),
+        ),
+        Paint()..color = colors.muted,
+      );
+      canvas.drawRect(
+        Rect.fromLTRB(
+          mid - fenceWidth * .82,
+          pivot.dy - 3,
+          mid + fenceWidth * .82,
+          pivot.dy + 2,
+        ),
+        Paint()..color = colors.diagramColor(_stockTint),
+      );
       final cross = Offset(-ray.dy, ray.dx);
       final tip = pivot + ray * (radius - 4);
       final base = tip - ray * 9;
@@ -241,53 +289,233 @@ class _SawDial extends CustomPainter {
     );
   }
 
-  void _drawBlade(Canvas canvas, Size size, Offset pivot, double dialRadius) {
-    final radius = (dialRadius - 7) / 2;
+  // Oblique front view. Width and height stay true for the bevel scale.
+  // Length along the cut recedes slightly to the left and up.
+  static const _cutDepth = Offset(-.21, -.09);
+
+  void _drawBladeView(
+    Canvas canvas,
+    Size size,
+    Offset pivot,
+    double dialRadius,
+    Offset ray,
+  ) {
+    final radius = dialRadius * .40;
+    final hubDistance = radius * .72;
+    final hub = pivot + ray * hubDistance;
+    final bed = Rect.fromCenter(
+      center: pivot + const Offset(0, 2),
+      width: math.min(size.width - 14, dialRadius * 1.85),
+      height: 6,
+    );
+    final stockY = tool == _SawType.handheld ? bed.bottom : bed.top - 7;
+    final stock = Rect.fromLTWH(bed.left + 8, stockY, bed.width - 16, 7);
+    final metal = colors.diagramColor(const Color(0xff586671));
+    if (reading.abs() > 1) {
+      final zero = Paint()
+        ..color = colors.line
+        ..strokeWidth = 1;
+      for (double d = 6; d < dialRadius - 10; d += 7) {
+        canvas.drawLine(pivot - Offset(0, d), pivot - Offset(0, d + 3), zero);
+      }
+    }
+    _drawSlottedPlate(
+      canvas,
+      stock,
+      25,
+      colors.diagramColor(_stockTint),
+      pivot,
+      ray,
+    );
+    _drawSlottedPlate(canvas, bed, 34, metal, pivot, ray);
     canvas.save();
-    canvas.clipRect(Rect.fromLTRB(0, 0, size.width, pivot.dy + 2));
-    canvas.translate(pivot.dx, pivot.dy);
-    canvas.rotate(reading * math.pi / 180);
-    canvas.translate(0, -radius);
-    // An oblique view reveals the teeth and hub while the long axis shows the tilt.
-    canvas.scale(.54, 1);
-    const pitch = 2 * math.pi / 24;
-    final teeth = Path()
-      ..addPolygon([
-        for (var i = 0; i < 24; i++) ...[
-          Offset.fromDirection(i * pitch - math.pi / 2, radius),
-          Offset.fromDirection((i + .38) * pitch - math.pi / 2, radius * .87),
-        ],
-      ], true);
+    canvas.translate(hub.dx, hub.dy);
+    final bevel = reading * math.pi / 180;
+    canvas.rotate(bevel);
+    // Express the fixed depth axis in the rotating blade's coordinates.
+    final depth = Offset(
+      _cutDepth.dx * math.cos(bevel) + _cutDepth.dy * math.sin(bevel),
+      -_cutDepth.dx * math.sin(bevel) + _cutDepth.dy * math.cos(bevel),
+    );
+    _drawDisc(canvas, radius, depth);
+    canvas.restore();
+    // The front lip is nearer to the viewer than the blade and its arbor.
+    _drawSlottedPlate(canvas, bed, 34, metal, pivot, ray, frontOnly: true);
+    final tip = hubDistance + radius;
+    final guide = Paint()
+      ..color = colors.danger
+      ..strokeWidth = 1;
+    for (double d = tip + 3; d < dialRadius - 7; d += 5) {
+      canvas.drawLine(pivot + ray * d, pivot + ray * (d + 2), guide);
+    }
+    final side = Offset(-ray.dy, ray.dx);
+    final index = pivot + ray * (dialRadius - 1);
+    final base = index - ray * 6;
     canvas.drawPath(
-      teeth,
-      Paint()..color = colors.diagramColor(const Color(0xffaab6c3)),
+      Path()..addPolygon([index, base + side * 2.8, base - side * 2.8], true),
+      guide,
     );
-    final outline = Paint()
-      ..color = colors.muted
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1;
-    canvas.drawPath(teeth, outline);
-    canvas.drawCircle(Offset.zero, radius * .79, outline);
+  }
+
+  void _drawSlottedPlate(
+    Canvas canvas,
+    Rect section,
+    double halfDepth,
+    Color color,
+    Offset pivot,
+    Offset ray, {
+    bool frontOnly = false,
+  }) {
+    final back = _cutDepth * halfDepth;
+    // Intersect the same blade plane with both heights of the cross-section.
+    double cut(double y, double side) =>
+        (pivot.dx + ((y - pivot.dy) * ray.dx - side * 1.8) / ray.dy)
+            .clamp(section.left, section.right)
+            .toDouble();
+    for (final (left, right, lowerLeft, lowerRight) in [
+      (
+        section.left,
+        cut(section.top, -1),
+        section.left,
+        cut(section.bottom, -1),
+      ),
+      (
+        cut(section.top, 1),
+        section.right,
+        cut(section.bottom, 1),
+        section.right,
+      ),
+    ]) {
+      final a = Offset(left, section.top), b = Offset(right, section.top);
+      if (!frontOnly) {
+        canvas.drawPath(
+          Path()..addPolygon([a - back, b - back, b + back, a + back], true),
+          Paint()..color = Color.lerp(color, colors.paper, .25)!,
+        );
+      }
+      canvas.drawPath(
+        Path()..addPolygon([
+          a - back,
+          b - back,
+          Offset(lowerRight, section.bottom) - back,
+          Offset(lowerLeft, section.bottom) - back,
+        ], true),
+        Paint()..color = color,
+      );
+    }
+  }
+
+  void _drawDisc(Canvas canvas, double radius, Offset depth) {
+    const pitch = 2 * math.pi / 28;
+    final teeth = [
+      for (var i = 0; i < 28; i++) ...[
+        Offset.fromDirection(i * pitch, radius),
+        Offset.fromDirection((i + .18) * pitch, radius),
+        Offset.fromDirection((i + .50) * pitch, radius * .936),
+      ],
+    ];
+    final edge = [for (final p in teeth) depth * p.dx + Offset(0, p.dy)];
+    const halfKerf = 1.2;
+    const across = Offset(halfKerf, 0);
+    final walls = Path();
+    for (var i = 0; i < edge.length; i++) {
+      final a = edge[i], b = edge[(i + 1) % edge.length];
+      // Consistent winding keeps overlapping teeth solid even exactly edge-on.
+      final side = a.dy <= b.dy ? across : -across;
+      walls.addPolygon([a - side, b - side, b + side, a + side], true);
+    }
+    canvas.drawPath(walls, Paint()..color = const Color(0xff627580));
+    final near = depth.dx <= 0 ? 1.0 : -1.0;
     canvas.drawLine(
-      Offset(0, -radius * .2),
-      Offset(0, -radius * .92),
+      Offset(-near * radius * .13, 0),
+      Offset(near * radius * .16, 0),
       Paint()
-        ..color = colors.danger
-        ..strokeWidth = 3,
+        ..color = const Color(0xff697b85)
+        ..strokeWidth = radius * .12
+        ..strokeCap = StrokeCap.round,
     );
-    canvas.drawCircle(Offset.zero, radius * .22, Paint()..color = colors.paper);
-    canvas.drawCircle(Offset.zero, radius * .22, outline);
-    canvas.drawCircle(Offset.zero, radius * .085, Paint()..color = colors.ink);
+    if (depth.dx.abs() < 1e-6) return;
+    canvas.save();
+    canvas.translate(near * halfKerf, 0);
+    final projection = Matrix4.identity()
+      ..setEntry(0, 0, depth.dx)
+      ..setEntry(1, 0, depth.dy);
+    canvas.transform(projection.storage);
+    final rim = Path()..addPolygon(teeth, true);
+    final face = Rect.fromCircle(center: Offset.zero, radius: radius);
+    canvas.drawPath(
+      rim,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xffe7edef),
+            Color(0xffa0b1ba),
+            Color(0xffe7edef),
+            Color(0xff91a4af),
+          ],
+          stops: [0, .38, .6, 1],
+        ).createShader(face),
+    );
+    canvas.drawPath(
+      rim,
+      Paint()
+        ..color = const Color(0xff6e818b)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .8,
+    );
+    final machining = Paint()
+      ..color = const Color(0xff8c9da5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .6;
+    canvas.drawCircle(Offset.zero, radius * .84, machining);
+    for (var i = 0; i < 3; i++) {
+      final a = i * 2 * math.pi / 3 + .35;
+      final slot = Path()
+        ..moveTo(radius * .72 * math.cos(a), radius * .72 * math.sin(a))
+        ..quadraticBezierTo(
+          radius * .57 * math.cos(a + .12),
+          radius * .57 * math.sin(a + .12),
+          radius * .52 * math.cos(a + .28),
+          radius * .52 * math.sin(a + .28),
+        );
+      canvas.drawPath(
+        slot,
+        Paint()
+          ..color = const Color(0xff7a8d97)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.25
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    canvas.drawCircle(
+      Offset.zero,
+      radius * .16,
+      Paint()..color = const Color(0xff7a8c96),
+    );
+    canvas.drawCircle(
+      Offset.zero,
+      radius * .12,
+      Paint()..color = const Color(0xffdbe2e5),
+    );
+    canvas.drawCircle(
+      Offset.zero,
+      radius * .065,
+      Paint()..color = const Color(0xff475963),
+    );
     if (tool == _SawType.handheld) {
+      // A raised guard follows the teeth without painting over the disc face.
       canvas.drawArc(
-        Rect.fromCircle(center: Offset.zero, radius: radius * .97),
-        -math.pi,
-        math.pi * .88,
+        Rect.fromCircle(center: Offset.zero, radius: radius * 1.045),
+        -math.pi * 1.04,
+        math.pi * .92,
         false,
         Paint()
-          ..color = colors.muted
+          ..color = colors.diagramColor(_fenceTint)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = radius * .16,
+          ..strokeWidth = radius * .13
+          ..strokeCap = StrokeCap.round,
       );
     }
     canvas.restore();
@@ -334,10 +562,20 @@ void _drawSight(
 }
 
 class _SawPlan extends CustomPainter {
-  const _SawPlan(this.tool, this.angle, this.colors);
+  const _SawPlan(
+    this.tool,
+    this.angle,
+    this.colors,
+    this.feed,
+    this.tableCutaway,
+    this.labelStyle,
+  );
   final _SawType tool;
   final double angle;
   final EditorPalette colors;
+  final String feed;
+  final bool tableCutaway;
+  final TextStyle labelStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -395,54 +633,199 @@ class _SawPlan extends CustomPainter {
       canvas.restore();
       _drawSight(canvas, near - direction * 16, direction, colors);
     } else {
-      final table = RRect.fromRectAndRadius(
-        Rect.fromLTRB(-halfWidth - 7, -41, halfWidth + 7, 41),
-        const Radius.circular(5),
-      );
-      canvas.drawRRect(table, Paint()..color = colors.chrome);
-      final length = math.min(
-        halfWidth,
-        30 / math.max(.01, math.sin(radians).abs()),
-      );
-      final knobX = -length * .55;
-      const knobY = 9.0;
-      final slotX = knobX * math.cos(radians) - knobY * math.sin(radians);
-      canvas.drawLine(
-        Offset(slotX, -40),
-        Offset(slotX, 40),
-        Paint()
-          ..color = colors.line
-          ..strokeWidth = 3,
-      );
-      // The blade stays in its slot. The gauge turns the board's right end
-      // toward the operator for a positive miter-handle reading.
-      canvas.save();
-      canvas.rotate(radians);
-      final knob = Offset(knobX, knobY);
-      canvas.drawArc(
-        Rect.fromCircle(center: knob, radius: 10),
-        0,
-        math.pi,
-        true,
-        Paint()..color = colors.line,
-      );
-      canvas.drawRect(Rect.fromLTRB(-length, -12, length, 4), wood);
-      canvas.drawRRect(
-        RRect.fromLTRBR(-length, 4, length, 8, const Radius.circular(1)),
-        metal,
-      );
-      canvas.drawCircle(knob, 3, metal);
-      canvas.restore();
-      canvas.drawLine(
-        const Offset(0, -24),
-        const Offset(0, 11),
-        line..strokeWidth = 3,
-      );
-      _drawSight(canvas, const Offset(0, 36), const Offset(0, -1), colors);
+      _drawTable(canvas, size, radians);
     }
+  }
+
+  void _drawTable(Canvas canvas, Size size, double radians) {
+    final w = math.min(size.width - 4, 229.0);
+    final h = math.min(size.height - 18, 112.0);
+    if (w < 40 || h < 30) return;
+    final table = Rect.fromCenter(
+      center: const Offset(0, -3),
+      width: w,
+      height: h,
+    );
+    final top = RRect.fromRectAndRadius(table, const Radius.circular(6));
+    canvas.drawRRect(
+      top.shift(const Offset(0, 2)),
+      Paint()..color = colors.line,
+    );
+    canvas.drawRRect(top, Paint()..color = colors.chrome);
+    canvas.drawRRect(
+      top,
+      Paint()
+        ..color = colors.line
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .8,
+    );
+    final cutX = -w * .045;
+    canvas.translate(cutX, -5);
+    final length = math.min(
+      w * .36,
+      (h * .42 - 8) / math.max(.01, math.sin(radians).abs()),
+    );
+    const knobY = 7.0;
+    final knobX = -length * .62;
+    final slotX = knobX * math.cos(radians) - knobY * math.sin(radians);
+    final guide = colors.diagramColor(_fenceTint);
+    final rail = Paint()
+      ..color = colors.line
+      ..strokeWidth = 2.5;
+    canvas.drawLine(
+      Offset(slotX, table.top + 6),
+      Offset(slotX, table.bottom + 4),
+      rail,
+    );
+    final insert = RRect.fromLTRBR(
+      -5,
+      -h * .38,
+      5,
+      4,
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(insert, Paint()..color = colors.paper);
+    canvas.drawRRect(
+      insert,
+      Paint()
+        ..color = colors.line
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    canvas.save();
+    canvas.rotate(radians);
+    final knob = Offset(knobX, knobY);
+    canvas.drawArc(
+      Rect.fromCircle(center: knob, radius: 12),
+      0,
+      math.pi,
+      true,
+      Paint()..color = guide.withValues(alpha: .4),
+    );
+    final board = Rect.fromLTRB(-length, -18, length, 4);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(board, const Radius.circular(1.5)),
+      Paint()..color = colors.diagramColor(_stockTint),
+    );
+    final grain = Paint()
+      ..color = const Color(0xff8d602c).withValues(alpha: .32)
+      ..strokeWidth = .8;
+    for (final y in [-12.0, -4.0]) {
+      final mark = Path()
+        ..moveTo(-length + 3, y)
+        ..cubicTo(-length * .35, y + 2, length * .2, y - 2, length - 3, y);
+      canvas.drawPath(mark, grain..style = PaintingStyle.stroke);
+    }
+    canvas.drawRRect(
+      RRect.fromLTRBR(-length - 3, 4, length + 3, 10, const Radius.circular(2)),
+      Paint()..color = guide,
+    );
+    canvas.drawCircle(knob, 3.5, Paint()..color = guide);
+    canvas.drawCircle(knob, 1.3, Paint()..color = colors.paper);
+    canvas.drawCircle(Offset(length, 7), 2, Paint()..color = colors.paper);
+    canvas.restore();
+
+    if (angle.abs() >= 2) {
+      final center = Offset(
+        slotX,
+        knobX * math.sin(radians) + knobY * math.cos(radians),
+      );
+      final arcRadius = length * .54;
+      final reference = Paint()
+        ..color = colors.muted
+        ..strokeWidth = 1;
+      for (double d = 4; d < arcRadius + 12; d += 6) {
+        canvas.drawLine(
+          center + Offset(d, 0),
+          center + Offset(d + 3, 0),
+          reference,
+        );
+      }
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: arcRadius),
+        0,
+        radians,
+        false,
+        Paint()
+          ..color = guide
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4,
+      );
+      final zero = TextPainter(
+        text: TextSpan(
+          text: '0°',
+          style: labelStyle.copyWith(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: colors.ink,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final at = center + Offset(arcRadius + 15, -zero.height / 2);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          (at & zero.size).inflate(1),
+          const Radius.circular(2),
+        ),
+        Paint()..color = colors.chrome,
+      );
+      zero.paint(canvas, at);
+      zero.dispose();
+    }
+
+    // The tabletop insert and blade stay fixed as the gauge rotates.
+    final blade = RRect.fromLTRBR(
+      -1.7,
+      -h * .32,
+      1.7,
+      -2,
+      const Radius.circular(1.2),
+    );
+    canvas.drawRRect(blade, Paint()..color = colors.danger);
+    final feedX = table.right - cutX - 20;
+    final feedPen = Paint()
+      ..color = guide
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(feedX, 6), Offset(feedX, -16), feedPen);
+    canvas.drawPath(
+      Path()..addPolygon([
+        Offset(feedX, -21),
+        Offset(feedX - 4, -13),
+        Offset(feedX + 4, -13),
+      ], true),
+      feedPen,
+    );
+    final label = TextPainter(
+      text: TextSpan(
+        text: feed,
+        style: labelStyle.copyWith(
+          fontSize: 9,
+          color: guide,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(feedX - label.width / 2, 9));
+    label.dispose();
+    final eye = TableSawPreview.viewpoint(tableCutaway);
+    final sight = Offset(-eye.x, eye.y);
+    _drawSight(
+      canvas,
+      Offset(eye.x * w * .48 - cutX, table.bottom + 8),
+      sight / sight.distance,
+      colors,
+    );
   }
 
   @override
   bool shouldRepaint(_SawPlan old) =>
-      old.tool != tool || old.angle != angle || old.colors != colors;
+      old.tool != tool ||
+      old.angle != angle ||
+      old.colors != colors ||
+      old.feed != feed ||
+      old.tableCutaway != tableCutaway ||
+      old.labelStyle != labelStyle;
 }

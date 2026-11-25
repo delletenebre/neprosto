@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
 import 'controller.dart';
+import 'arithmetic.dart';
 import 'controls.dart';
 import 'desktop.dart';
 import 'hotkeys.dart';
@@ -90,7 +91,13 @@ class _EditorSettingsState extends State<EditorSettings> {
   late final minutes = TextEditingController(
     text: widget.autosaveMinutes.toString(),
   );
-  int? get interval => int.tryParse(minutes.text);
+  int? get interval {
+    final value = calculate(minutes.text);
+    if (value == null || value != value.truncateToDouble()) return null;
+    final integer = value.toInt();
+    return integer == value ? integer : null;
+  }
+
   bool stepValid = true;
   Command? _recording;
   Command? get recording => _recording;
@@ -210,7 +217,7 @@ class _EditorSettingsState extends State<EditorSettings> {
       child: ValueBox(
         step.millimeters(fieldUnit),
         (mm) => setState(() {
-          step = step.change(fieldUnit, mm / fieldUnit.factor, step.enabled);
+          step = step.change(fieldUnit, mm / fieldUnit.factor);
         }),
         key: const ValueKey('input-step'),
         formatValue: fieldUnit.formatStep,
@@ -221,11 +228,6 @@ class _EditorSettingsState extends State<EditorSettings> {
       ),
     ),
   );
-
-  void toggleStep(bool enabled) => setState(() {
-    step = step.change(unit, step.value(unit), enabled);
-    stepValid = true;
-  });
 
   Widget stepPresets(List<double> values) => DeskSegmentedControl<double>(
     value: values.contains(step.value(unit)) ? step.value(unit) : null,
@@ -240,7 +242,7 @@ class _EditorSettingsState extends State<EditorSettings> {
     change: (value) {
       FocusManager.instance.primaryFocus?.unfocus();
       setState(() {
-        step = step.change(unit, value, true);
+        step = step.change(unit, value);
         stepValid = true;
       });
     },
@@ -261,34 +263,22 @@ class _EditorSettingsState extends State<EditorSettings> {
     card([
       Row(
         children: [
-          Expanded(
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => toggleStep(!step.enabled),
-                excludeFromSemantics: true,
-                child: ExcludeSemantics(
-                  child: Text(context.strings.editingIncrement),
-                ),
-              ),
-            ),
-          ),
-          if (step.enabled) ...[stepField(unit), const SizedBox(width: 9)],
-          Semantics(
-            label: context.strings.editingIncrement,
-            child: DeskSwitch(value: step.enabled, onChanged: toggleStep),
-          ),
+          Expanded(child: Text(context.strings.editingIncrement)),
+          stepField(unit),
         ],
       ),
-      if (step.enabled) ...[
-        const SizedBox(height: 8),
-        stepPresets(const [1, .1, .01]),
-        if (unit == LengthUnit.inch) ...[
-          const SizedBox(height: 6),
-          stepPresets(const [1 / 8, 1 / 16, 1 / 32]),
-        ],
+      const SizedBox(height: 8),
+      stepPresets(const [1, .1, .01]),
+      if (unit == LengthUnit.inch) ...[
+        const SizedBox(height: 6),
+        stepPresets(const [1 / 8, 1 / 16, 1 / 32]),
       ],
+      const SizedBox(height: 12),
+      Text(context.strings.anglePrecision),
+      const SizedBox(height: 8),
+      DeskSegments(step.anglePrecision, {
+        for (final p in AnglePrecision.values) p: '${mm(p.increment)}°',
+      }, (p) => setState(() => step = step.withAnglePrecision(p))),
     ]),
     const SizedBox(height: 18),
     heading(context.strings.movementAndRuler),
@@ -360,9 +350,17 @@ class _EditorSettingsState extends State<EditorSettings> {
               width: 70,
               child: DeskTextField(
                 controller: minutes,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onStep: (direction) {
+                  final next = (interval ?? 0) + direction;
+                  if (next > 0) setState(() => minutes.text = next.toString());
+                },
                 onChanged: (_) => setState(() {}),
+                onSubmitted: (_) {
+                  final value = interval;
+                  if (value != null && value > 0) {
+                    setState(() => minutes.text = value.toString());
+                  }
+                },
               ),
             ),
           ],
@@ -475,7 +473,7 @@ class _EditorSettingsState extends State<EditorSettings> {
     title: Text(context.strings.settings),
     content: SizedBox(
       height: math.min(
-        355,
+        425,
         math.max(180, MediaQuery.sizeOf(context).height - 165),
       ),
       child: Row(

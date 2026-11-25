@@ -349,11 +349,24 @@ void main() {
     },
   );
   test(
-    'Arithmetic, project units, configurable increments and no-step mode',
+    'Arithmetic, project units and saved length and angle increments',
     () {
       expect(calculate('4*10+12'), 52);
       expect(calculate(' (12,5 + 3.5) / 2 '), 8);
       expect(calculate('2*-(-4+1)'), 6);
+      for (final (formula, result) in [
+        ('(5+2)*2', 14),
+        ('5+2*2', 9),
+        ('5+2 *2', 14),
+        ('5 + 2 * 2', 9),
+        ('5+ 2*2', 9),
+        ('3+2 * 7-4', 15),
+        ('1e-2 * (8 - 2) / 3', .02),
+        ('8/4/2', 1),
+        ('-3−2 × -2', 10),
+      ]) {
+        expect(calculate(formula), result, reason: formula);
+      }
       for (final input in ['1/0', '2(3)', '9+', '1+alert(1)', '(((((']) {
         expect(calculate(input), isNull);
       }
@@ -370,28 +383,40 @@ void main() {
         expect(EditStep.decode(inchStep.encode()).label(LengthUnit.inch), label);
       }
       expect(LengthUnit.centimeter.format(1200), '120');
-      final steps = EditStep().change(LengthUnit.centimeter, .25, true);
+      final steps = EditStep().change(LengthUnit.centimeter, .25);
+      expect(
+        EditStep.decode('{"enabled":false,"values":{}}')
+            .anglePrecision
+            .increment,
+        .1,
+      );
+      for (final precision in AnglePrecision.values) {
+        final updated = steps
+            .withAnglePrecision(precision)
+            .change(LengthUnit.inch, .25);
+        expect(EditStep.decode(updated.encode()).anglePrecision, precision);
+      }
       expect(steps.round(123.53, LengthUnit.millimeter), 124);
       expect(steps.round(123.53, LengthUnit.centimeter), 122.5);
-      final off = EditStep.decode(
-        steps.change(LengthUnit.millimeter, .5, false).encode(),
+      final legacy = EditStep.decode(
+        '{"enabled":false,"values":{"millimeter":0.5,"centimeter":0.25}}',
       );
-      expect(off.round(123.53, LengthUnit.millimeter), 123.53);
-      expect(off.value(LengthUnit.centimeter), .25);
+      expect(legacy.round(123.53, LengthUnit.millimeter), 123.5);
+      expect(legacy.value(LengthUnit.centimeter), .25);
       for (final unit in LengthUnit.values) {
         for (final (resolution, expected) in [
           (1.0, 732.0),
           (.1, 732.0),
           (.01, 732.02),
         ]) {
-          final step = EditStep().change(unit, resolution, true);
+          final step = EditStep().change(unit, resolution);
           final input = EditStep.decode(step.encode()).input(unit);
           final rounded = closeTo(expected * unit.factor, 1e-9);
           expect(input.parse('732 + 0,023'), rounded);
           expect(input.round(732.023 * unit.factor), rounded);
           expect(input.parse('1/0'), isNull);
         }
-        final fine = EditStep().change(unit, .01, true).input(unit);
+        final fine = EditStep().change(unit, .01).input(unit);
         expect(fine.parse('-1,005'), closeTo(-1.01 * unit.factor, 1e-9));
         expect(fine.format(732.023 * unit.factor), '732.02');
       }

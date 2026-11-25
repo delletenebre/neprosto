@@ -366,7 +366,7 @@ class Inspector extends StatelessWidget {
                       e.angle,
                       e.setAngle,
                       key: const Key('angle'),
-                      unit: '°',
+                      angle: true,
                       signed: true,
                       live: true,
                       onSubmitted: e.applyRotation,

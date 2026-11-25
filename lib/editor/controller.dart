@@ -308,9 +308,7 @@ class Editor extends ChangeNotifier {
     final direction =
         axis(dim) *
         (screenDirection[dim] >= 0 ? sign.toDouble() : -sign.toDouble());
-    var travel = step.enabled
-        ? step.millimeters(project.unit)
-        : 1 / camera.scale;
+    var travel = step.millimeters(project.unit);
     if (untilStop) {
       final stop = travelToStop(project.visibleGeometry, selection, direction);
       if (stop == null) {

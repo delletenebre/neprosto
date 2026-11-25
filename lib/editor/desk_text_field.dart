@@ -19,6 +19,7 @@ class DeskTextField extends StatelessWidget {
     this.textAlign = TextAlign.start,
     this.style,
     this.onChanged,
+    this.onStep,
     this.onSubmitted,
     this.keyboardType,
     this.inputFormatters,
@@ -33,6 +34,7 @@ class DeskTextField extends StatelessWidget {
   final TextAlign textAlign;
   final TextStyle? style;
   final ValueChanged<String>? onChanged, onSubmitted;
+  final ValueChanged<int>? onStep;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final Widget? suffix;
@@ -40,6 +42,33 @@ class DeskTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final field = _field(context);
+    final step = onStep;
+    if (!enabled || step == null) return field;
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (_, event) {
+        if (event is KeyUpEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          step(1);
+        } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          step(-1);
+        } else if ((event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+            onSubmitted != null &&
+            controller != null) {
+          if (event is KeyDownEvent) onSubmitted!(controller!.text);
+        } else {
+          return KeyEventResult.ignored;
+        }
+        return KeyEventResult.handled;
+      },
+      child: field,
+    );
+  }
+
+  Widget _field(BuildContext context) {
     const padding = EdgeInsets.symmetric(horizontal: 6, vertical: 4);
     if (!appleControls) {
       return m.TextFormField(
@@ -54,6 +83,7 @@ class DeskTextField extends StatelessWidget {
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
         onChanged: onChanged,
+        onEditingComplete: onStep == null ? null : () {},
         onFieldSubmitted: onSubmitted,
         decoration: m.InputDecoration(
           hintText: placeholder,
@@ -97,6 +127,7 @@ class DeskTextField extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       onChanged: onChanged,
+      onEditingComplete: onStep == null ? null : () {},
       onSubmitted: onSubmitted,
       padding: padding,
       suffix: suffix,

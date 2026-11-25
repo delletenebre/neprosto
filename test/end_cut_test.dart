@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
@@ -10,6 +11,8 @@ import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
 import 'package:neprosto/editor/project_templates.dart';
 import 'package:neprosto/editor/scene.dart';
+import 'package:neprosto/editor/step.dart';
+import 'package:neprosto/editor/table_saw_preview.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
@@ -46,7 +49,9 @@ void main() {
       axis(0),
       axis(1),
     );
-    final editor = Editor(Project('Торцы', [beam]))..setView(ViewAngle.right);
+    final editor = Editor(Project('Торцы', [beam]))
+      ..step = EditStep(anglePrecision: AnglePrecision.hundredth)
+      ..setView(ViewAngle.right);
     await t.pumpWidget(NeprostoApp(editor: editor));
     await t.pumpAndSettle();
     final drawing = find.byKey(const Key('drawing'));
@@ -117,7 +122,7 @@ void main() {
         'Пильный стол',
         'Поперечный упор',
         '45° · правый край от себя',
-        'От переднего края стола',
+        'В разрезе',
       ),
       (
         'Торцовочная пила',
@@ -131,6 +136,11 @@ void main() {
       expect(readout(title), findsOneWidget);
       expect(readout(setup), findsOneWidget);
       expect(readout(view), findsOneWidget);
+      if (tool == 'Пильный стол') {
+        expect(readout('Диск'), findsOneWidget);
+        expect(readout('Упор'), findsOneWidget);
+        expect(readout('Сверху · передний край внизу'), findsOneWidget);
+      }
       expect(readout('35,26° влево'), findsOneWidget);
       expect(editor.canUndo, isFalse);
     }
@@ -139,28 +149,28 @@ void main() {
     expect(readout('65° влево'), findsOneWidget);
     expect(readout('Угол за пределами показанной шкалы'), findsNothing);
     await t.enterText(width, '0');
-    final bladeCard = find
-        .ancestor(of: readout('Наклон диска'), matching: find.byType(Container))
-        .first;
-    final disc = find.descendant(
-      of: bladeCard,
-      matching: find.byType(CustomPaint),
+    await t.tap(readout('Пильный стол'));
+    await t.pumpAndSettle();
+    final disc = find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter is TableSawPreview,
     );
-    for (final angle in [45.28, -45.28, 0.0]) {
+    TableSawPreview preview() =>
+        t.widget<CustomPaint>(disc).painter! as TableSawPreview;
+    expect(preview().cutaway, isTrue);
+    for (final angle in [45.28, -45.28, 0.0, -66.8014]) {
       await t.enterText(tilt, angle.toString());
       await t.pump();
       expect(
-        t.renderObject(disc),
-        paints
-          ..something(
-            (method, args) =>
-                method == #rotate &&
-                ((args.single as double) - angle * math.pi / 180).abs() < 1e-8,
-          )
-          ..path(),
+        preview().angle,
+        closeTo(editor.step.anglePrecision.round(angle), 1e-8),
       );
       expect(readout('Угол за пределами показанной шкалы'), findsNothing);
     }
+    final previousAngle = preview().angle;
+    await t.tap(readout('Со стороны подачи'));
+    await t.pumpAndSettle();
+    expect(preview().cutaway, isFalse);
+    expect(preview().angle, previousAngle);
     await t.enterText(width, '-45');
     await t.enterText(tilt, '0');
     await t.pump();
@@ -220,6 +230,25 @@ void main() {
       await action('Применить');
       expect(editor.canUndo, isFalse);
       await open();
+      for (final (formula, result) in [
+        ('(5+2)*2', '14'),
+        ('5+2*2', '9'),
+        ('5+2 *2', '14'),
+        ('5 + 2 * 2', '9'),
+        ('5+ 2*2', '9'),
+      ]) {
+        await enter(0, formula);
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pump();
+        expect(field(0), result);
+      }
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await t.pump();
+      expect(field(0), '9.1');
+      await enter(1, '0');
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await t.pump();
+      expect(field(1), '-0.1');
       await enter(0, '15,5');
       await action('Конец');
       expect(field(0), '0');
