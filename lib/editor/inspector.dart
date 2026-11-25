@@ -102,6 +102,34 @@ class Inspector extends StatelessWidget {
         ],
       );
 
+  Widget machiningButton(
+    BuildContext context,
+    IconData icon,
+    String label,
+    int count,
+    VoidCallback onPressed,
+  ) => DeskButton(
+    icon: Icon(icon, size: 15),
+    label: Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: controlGap,
+      children: [
+        Flexible(child: Text(label)),
+        if (count > 0)
+          Badge(
+            backgroundColor: context.colors.chrome,
+            textColor: context.colors.muted,
+            textStyle: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+            label: Text('$count'),
+          ),
+      ],
+    ),
+    onPressed: onPressed,
+  );
+
   Widget placementPanel(BuildContext context) => ColoredBox(
     color: context.colors.panel,
     child: ListView(
@@ -177,6 +205,7 @@ class Inspector extends StatelessWidget {
     final bounds = selected.isEmpty
         ? null
         : Bounds3.points(selected.expand((b) => b.corners));
+    final offsets = bounds == null ? null : e.project.offsetsOf(bounds);
     final title = Text(
       part?.name ?? context.strings.selectedParts(selected.length),
       maxLines: 2,
@@ -264,24 +293,6 @@ class Inspector extends StatelessWidget {
                 onPressed: () => showPartJoint(context, e),
               ),
             ),
-          if (part != null && part.bevelled)
-            block(context, context.strings.endMarkings, [
-              for (final end in [false, true])
-                Text(
-                  '${end ? context.strings.endPoint : context.strings.start} · ${stockCut(part, end)}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              const SizedBox(height: 5),
-              Text(
-                context.strings.edges(
-                  (edgeLengths(
-                    part,
-                  ).map(e.lengthInput.format).toSet().toList()).join(' / '),
-                  e.project.unit.symbol,
-                ),
-                style: mono,
-              ),
-            ]),
           if (e.tool == Tool.rotate) ...[
             block(context, context.strings.rotation, [
               if (rotatedPart != null)
@@ -430,22 +441,43 @@ class Inspector extends StatelessWidget {
                   trailing: lock(i, [part]),
                 ),
               const SizedBox(height: 5),
-              DeskButton(
-                icon: const Icon(cu.CupertinoIcons.triangle, size: 15),
-                label: Text(context.strings.endCutsTitle),
-                onPressed: () => showEndCuts(context, e, part),
+              Tooltip(
+                message: part.bevelled
+                    ? [
+                        '${context.strings.start} · ${stockCut(part, false)}',
+                        '${context.strings.endPoint} · ${stockCut(part, true)}',
+                        context.strings.edges(
+                          edgeLengths(part)
+                              .map(e.lengthInput.format)
+                              .toSet()
+                              .join(' / '),
+                          e.project.unit.symbol,
+                        ),
+                      ].join('\n')
+                    : '',
+                child: machiningButton(
+                  context,
+                  cu.CupertinoIcons.triangle,
+                  context.strings.endCutsTitle,
+                  part.bevelledEndCount,
+                  () => showEndCuts(context, e, part),
+                ),
               ),
               const SizedBox(height: 5),
-              DeskButton(
-                icon: const Icon(cu.CupertinoIcons.crop, size: 15),
-                label: Text(context.strings.rabbetTitle),
-                onPressed: () => showRabbets(context, e, part),
+              machiningButton(
+                context,
+                cu.CupertinoIcons.crop,
+                context.strings.rabbetTitle,
+                part.rabbets.length,
+                () => showRabbets(context, e, part),
               ),
               const SizedBox(height: 5),
-              DeskButton(
-                icon: const Icon(cu.CupertinoIcons.circle, size: 15),
-                label: Text(context.strings.panelHoles),
-                onPressed: () => showPanelHoles(context, e, part),
+              machiningButton(
+                context,
+                cu.CupertinoIcons.circle,
+                context.strings.panelHoles,
+                part.holes.length,
+                () => showPanelHoles(context, e, part),
               ),
             ]),
             block(context, context.strings.partFinish, [
@@ -493,21 +525,21 @@ class Inspector extends StatelessWidget {
                 ),
             ], spacing: controlGap),
           ],
-          if (e.tool != Tool.rotate && bounds != null) ...[
+          if (e.tool != Tool.rotate && offsets != null) ...[
             FocusTraversalGroup(
               policy: WidgetOrderTraversalPolicy(),
-              child: block(context, context.strings.position, [
+              child: block(context, context.strings.partOffsets, [
                 for (var i = 0; i < 3; i++)
-                  row(
-                    context,
-                    'XYZ'[i],
+                  PartOffsetRow(
+                    i,
                     ValueBox(
-                      (part?.origin ?? bounds.low)[i],
+                      offsets[i],
                       (v) {
                         e.commit(
                           e.project.move(
                             e.selection,
-                            axis(i) * (v - (part?.origin ?? bounds.low)[i]),
+                            offsetDirection(i) * (v - offsets[i]),
+                            withinWorkspace: e.movementSnapping,
                           ),
                         );
                       },
@@ -544,15 +576,18 @@ class Inspector extends StatelessWidget {
                   context.strings.actionsMenu,
                   context.strings.rightClick,
                 ),
-                (
-                  cu.CupertinoIcons.arrow_clockwise,
-                  context.strings.orbitView,
-                  context.strings.dragWithRightButton,
-                ),
+                if (e.canOrbit)
+                  (
+                    cu.CupertinoIcons.arrow_clockwise,
+                    context.strings.orbitView,
+                    context.strings.dragWithRightButton,
+                  ),
                 (
                   cu.CupertinoIcons.hand_raised,
                   context.strings.panView,
-                  context.strings.spaceLeftClick,
+                  e.canOrbit
+                      ? context.strings.spaceLeftClick
+                      : context.strings.dragWithRightButton,
                 ),
                 (
                   cu.CupertinoIcons.zoom_in,

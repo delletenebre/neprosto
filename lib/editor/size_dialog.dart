@@ -44,18 +44,25 @@ Future<void> showPartProperties(
     if (next.name != part.name ||
         next.size != part.size ||
         next.finish != part.finish ||
-        next.hinge != part.hinge ||
-        next.openingAngle != part.openingAngle ||
         next.locks != part.locks) {
-      changes[part.id] = next;
+      changes[part.id] = next.copy(origin: part.origin);
     }
   }
-  if (changes.isEmpty) {
+  var project = editor.project;
+  if (changes.isNotEmpty) {
+    project = project.edit(changes.keys.toSet(), (b) => changes[b.id]!);
+  }
+  if (parts.length == 1 && result.single.origin != parts.single.origin) {
+    project = project.move(
+      {parts.single.id},
+      result.single.origin - parts.single.origin,
+      withinWorkspace: editor.movementSnapping,
+    );
+  }
+  if (identical(project, editor.project)) {
     editor.refresh();
   } else {
-    editor.commit(
-      editor.project.edit(changes.keys.toSet(), (b) => changes[b.id]!),
-    );
+    editor.commit(project);
   }
 }
 
@@ -95,7 +102,9 @@ Future<List<Beam>?> _editParts(
   final origin = overlay.globalToLocal(globalPoint);
   final multiple = parts.length > 1;
   var drafts = parts.toList();
-  final door = DoorSettingsDraft(parts.first);
+  final door = creating ? DoorSettingsDraft(parts.single) : null;
+  final editedOffsets = <int, double>{};
+  final validPosition = [true, true, true];
   T? common<T>(T Function(Beam) read) {
     final first = read(drafts.first);
     return drafts.every((b) => read(b) == first) ? first : null;
@@ -128,23 +137,39 @@ Future<List<Beam>?> _editParts(
       delegate: _PartDialogLayout(origin),
       child: StatefulBuilder(
         builder: (_, update) {
+          final offsets = creating || multiple
+              ? null
+              : editor.project.offsetsOf(Bounds3.points(drafts.single.corners));
           bool validSize(int i) =>
               valid[i] && drafts.every((b) => b.size[i] >= b.minimumSize(i));
           bool ready() =>
-              (multiple ||
-                  (drafts.single.name.trim().isNotEmpty && door.valid)) &&
+              (multiple || drafts.single.name.trim().isNotEmpty) &&
+              (door?.valid ?? true) &&
+              validPosition.every((ok) => ok) &&
               StockAxis.values.every((axis) => validSize(axis.index));
           void apply() {
             if (ready()) {
               if (!multiple) {
-                final part = drafts.single.copy(
-                  name: drafts.single.name.trim(),
+                final draft = drafts.single;
+                final origin = draft.origin.clone();
+                if (editedOffsets.isNotEmpty) {
+                  final current = editor.project.offsetsOf(
+                    Bounds3.points(draft.corners),
+                  );
+                  for (final entry in editedOffsets.entries) {
+                    origin.add(
+                      offsetDirection(entry.key) *
+                          (entry.value - current[entry.key]),
+                    );
+                  }
+                }
+                final part = draft.copy(
+                  name: draft.name.trim(),
+                  origin: origin,
                 );
-                drafts[0] = editor.configureDoor(
-                  part,
-                  door.hinge,
-                  angle: door.angle,
-                );
+                drafts[0] = door == null
+                    ? part
+                    : editor.configureDoor(part, door.hinge, angle: door.angle);
               }
               Navigator.pop(ctx, drafts);
             }
@@ -219,13 +244,38 @@ Future<List<Beam>?> _editParts(
                               : null,
                         ),
                       ),
-                    if (!multiple) ...[
+                    if (door != null) ...[
                       const SizedBox(height: 8),
                       PartTypePicker(
                         door,
                         refresh: () => update(() {}),
                         submit: apply,
                       ),
+                    ],
+                    if (offsets != null) ...[
+                      const SizedBox(height: 8),
+                      sectionTitle(context.strings.partOffsets),
+                      for (var i = 0; i < 3; i++)
+                        PartOffsetRow(
+                          i,
+                          FocusTraversalOrder(
+                            order: NumericFocusOrder((3 + i).toDouble()),
+                            child: ValueBox(
+                              editedOffsets[i] ?? offsets[i],
+                              (v) => update(() => editedOffsets[i] = v),
+                              key: ValueKey('dialog-position-$i'),
+                              signed: true,
+                              live: true,
+                              onValidityChanged: (ok) {
+                                if (validPosition[i] != ok) {
+                                  update(() => validPosition[i] = ok);
+                                }
+                              },
+                              onSubmitted: apply,
+                            ),
+                          ),
+                          fieldWidth: 104,
+                        ),
                     ],
                     const SizedBox(height: 8),
                     Row(

@@ -14,7 +14,7 @@ class ProjectTabBar extends StatefulWidget {
     required this.tabs,
     required this.active,
     required this.select,
-    required this.create,
+    required this.addTab,
     this.newProjectButton,
     required this.close,
     required this.menuItems,
@@ -24,7 +24,7 @@ class ProjectTabBar extends StatefulWidget {
   final List<ProjectTab> tabs;
   final ProjectTab active;
   final ValueChanged<ProjectTab> select, close;
-  final VoidCallback create;
+  final VoidCallback addTab;
   final Key? newProjectButton;
   final List<(String, String)> menuItems;
   final void Function(String action, ProjectTab tab) onMenuAction;
@@ -269,8 +269,8 @@ class _ProjectTabBarState extends State<ProjectTabBar> {
           ),
           DeskIcon(
             CupertinoIcons.plus,
-            context.strings.newProject,
-            widget.create,
+            context.strings.newTab,
+            widget.addTab,
             key: widget.newProjectButton,
             borderRadius: tabRadius,
             size: macControls ? 15 : 17,

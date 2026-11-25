@@ -9,10 +9,11 @@ import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/joint.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
+import 'package:neprosto/editor/palette.dart';
 import 'package:neprosto/editor/project_templates.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/editor/step.dart';
-import 'package:neprosto/editor/table_saw_preview.dart';
+import 'package:neprosto/editor/saw_preview.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
@@ -35,6 +36,52 @@ void main() {
     }
     expect(markingOffset(89.999999, 1000), isNull);
   });
+
+  testWidgets(
+    'The table saw blade meets the marked stock at either gauge angle',
+    (t) async {
+      for (final angle in [0.0, 67.0, -67.0, 86.0, -86.0]) {
+        final preview = SawPreview(
+          tool: SawType.table,
+          bladeView: false,
+          angle: angle,
+          angleLabel: '$angle°',
+          cutaway: false,
+          colors: EditorPalette.light,
+          labelStyle: const TextStyle(),
+          feedLabel: 'Подача',
+        );
+        final canvas = TestRecordingCanvas();
+        preview.paint(canvas, const Size(226, 150));
+        final faces = canvas.invocations
+            .map((call) => call.invocation)
+            .where((call) => call.memberName == #drawPath)
+            .map(
+              (call) => (
+                path: call.positionalArguments[0] as Path,
+                paint: call.positionalArguments[1] as Paint,
+              ),
+            );
+        Path fill(Color color) => faces
+            .firstWhere((f) => f.paint.color.toARGB32() == color.toARGB32())
+            .path;
+        final stock = fill(SawPreview.wood),
+            mark = fill(EditorPalette.light.danger);
+        final blade = faces.firstWhere((f) => f.paint.shader != null).path;
+        expect(
+          stock.contains(mark.getBounds().center),
+          isTrue,
+          reason: 'Mark on stock at $angle°',
+        );
+        final contact = Path.combine(PathOperation.intersect, mark, blade);
+        expect(
+          contact.getBounds().isEmpty,
+          isFalse,
+          reason: 'Blade on mark at $angle°',
+        );
+      }
+    },
+  );
 
   testWidgets('The end face context menu makes a new cut on a square beam', (
     t,
@@ -111,35 +158,31 @@ void main() {
     await t.pump();
     expect(readout('45° влево'), findsOneWidget);
     expect(readout('35,26° влево'), findsOneWidget);
-    for (final (tool, title, setup, view) in [
-      (
-        'Ручная циркулярная',
-        'Линия пропила',
-        '45° вправо',
-        'Сзади пилы по ходу реза',
-      ),
-      (
-        'Пильный стол',
-        'Поперечный упор',
-        '45° · правый край от себя',
-        'В разрезе',
-      ),
-      (
-        'Торцовочная пила',
-        'Поворот стола',
-        '45° влево',
-        'От рукоятки вдоль реза',
-      ),
+    List<String?> cardText(String title) {
+      final card = find
+          .ancestor(of: readout(title), matching: find.byType(Container))
+          .first;
+      return t
+          .widgetList<Text>(
+            find.descendant(of: card, matching: find.byType(Text)),
+          )
+          .map((text) => text.data)
+          .toList();
+    }
+
+    for (final (tool, title, setup) in [
+      ('Ручная циркулярная', 'Линия пропила', '45° вправо'),
+      ('Пильный стол', 'Поперечный упор', '45° · правый край от себя'),
+      ('Торцовочная пила', 'Поворот стола', '45° влево'),
     ]) {
       await t.tap(readout(tool));
       await t.pumpAndSettle();
-      expect(readout(title), findsOneWidget);
-      expect(readout(setup), findsOneWidget);
-      expect(readout(view), findsOneWidget);
+      expect(cardText(title), [title, setup]);
       if (tool == 'Пильный стол') {
-        expect(readout('Диск'), findsOneWidget);
-        expect(readout('Упор'), findsOneWidget);
-        expect(readout('Сверху · передний край внизу'), findsOneWidget);
+        expect(readout('В разрезе'), findsOneWidget);
+        expect(readout('Со стороны подачи'), findsOneWidget);
+      } else {
+        expect(cardText('Наклон диска'), ['Наклон диска', '35,26° влево']);
       }
       expect(readout('35,26° влево'), findsOneWidget);
       expect(editor.canUndo, isFalse);
@@ -152,18 +195,26 @@ void main() {
     await t.tap(readout('Пильный стол'));
     await t.pumpAndSettle();
     final disc = find.byWidgetPredicate(
-      (w) => w is CustomPaint && w.painter is TableSawPreview,
+      (w) =>
+          w is CustomPaint &&
+          w.painter is SawPreview &&
+          (w.painter as SawPreview).bladeView,
     );
-    TableSawPreview preview() =>
-        t.widget<CustomPaint>(disc).painter! as TableSawPreview;
+    SawPreview preview() => t.widget<CustomPaint>(disc).painter! as SawPreview;
     expect(preview().cutaway, isTrue);
-    for (final angle in [45.28, -45.28, 0.0, -66.8014]) {
+    for (final (angle, label) in [
+      (45.28, '45,28°'),
+      (-45.28, '45,28°'),
+      (0.0, '0°'),
+      (-66.8014, '66,8°'),
+    ]) {
       await t.enterText(tilt, angle.toString());
       await t.pump();
       expect(
         preview().angle,
         closeTo(editor.step.anglePrecision.round(angle), 1e-8),
       );
+      expect(preview().angleLabel, label);
       expect(readout('Угол за пределами показанной шкалы'), findsNothing);
     }
     final previousAngle = preview().angle;
@@ -223,10 +274,78 @@ void main() {
               .onPressed !=
           null;
 
+      void checkReferenceCorner({required bool end}) {
+        final card = find
+            .ancestor(
+              of: inside(find.text('Разметка по ширине')),
+              matching: find.byType(DecoratedBox),
+            )
+            .first;
+        final drawing = find
+            .descendant(
+              of: card,
+              matching: find.byWidgetPredicate(
+                (w) => w is CustomPaint && w.child == null && w.painter != null,
+              ),
+            )
+            .last;
+        late double edge;
+        late Offset corner;
+        late Offset top, bottom;
+        expect(
+          drawing,
+          paints
+            ..something((method, args) {
+              if (method != #drawPath) return false;
+              final wood = (args.first as Path).getBounds();
+              edge = end ? wood.right : wood.left;
+              return true;
+            })
+            ..something((method, args) {
+              if (method != #clipPath) return false;
+              final waste = (args.first as Path).getBounds();
+              return waste.top > 20 &&
+                  (end ? waste.right > edge : waste.left < edge);
+            })
+            ..something(
+              (method, args) =>
+                  method == #drawLine &&
+                  (args[0] as Offset).dx == edge &&
+                  (args[1] as Offset).dx == edge,
+            )
+            ..something((method, args) {
+              if (method != #drawLine ||
+                  (args[2] as Paint).strokeWidth != 2.5) {
+                return false;
+              }
+              top = args[0] as Offset;
+              bottom = args[1] as Offset;
+              corner = top.dx == edge ? top : bottom;
+              return corner.dx == edge;
+            })
+            ..something(
+              (method, args) =>
+                  method == #drawArc &&
+                  ((args.first as Rect).center - corner).distance < 1e-7,
+            )
+            ..something((method, args) {
+              if (method != #drawLine) return false;
+              final a = args[0] as Offset, b = args[1] as Offset;
+              return a.dy == b.dy &&
+                  a.dy < top.dy &&
+                  a.dx <= math.min(top.dx, bottom.dx) &&
+                  b.dx >= math.max(top.dx, bottom.dx);
+            }),
+        );
+      }
+
       await open();
       final originalThickness = field(1);
       expect(double.parse(originalThickness).abs(), greaterThan(0));
-      expect(inside(find.textContaining('″')), findsNWidgets(2));
+      expect(
+        inside(find.bySemanticsLabel(RegExp(r'Смещение .*″'))),
+        findsNWidgets(2),
+      );
       await action('Применить');
       expect(editor.canUndo, isFalse);
       await open();
@@ -250,8 +369,11 @@ void main() {
       await t.pump();
       expect(field(1), '-0.1');
       await enter(0, '15,5');
+      checkReferenceCorner(end: false);
       await action('Конец');
       expect(field(0), '0');
+      await enter(0, '-35');
+      checkReferenceCorner(end: true);
       await action('Прямой торец');
       expect(field(1), '0');
       await action('Начало');
@@ -264,7 +386,7 @@ void main() {
       for (final invalid in ['', '-', 'ошибка', '1/0', '-90', '95']) {
         await enter(0, invalid);
         expect(canApply(), isTrue);
-        expect(inside(find.text('Смещение 0 ″')), findsOneWidget);
+        expect(inside(find.bySemanticsLabel('Смещение 0 ″')), findsOneWidget);
         expect(field(1), originalThickness);
       }
       await enter(0, '89.9');
@@ -274,7 +396,7 @@ void main() {
       expect(canApply(), isTrue);
       await action('Конец');
       await enter(1, '');
-      expect(inside(find.text('Смещение 0 ″')), findsNWidgets(2));
+      expect(inside(find.bySemanticsLabel('Смещение 0 ″')), findsNWidgets(2));
       await enter(0, '45+');
       expect(canApply(), isTrue);
       await action('Применить');

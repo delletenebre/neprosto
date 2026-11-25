@@ -15,7 +15,7 @@ import 'model.dart';
 import 'palette.dart';
 import 'scene.dart';
 import 'step.dart';
-import 'table_saw_preview.dart';
+import 'saw_preview.dart';
 
 part 'saw_settings.dart';
 
@@ -113,7 +113,7 @@ class _MarkField {
 
 class _EndCutDialogState extends State<_EndCutDialog> {
   late bool end = widget.initialEnd;
-  _SawType sawType = _SawType.miter;
+  SawType sawType = SawType.miter;
   bool tableCutaway = true;
   late final fields = [
     for (final cut in [widget.part.startCut, widget.part.endCut])
@@ -134,6 +134,8 @@ class _EndCutDialogState extends State<_EndCutDialog> {
 
   Widget marking(_MarkField f, String label) {
     final colors = context.colors, offset = f.offset;
+    final distance =
+        '${widget.input.format(offset)} ${widget.input.unit.symbol}';
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.paper,
@@ -163,15 +165,20 @@ class _EndCutDialogState extends State<_EndCutDialog> {
               ),
             ),
             SizedBox(
-              height: 94,
-              child: CustomPaint(
-                painter: _MarkDiagram(
-                  offset / f.span,
-                  end,
-                  colors,
-                  DefaultTextStyle.of(context).style,
-                  context.strings.start,
-                  widget.precision,
+              height: 112,
+              child: Semantics(
+                image: true,
+                label: context.strings.cutOffsetReadout(distance),
+                child: CustomPaint(
+                  painter: _MarkDiagram(
+                    offset / f.span,
+                    end,
+                    colors,
+                    DefaultTextStyle.of(context).style,
+                    context.strings.start,
+                    widget.precision,
+                    distance,
+                  ),
                 ),
               ),
             ),
@@ -180,12 +187,6 @@ class _EndCutDialogState extends State<_EndCutDialog> {
                 widget.precision.format(
                   90 - markingAngle(offset, f.span).abs(),
                 ),
-              ),
-              style: TextStyle(fontSize: 12, color: colors.muted),
-            ),
-            Text(
-              context.strings.cutOffsetReadout(
-                '${widget.input.format(offset)} ${widget.input.unit.symbol}',
               ),
               style: TextStyle(fontSize: 12, color: colors.muted),
             ),
@@ -261,10 +262,10 @@ class _EndCutDialogState extends State<_EndCutDialog> {
           ),
           if (saw != null) ...[
             const Divider(height: 1),
-            DeskSegments<_SawType>(sawType, {
-              _SawType.miter: strings.mitreSaw,
-              _SawType.handheld: strings.handheldSaw,
-              _SawType.table: strings.tableSaw,
+            DeskSegments<SawType>(sawType, {
+              SawType.miter: strings.mitreSaw,
+              SawType.handheld: strings.handheldSaw,
+              SawType.table: strings.tableSaw,
             }, (value) => setState(() => sawType = value)),
             Text(
               strings.sawStockPosition,
@@ -420,53 +421,103 @@ class _MarkDiagram extends CustomPainter {
     this.labelStyle,
     this.startLabel,
     this.precision,
+    this.distance,
   );
   final double slope;
   final AnglePrecision precision;
   final bool end;
   final EditorPalette colors;
   final TextStyle labelStyle;
-  final String startLabel;
+  final String startLabel, distance;
+
+  void _drawOffset(Canvas canvas, Size size, Offset top, Offset bottom) {
+    final left = math.min(top.dx, bottom.dx),
+        right = math.max(top.dx, bottom.dx);
+    final y = top.dy - 10;
+    final pen = Paint()
+      ..color = colors.muted
+      ..strokeWidth = .85;
+    canvas.drawLine(Offset(left - 3, y), Offset(right + 3, y), pen);
+    for (final x in {left, right}) {
+      canvas.drawLine(Offset(x, top.dy - 2), Offset(x, y - 3), pen);
+      canvas.drawLine(Offset(x - 2, y + 2), Offset(x + 2, y - 2), pen);
+    }
+    final label = TextPainter(
+      text: TextSpan(
+        text: distance,
+        style: labelStyle.copyWith(fontSize: 11, color: colors.ink),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width);
+    final double x = ((left + right - label.width) / 2).clamp(
+      2.0,
+      math.max(2.0, size.width - label.width - 2),
+    );
+    label.paint(canvas, Offset(x, y - label.height - 3));
+    label.dispose();
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final midX = size.width * (end ? .62 : .38);
-    final diagramHeight = size.height - 18;
-    final midY = diagramHeight / 2;
-    final half = math.min(midY - 11, size.width * .27 / slope.abs());
-    final top = Offset(midX + half * slope, midY - half);
-    final bottom = Offset(midX - half * slope, midY + half);
-    final board = Rect.fromLTRB(0, top.dy, size.width, bottom.dy);
-    final keep = end ? board.left : board.right;
-    final waste = end ? board.right : board.left;
-    Path side(double x) => Path()
+    const topInset = 34.0, bottomInset = 24.0;
+    final midY = (size.height + topInset - bottomInset) / 2;
+    final edgeInset = math.min(24.0, size.width * .12);
+    final half = math.min(
+      midY - topInset,
+      (size.width - 2 * edgeInset) * .33 / slope.abs(),
+    );
+    final run = 2 * half * slope;
+    final edgeX = end ? size.width - edgeInset : edgeInset;
+    final stockEdge = edgeX + (end ? 1 : -1) * edgeInset * .6;
+    final topAtEdge = end ? slope > 0 : slope < 0;
+    final top = Offset(topAtEdge ? edgeX : edgeX + run, midY - half);
+    final bottom = Offset(topAtEdge ? edgeX - run : edgeX, midY + half);
+    final corner = topAtEdge ? top : bottom;
+    final keep = end ? 3.0 : size.width - 3;
+    final wood = Path()
       ..addPolygon([
         top,
-        Offset(x, top.dy),
-        Offset(x, bottom.dy),
+        Offset(keep, top.dy),
+        Offset(keep, bottom.dy),
         bottom,
       ], true);
     canvas.drawPath(
-      side(keep),
+      wood,
       Paint()..color = colors.diagramColor(const Color(0xffdfbd91)),
     );
+    final pen = Paint()..color = colors.line;
+    final waste = Path()
+      ..addPolygon([
+        Offset(stockEdge, top.dy),
+        top,
+        bottom,
+        Offset(stockEdge, bottom.dy),
+      ], true);
     canvas.save();
-    canvas.clipPath(side(waste));
-    for (double x = board.left - board.height; x < board.right; x += 6) {
+    canvas.clipPath(waste);
+    final hatch = waste.getBounds();
+    for (var x = hatch.left - hatch.height; x < hatch.right; x += 6) {
       canvas.drawLine(
         Offset(x, bottom.dy),
-        Offset(x + board.height, top.dy),
-        Paint()..color = colors.line,
+        Offset(x + hatch.height, top.dy),
+        pen,
       );
     }
     canvas.restore();
-    final pen = Paint()
+    pen
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..color = colors.muted;
-    canvas.drawRect(board, pen);
-    for (double y = 3; y < diagramHeight - 3; y += 6) {
-      canvas.drawLine(Offset(midX, y), Offset(midX, y + 3), pen);
+    canvas.drawPath(
+      Path()
+        ..moveTo(stockEdge, top.dy)
+        ..lineTo(keep, top.dy)
+        ..lineTo(keep, bottom.dy)
+        ..lineTo(stockEdge, bottom.dy),
+      pen,
+    );
+    for (double y = top.dy - 2; y < bottom.dy + 6; y += 6) {
+      canvas.drawLine(Offset(edgeX, y), Offset(edgeX, y + 3), pen);
     }
     pen
       ..strokeWidth = 2.5
@@ -474,10 +525,10 @@ class _MarkDiagram extends CustomPainter {
     canvas.drawLine(top, bottom, pen);
     final sweep = math.atan(slope);
     if (sweep.abs() > .001) {
-      final radius = math.min(21.0, (top - Offset(midX, midY)).distance * .8);
+      final radius = math.min(21.0, 2 * half * .8);
       canvas.drawArc(
-        Rect.fromCircle(center: Offset(midX, midY), radius: radius),
-        -math.pi / 2,
+        Rect.fromCircle(center: corner, radius: radius),
+        topAtEdge ? math.pi / 2 : -math.pi / 2,
         sweep,
         false,
         pen..strokeWidth = 1.5,
@@ -494,10 +545,18 @@ class _MarkDiagram extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    final labelX = slope < 0 ? midX - label.width - 7 : midX + 7;
+    // A wide offcut has room for the reading next to the reference edge.
+    final room = 2 * half - label.height - 5;
+    final inWaste = room >= 21 && room * slope.abs() >= label.width + 9;
+    final labelEdge = inWaste
+        ? edgeX
+        : (end ? math.min(top.dx, bottom.dx) : math.max(top.dx, bottom.dx));
+    final labelX = end ? labelEdge - label.width - 6 : labelEdge + 6;
     final at = Offset(
       labelX.clamp(2.0, math.max(2.0, size.width - label.width - 2)),
-      midY - label.height / 2,
+      inWaste
+          ? (topAtEdge ? bottom.dy - label.height - 3 : top.dy + 3)
+          : midY - label.height / 2,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -508,15 +567,16 @@ class _MarkDiagram extends CustomPainter {
     );
     label.paint(canvas, at);
     label.dispose();
+    _drawOffset(canvas, size, top, bottom);
     _drawStart(
       canvas,
       size,
-      end ? Offset(1, board.bottom) : bottom,
+      end ? Offset(keep, bottom.dy) : bottom,
       startLabel,
       labelStyle,
       colors,
       offscreen: end,
-      labelToRight: end,
+      labelToRight: end || bottom.dx < 56,
     );
   }
 
@@ -525,6 +585,7 @@ class _MarkDiagram extends CustomPainter {
       old.end != end ||
       old.slope != slope ||
       old.precision != precision ||
+      old.distance != distance ||
       old.colors != colors ||
       old.startLabel != startLabel ||
       old.labelStyle != labelStyle;

@@ -222,13 +222,19 @@ extension ProjectContact on Project {
   }
 }
 
-Project mate(Project project, Set<int> selection, Anchor from, Anchor to) {
+Project mate(
+  Project project,
+  Set<int> selection,
+  Anchor from,
+  Anchor to, {
+  bool withinWorkspace = false,
+}) {
   final a = from.resolve(project), b = to.resolve(project);
   if (from.label != 'Плоскость' ||
       to.label != 'Плоскость' ||
       from.face == null ||
       to.face == null) {
-    return project.move(selection, b - a);
+    return project.move(selection, b - a, withinWorkspace: withinWorkspace);
   }
   Vector3 normal(Anchor ref) {
     final part = project.byId[ref.beam]!;
@@ -237,13 +243,15 @@ Project mate(Project project, Set<int> selection, Anchor from, Anchor to) {
 
   final source = normal(from), target = -normal(to);
   final angle = math.acos(source.dot(target).clamp(-1, 1));
-  if (angle < 1e-7) return project.move(selection, b - a);
+  if (angle < 1e-7) {
+    return project.move(selection, b - a, withinWorkspace: withinWorkspace);
+  }
   var pivotAxis = source.cross(target);
   if (pivotAxis.length < 1e-7) {
     pivotAxis = source.cross(source.z.abs() < .9 ? axis(2) : axis(1));
   }
   pivotAxis.normalize();
-  return project.edit(
+  final placed = project.edit(
     selection,
     (part) => part.copy(
       origin: b + turn(part.origin - a, pivotAxis, angle),
@@ -251,6 +259,18 @@ Project mate(Project project, Set<int> selection, Anchor from, Anchor to) {
       across: turn(part.across, pivotAxis, angle).normalized(),
     ),
   );
+  final limits = withinWorkspace
+      ? project.moveLimits(selection, placed: placed)
+      : null;
+  if (limits == null) return placed;
+  // Reject an orientation that cannot fit even after shifting the whole group.
+  for (var i = 0; i < 3; i++) {
+    if (limits.low[i] > limits.high[i] + 1e-7) return project;
+  }
+  final correction = Vector3.zero()..clamp(limits.low, limits.high);
+  return correction.length2 < 1e-14
+      ? placed
+      : placed.move(selection, correction);
 }
 
 /// Swept separating-axis intervals for rigid translation, including mitred

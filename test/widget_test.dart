@@ -14,12 +14,21 @@ import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/editor/drawing.dart';
 import 'package:neprosto/editor/stock_axis.dart';
+import 'package:neprosto/editor/step.dart';
 import 'package:neprosto/editor/parts_list.dart';
 import 'package:neprosto/editor/parts_panel.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
     show PhosphorIconsRegular;
 
 void main() {
+  Offset screenCenter(Beam part, Camera camera, Size size) {
+    final corners = part.corners.map((point) => camera.project(point, size));
+    final bounds = corners
+        .map((point) => Rect.fromPoints(point, point))
+        .reduce((a, b) => a.expandToInclude(b));
+    return bounds.center;
+  }
+
   testWidgets(
     'Double-click centers a hidden row only when outlines are shown',
     (t) async {
@@ -35,8 +44,8 @@ void main() {
         matching: find.text(project.byId[2]!.name),
       );
       final size = t.getSize(find.byKey(const Key('drawing')));
-      final middle = project.byId[2]!.pointAt(Vector3.all(.5));
-      final before = editor.camera.project(middle, size);
+      final part = project.byId[2]!;
+      final before = screenCenter(part, editor.camera, size);
       expect(before, isNot(size.center(Offset.zero)));
       for (final outlines in [false, true]) {
         editor.showHiddenOutlines = outlines;
@@ -48,7 +57,7 @@ void main() {
         await t.pumpAndSettle();
         final expected = outlines ? size.center(Offset.zero) : before;
         expect(
-          (editor.camera.project(middle, size) - expected).distance,
+          (screenCenter(part, editor.camera, size) - expected).distance,
           lessThan(.001),
         );
         expect(editor.selection, {1});
@@ -778,7 +787,7 @@ void main() {
     },
   );
 
-  testWidgets('Position fields show the project axis at the edited origin', (
+  testWidgets('Offset fields guide the rear lower left of a part or group', (
     t,
   ) async {
     await t.binding.setSurfaceSize(const Size(1320, 900));
@@ -797,13 +806,23 @@ void main() {
     await t.ensureVisible(field(0));
     await t.tap(field(0));
     await t.pumpAndSettle();
-    final origin = e.single!.origin;
+    final bounds = Bounds3.points(e.single!.corners);
+    final origin = Vector3(bounds.low.x, bounds.high.y, bounds.low.z);
+    final offsets = [origin.x, 360 - origin.y, origin.z];
     for (var dim = 0; dim < 3; dim++) {
       if (dim > 0) {
         await t.sendKeyEvent(LogicalKeyboardKey.tab);
         await t.pumpAndSettle();
       }
       expect(painter().positionGuide, (axis: dim, origin: origin));
+      final input = find.descendant(
+        of: field(dim),
+        matching: find.byType(EditableText),
+      );
+      expect(
+        t.widget<EditableText>(input).controller.text,
+        e.lengthInput.format(offsets[dim]),
+      );
       final center = painter().project(origin);
       expect(
         t.renderObject(drawing),
@@ -826,13 +845,14 @@ void main() {
     await t.ensureVisible(field(1));
     await t.tap(field(1));
     await t.pumpAndSettle();
-    final low = Bounds3.points(e.selected.expand((b) => b.corners)).low;
-    expect(painter().positionGuide, (axis: 1, origin: low));
+    final group = Bounds3.points(e.selected.expand((b) => b.corners));
+    final corner = Vector3(group.low.x, group.high.y, group.low.z);
+    expect(painter().positionGuide, (axis: 1, origin: corner));
     await t.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await t.pumpAndSettle();
     final moved = painter().positionGuide!;
     expect(moved.axis, 1);
-    final expected = low.clone()..y = low.y.roundToDouble() + 1;
+    final expected = corner.clone()..y = 360 - ((360 - corner.y).round() + 1);
     expect(moved.origin.distanceTo(expected), lessThan(.001));
   });
 
@@ -1132,109 +1152,108 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Alignment previews offsets and moves only the selected part',
-    (t) async {
-      await t.binding.setSurfaceSize(const Size(1320, 850));
-      addTearDown(() => t.binding.setSurfaceSize(null));
-      final e = Editor(Project.bench())..select(9);
-      await t.pumpWidget(NeprostoApp(editor: e));
-      await t.pumpAndSettle();
-      final before = e.project;
-      await t.tap(find.text('Выровнять по опоре…'));
-      await t.pumpAndSettle();
-      expect(find.text('Перемещаемая деталь'), findsNothing);
-      expect(find.byTooltip('Выбрать перемещаемую деталь'), findsNothing);
-      await t.tap(find.byTooltip('Выбрать опорную деталь из списка'));
-      await t.pumpAndSettle();
-      await t.tap(find.text('Ножка 2').last);
-      await t.pumpAndSettle();
-      expect(e.single?.id, 9);
-      expect(e.referenceId, 6);
-      expect(e.project, same(before));
-      final width = find.text('По ширине'), thickness = find.text('По толщине');
-      expect(width, findsOneWidget);
-      await t.tap(thickness);
-      await t.pumpAndSettle();
-      expect(e.alignThickness, isTrue);
-      expect(find.text('Отступ от нижнего края опоры'), findsOneWidget);
-      expect(find.byIcon(PhosphorIconsRegular.alignBottom), findsOneWidget);
-      expect(find.byIcon(PhosphorIconsRegular.alignTop), findsOneWidget);
-      final slide = await t.startGesture(
-        t.getCenter(thickness),
-        kind: PointerDeviceKind.mouse,
-      );
-      await slide.moveBy(const Offset(-24, 0));
-      await t.pump();
-      await slide.moveTo(t.getCenter(width));
-      await slide.up();
-      await t.pumpAndSettle();
-      expect(e.alignThickness, isFalse);
-      expect(e.referenceId, 6);
-      final offsetLabel = find.text('Отступ от переднего края опоры');
-      final offsetBox = find.byKey(const Key('placement-offset'));
-      expect(t.getSize(offsetBox).width, 92);
-      expect(
-        t.getRect(offsetBox).left - t.getRect(offsetLabel).right,
-        greaterThanOrEqualTo(6),
-      );
-      expect(find.text('0 — заподлицо, минус — выступ'), findsNothing);
-      expect(e.displayed, same(before));
-      expect(e.canUndo, isFalse);
-      final field = find.descendant(
-        of: find.byKey(const Key('placement-offset')),
-        matching: find.byType(DeskTextField),
-      );
-      await t.enterText(field, '-25/2');
-      await t.pumpAndSettle();
-      expect(e.manualOffset, -13);
-      expect(e.project, same(before));
-      final expected = e.displayed.byId[9]!.origin;
-      await t.enterText(field, '8/0');
-      await t.pumpAndSettle();
-      expect(find.text('Проверьте выражение'), findsOneWidget);
-      expect(
-        t
-            .widget<DeskButton>(
-              find.ancestor(
-                of: find.text('Применить'),
-                matching: find.byType(DeskButton),
-              ),
-            )
-            .onPressed,
-        isNull,
-      );
-      await t.enterText(field, '-25/2');
-      await t.pump();
-      await t.tap(find.text('Применить'));
-      await t.pumpAndSettle();
-      expect(e.single!.origin, expected);
-      expect(e.single!.id, 9);
-      for (final part in before.beams.where((part) => part.id != 9)) {
-        expect(e.project.byId[part.id]!.origin, part.origin);
-      }
-      expect(e.suggestedPlacement?.reference.id, 6);
-      await t.tap(find.text('Ножка 1').first);
-      await t.pumpAndSettle();
-      expect(e.single?.id, 5);
-      await t.tap(find.text('Выровнять по опоре…'));
-      await t.pumpAndSettle();
-      // A post's width is along X, so its controls show left and right edges.
-      await t.tap(find.text('По ширине'));
-      await t.pumpAndSettle();
-      expect(find.byIcon(PhosphorIconsRegular.alignLeft), findsOneWidget);
-      expect(
-        find.byIcon(PhosphorIconsRegular.alignCenterHorizontal),
-        findsOneWidget,
-      );
-      expect(find.byIcon(PhosphorIconsRegular.alignRight), findsOneWidget);
-      e.undo();
-      expect(e.project, same(before));
-    },
-  );
+  testWidgets('Alignment previews offsets and moves only the selected part', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(1320, 850));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final e = Editor(Project.bench())..select(9);
+    await t.pumpWidget(NeprostoApp(editor: e));
+    await t.pumpAndSettle();
+    final before = e.project;
+    await t.tap(find.text('Выровнять по опоре…'));
+    await t.pumpAndSettle();
+    expect(find.text('Перемещаемая деталь'), findsNothing);
+    expect(find.byTooltip('Выбрать перемещаемую деталь'), findsNothing);
+    await t.tap(find.byTooltip('Выбрать опорную деталь из списка'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Ножка 2').last);
+    await t.pumpAndSettle();
+    expect(e.single?.id, 9);
+    expect(e.referenceId, 6);
+    expect(e.project, same(before));
+    final width = find.text('По ширине'), thickness = find.text('По толщине');
+    expect(width, findsOneWidget);
+    await t.tap(thickness);
+    await t.pumpAndSettle();
+    expect(e.alignThickness, isTrue);
+    expect(find.text('Отступ от нижнего края опоры'), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsRegular.alignBottom), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsRegular.alignTop), findsOneWidget);
+    final slide = await t.startGesture(
+      t.getCenter(thickness),
+      kind: PointerDeviceKind.mouse,
+    );
+    await slide.moveBy(const Offset(-24, 0));
+    await t.pump();
+    await slide.moveTo(t.getCenter(width));
+    await slide.up();
+    await t.pumpAndSettle();
+    expect(e.alignThickness, isFalse);
+    expect(e.referenceId, 6);
+    final offsetLabel = find.text('Отступ от переднего края опоры');
+    final offsetBox = find.byKey(const Key('placement-offset'));
+    expect(t.getSize(offsetBox).width, 92);
+    expect(
+      t.getRect(offsetBox).left - t.getRect(offsetLabel).right,
+      greaterThanOrEqualTo(6),
+    );
+    expect(find.text('0 — заподлицо, минус — выступ'), findsNothing);
+    expect(e.displayed, same(before));
+    expect(e.canUndo, isFalse);
+    final field = find.descendant(
+      of: find.byKey(const Key('placement-offset')),
+      matching: find.byType(DeskTextField),
+    );
+    await t.enterText(field, '-25/2');
+    await t.pumpAndSettle();
+    expect(e.manualOffset, -13);
+    expect(e.project, same(before));
+    final expected = e.displayed.byId[9]!.origin;
+    await t.enterText(field, '8/0');
+    await t.pumpAndSettle();
+    expect(find.text('Проверьте выражение'), findsOneWidget);
+    expect(
+      t
+          .widget<DeskButton>(
+            find.ancestor(
+              of: find.text('Применить'),
+              matching: find.byType(DeskButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    await t.enterText(field, '-25/2');
+    await t.pump();
+    await t.tap(find.text('Применить'));
+    await t.pumpAndSettle();
+    expect(e.single!.origin, expected);
+    expect(e.single!.id, 9);
+    for (final part in before.beams.where((part) => part.id != 9)) {
+      expect(e.project.byId[part.id]!.origin, part.origin);
+    }
+    expect(e.suggestedPlacement?.reference.id, 6);
+    await t.tap(find.text('Ножка 1').first);
+    await t.pumpAndSettle();
+    expect(e.single?.id, 5);
+    await t.tap(find.text('Выровнять по опоре…'));
+    await t.pumpAndSettle();
+    // A post's width is along X, so its controls show left and right edges.
+    await t.tap(find.text('По ширине'));
+    await t.pumpAndSettle();
+    expect(find.byIcon(PhosphorIconsRegular.alignLeft), findsOneWidget);
+    expect(
+      find.byIcon(PhosphorIconsRegular.alignCenterHorizontal),
+      findsOneWidget,
+    );
+    expect(find.byIcon(PhosphorIconsRegular.alignRight), findsOneWidget);
+    e.undo();
+    expect(e.project, same(before));
+  });
 
   testWidgets(
-    'Right click acts on selected boards together and right drag still orbits',
+    'Right click acts on selected boards together and right drag pans the top view',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1320, 850));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -1298,7 +1317,7 @@ void main() {
       await t.pumpAndSettle();
       expect(e.project.beams, hasLength(original.beams.length + 1));
       final at = board(2);
-      final yaw = e.camera.yaw;
+      final pan = e.camera.pan;
       final drag = await t.startGesture(
         at,
         kind: PointerDeviceKind.mouse,
@@ -1307,7 +1326,8 @@ void main() {
       await drag.moveBy(const Offset(45, 15));
       await drag.up();
       await t.pumpAndSettle();
-      expect(e.camera.yaw, isNot(yaw));
+      expect(e.activeView, ViewAngle.top);
+      expect(e.camera.pan - pan, const Offset(45, 15));
       expect(find.text('Дублировать'), findsNothing);
       final empty = t.getBottomRight(drawing) - const Offset(10, 10);
       await rightClick(empty);
@@ -1342,6 +1362,10 @@ void main() {
         of: find.byKey(ValueKey('dialog-size-$i')),
         matching: find.byType(DeskTextField),
       );
+      Finder position(int i) => find.descendant(
+        of: find.byKey(ValueKey('dialog-position-$i')),
+        matching: find.byType(DeskTextField),
+      );
       Finder lock(StockAxis axis, {bool locked = false}) => find.descendant(
         of: find.byType(DeskDialog),
         matching: find.byTooltip(
@@ -1350,6 +1374,24 @@ void main() {
       );
       await open();
       expect(e.highlightedSize, 0);
+      expect(find.text('Тип детали'), findsNothing);
+      for (final (i, label) in [
+        'X · слева',
+        'Y · от задней стенки',
+        'Z · от пола',
+      ].indexed) {
+        expect(
+          find.descendant(
+            of: find.byType(DeskDialog),
+            matching: find.text(label),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          t.widget<DeskTextField>(position(i)).controller!.text,
+          ['0', '276', '414'][i],
+        );
+      }
       expect(
         find.descendant(
           of: find.byType(DeskDialog),
@@ -1379,12 +1421,18 @@ void main() {
         matching: find.byType(DeskButton),
       );
       expect(t.widget<DeskButton>(apply).onPressed, isNull);
+      await t.enterText(input(1), '84');
+      await t.enterText(position(0), '-15');
+      await t.enterText(position(1), '1/0');
+      await t.pump();
+      expect(t.widget<DeskButton>(apply).onPressed, isNull);
       await t.sendKeyEvent(LogicalKeyboardKey.escape);
       await t.pumpAndSettle();
       expect(find.byType(DeskDialog), findsNothing);
       expect(e.project, same(before));
       await open();
       expect(t.widget<DeskTextField>(input(2)).enabled, true);
+      await t.enterText(position(1), '300+3');
       await t.enterText(input(1), '4*10+12');
       await t.tap(lock(StockAxis.width));
       await t.pumpAndSettle();
@@ -1395,16 +1443,21 @@ void main() {
         ),
         'Сиденье',
       );
+      await t.enterText(position(0), '-15');
+      await t.enterText(position(2), '420');
+      expect(e.project, same(before));
       await t.enterText(input(2), '12');
       await t.testTextInput.receiveAction(TextInputAction.done);
       await t.pumpAndSettle();
       expect(find.byType(DeskDialog), findsNothing);
       expect(e.single!.size, Vector3(1200, 52, 12));
       expect(e.single!.name, 'Сиденье');
+      expect(e.single!.origin, Vector3(-15, 5, 420));
       expect(e.single!.locks, 1 << StockAxis.width.index);
       final edited = e.project;
       await open();
       expect(t.widget<DeskTextField>(input(1)).enabled, false);
+      expect(t.widget<DeskTextField>(position(1)).controller!.text, '303');
       await t.tap(lock(StockAxis.width, locked: true));
       await t.pumpAndSettle();
       expect(t.widget<DeskTextField>(input(1)).enabled, true);
@@ -1629,6 +1682,58 @@ void main() {
       await mouse.removePointer();
     },
   );
+
+  testWidgets('Snapped drags and arrow moves stop at the workspace walls', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(1360, 840));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final board = Beam(
+      1,
+      'Полка',
+      Vector3(20, 30, 0),
+      Vector3(80, 40, 20),
+      axis(0),
+      axis(1),
+    );
+    final project = Project('', [board]).withWorkspace(Vector3(200, 200, 200));
+    final e = Editor(project)
+      ..setView(ViewAngle.top)
+      ..select(1);
+    e.fitRequested = false;
+    e.camera.scale = 1;
+    await t.pumpWidget(NeprostoApp(editor: e));
+    await t.pumpAndSettle();
+    final drawing = find.byKey(const Key('drawing'));
+    final start =
+        t.getTopLeft(drawing) +
+        e.camera.project(board.pointAt(Vector3.all(.5)), t.getSize(drawing));
+    final drag = await t.startGesture(start, kind: PointerDeviceKind.mouse);
+    await drag.moveBy(const Offset(150, -15));
+    await t.pump();
+    expect(e.single!.origin, Vector3(120, 45, 0));
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await t.pump();
+    expect(e.single!.origin, Vector3(170, 45, 0));
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await t.pump();
+    expect(e.single!.origin, Vector3(120, 45, 0));
+    await drag.up();
+    await drag.removePointer();
+    e.undo();
+    expect(e.project, same(project));
+
+    await t.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await t.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(e.single!.origin.x, 120);
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(e.single!.origin.x, 120);
+    e.snapByDefault = false;
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(e.single!.origin.x, 121);
+    await t.pumpAndSettle(const Duration(milliseconds: 100));
+  });
 
   testWidgets('Movement and ruler invert immediately with either modifier', (
     t,
@@ -2382,9 +2487,9 @@ void main() {
     expect(e.selection, {part.id});
     expect(find.byType(DeskDialog), findsNothing);
     final size = t.getSize(find.byKey(const Key('drawing')));
-    final middle = e.camera.project(part.pointAt(Vector3.all(.5)), size);
+    final middle = screenCenter(part, e.camera, size);
     expect((middle - size.center(Offset.zero)).distance, lessThan(.001));
-    expect(e.activeView, ViewAngle.iso);
+    expect(e.activeView, ViewAngle.perspective);
     expect(e.camera.scale, greaterThan(scale));
     expect(e.canUndo, isFalse);
     await t.tap(find.byIcon(Icons.straighten).first);

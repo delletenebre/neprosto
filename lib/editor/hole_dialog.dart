@@ -698,6 +698,8 @@ class _HoleDialogState extends State<_HoleDialog> {
                         Checkbox.adaptive(
                           value: widget.editor.showHoleNumbers,
                           onChanged: (value) => toggleNumbers(value!),
+                          activeColor: EditorPalette.highlight,
+                          checkColor: EditorPalette.onHighlight,
                           visualDensity: VisualDensity.compact,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,

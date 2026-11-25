@@ -2,6 +2,7 @@ import '../l10n/strings.dart';
 import 'palette.dart';
 
 import 'dart:math' as math;
+import 'dart:ui' as ui show Gradient;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -367,7 +368,8 @@ class DrawingPainter extends CustomPainter {
 
   void _drawPositionAxis(Canvas c, int dim, Vector3 origin) {
     final center = project(origin);
-    final direction = project(origin + axis(dim)) - center;
+    final forward = offsetDirection(dim);
+    final direction = project(origin + forward) - center;
     final color = colors.axisColor(dim);
     final pen = Paint()
       ..color = color
@@ -379,7 +381,7 @@ class DrawingPainter extends CustomPainter {
       // The axis points toward or away from the viewer in this projection.
       c.drawCircle(center, 7, Paint()..color = colors.paper);
       c.drawCircle(center, 6, pen..style = PaintingStyle.stroke);
-      if (scene.camera.towardEye(origin)[dim] > 0) {
+      if (scene.camera.towardEye(origin).dot(forward) > 0) {
         c.drawCircle(center, 2, pen..style = PaintingStyle.fill);
       } else {
         c.drawLine(
@@ -568,13 +570,13 @@ class DrawingPainter extends CustomPainter {
     );
   }
 
-  void _worldLine(Canvas c, Vector3 a, Vector3 b, Paint pen) {
+  (Vector3, Vector3)? _clipLine(Vector3 a, Vector3 b) {
     final camera = scene.camera;
     if (camera.perspective) {
       final limit = camera.eyeDistance * .95;
       final da = (a - camera.target).dot(camera.eye),
           db = (b - camera.target).dot(camera.eye);
-      if (da > limit && db > limit) return;
+      if (da > limit && db > limit) return null;
       if (da > limit || db > limit) {
         final cut = a + (b - a) * ((limit - da) / (db - da));
         if (da > limit) {
@@ -584,21 +586,57 @@ class DrawingPainter extends CustomPainter {
         }
       }
     }
-    c.drawLine(project(a), project(b), pen);
+    return (a, b);
   }
 
   void _workspace(Canvas c) {
     final corners = scene.project.workspaceCorners;
     if (corners.isEmpty) return;
-    final pen = Paint()
+    final tint = Color.lerp(colors.paper, colors.muted, .45)!;
+    final clear = tint.withValues(alpha: 0);
+    final dashed = Paint()
+      ..strokeWidth = 1
+      ..shader = ui.Gradient.linear(
+        Offset.zero,
+        const Offset(9, 0),
+        [tint, tint, clear, clear],
+        const [0, .44, .44, 1],
+        TileMode.repeated,
+      );
+    final corner = Paint()
       ..strokeWidth = 1.2
-      ..color = const Color(0xff95a6b4);
-    _wireframe(c, corners, pen);
+      ..color = Color.lerp(colors.paper, colors.muted, .65)!;
+    _wireframe(corners, (a, b) {
+      final clipped = _clipLine(a, b);
+      if (clipped == null) return;
+      final start = project(clipped.$1);
+      final edge = project(clipped.$2) - start;
+      final length = edge.distance;
+      if (length < 1) return;
+      final tick = math.min(7.0, length * .2);
+      c.save();
+      c.translate(start.dx, start.dy);
+      c.rotate(edge.direction);
+      c.drawLine(Offset.zero, Offset(length, 0), dashed);
+      if (identical(a, clipped.$1)) {
+        c.drawLine(Offset.zero, Offset(tick, 0), corner);
+      }
+      if (identical(b, clipped.$2)) {
+        c.drawLine(Offset(length - tick, 0), Offset(length, 0), corner);
+      }
+      c.restore();
+    });
   }
 
   void _partOutline(Canvas c, Beam b, Paint pen) {
+    void line(Vector3 a, Vector3 b) {
+      if (_clipLine(a, b) case (final from, final to)) {
+        c.drawLine(project(from), project(to), pen);
+      }
+    }
+
     if (b.rabbets.isEmpty) {
-      _wireframe(c, b.corners, pen);
+      _wireframe(b.corners, line);
       return;
     }
     final section = b.sectionOutline;
@@ -606,16 +644,16 @@ class DrawingPainter extends CustomPainter {
     final end = [for (final p in section) b.pointAt(p.clone()..x = 1)];
     for (var i = 0; i < section.length; i++) {
       final j = (i + 1) % section.length;
-      _worldLine(c, start[i], start[j], pen);
-      _worldLine(c, end[i], end[j], pen);
-      _worldLine(c, start[i], end[i], pen);
+      line(start[i], start[j]);
+      line(end[i], end[j]);
+      line(start[i], end[i]);
     }
   }
 
-  void _wireframe(Canvas c, List<Vector3> corners, Paint pen) {
+  void _wireframe(List<Vector3> corners, void Function(Vector3, Vector3) line) {
     for (var i = 0; i < corners.length; i++) {
       for (final bit in [1, 2, 4]) {
-        if (i & bit == 0) _worldLine(c, corners[i], corners[i | bit], pen);
+        if (i & bit == 0) line(corners[i], corners[i | bit]);
       }
     }
   }

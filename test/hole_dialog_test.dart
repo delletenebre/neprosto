@@ -1,3 +1,4 @@
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoCheckbox;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
@@ -10,6 +11,35 @@ import 'package:neprosto/editor/palette.dart';
 import 'package:neprosto/editor/step.dart';
 
 void main() {
+  testWidgets(
+    'The macOS hole-number checkbox uses the editor selection colors',
+    (t) async {
+      final board = Beam(
+        1,
+        'Панель',
+        Vector3.zero(),
+        Vector3(600, 160, 18),
+        axis(0),
+        axis(1),
+      );
+      final editor = Editor(Project('', [board]));
+      final opener = GlobalKey();
+      await t.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      await t.pumpWidget(MaterialApp(home: SizedBox(key: opener)));
+      showPanelHoles(opener.currentContext!, editor, board);
+      await t.pumpAndSettle();
+
+      final checkbox = t.widget<CupertinoCheckbox>(
+        find.byType(CupertinoCheckbox),
+      );
+      expect(checkbox.value, isTrue);
+      expect(checkbox.activeColor, EditorPalette.highlight);
+      expect(checkbox.checkColor, EditorPalette.onHighlight);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   testWidgets(
     'Invalid holes remain selectable and each row shows its own warning',
     (t) async {

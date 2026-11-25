@@ -10,7 +10,7 @@ class MainFlutterWindow: NSWindow {
   private func registerProjectFiles(_ controller: FlutterViewController) {
     let channel = FlutterMethodChannel(name: "neprosto/project-files", binaryMessenger: controller.engine.binaryMessenger)
     channel.setMethodCallHandler { call, result in
-      guard ["link", "write"].contains(call.method),
+      guard ["read", "write"].contains(call.method),
             let args = call.arguments as? [String: Any], let path = args["path"] as? String else {
         result(FlutterMethodNotImplemented)
         return
@@ -41,6 +41,9 @@ class MainFlutterWindow: NSWindow {
           let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
           var link: [String: Any] = ["path": url.path, "bookmark": bookmark.base64EncodedString()]
           link["modified"] = try modificationTime()
+          if call.method == "read" {
+            link["bytes"] = FlutterStandardTypedData(bytes: try Data(contentsOf: url))
+          }
           DispatchQueue.main.async { result(link) }
         } catch {
           DispatchQueue.main.async {

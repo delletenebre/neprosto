@@ -43,15 +43,24 @@ Future<({Project project, ProjectFile? file})?> openProject() async {
     confirmButtonText: editorStrings.open,
   );
   if (input == null) return null;
-  ProjectFile? file;
-  if (!kIsWeb && input.name.toLowerCase().endsWith('.neprosto')) {
-    file = _mac
-        ? ProjectFile.fromJson(
-            (await _files.invokeMapMethod('link', {'path': input.path}))!,
-          )
-        : ProjectFile(input.path);
+  if (!kIsWeb) return readProjectFile(ProjectFile(input.path));
+  return (project: Project.decode(await input.readAsString()), file: null);
+}
+
+Future<({Project project, ProjectFile file})> readProjectFile(
+  ProjectFile file,
+) async {
+  if (_mac) {
+    final data = (await _files.invokeMapMethod('read', file.toJson()))!;
+    return (
+      project: Project.decode(utf8.decode(data['bytes'] as Uint8List)),
+      file: ProjectFile.fromJson(data),
+    );
   }
-  return (project: Project.decode(await input.readAsString()), file: file);
+  return (
+    project: Project.decode(await XFile(file.path).readAsString()),
+    file: file,
+  );
 }
 
 String _fileStem(Project p) {

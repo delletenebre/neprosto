@@ -25,7 +25,6 @@ Future<void> updateNativeAppearance(
         'np.file': strings.fileMenu,
         'np.new': '${strings.newProject}…',
         'np.open': strings.openProjectMenu,
-        'np.demo': strings.openBenchExample,
         'np.close': strings.closeTab,
         'np.save': strings.save,
         'np.saveAs': strings.saveAs,

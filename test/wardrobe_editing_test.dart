@@ -376,6 +376,7 @@ void main() {
       await t.pumpAndSettle();
       expect(e.single!.doorOpen, isFalse);
       expect(find.byKey(const ValueKey('part-dialog-name')), findsOneWidget);
+      expect(find.byType(PartTypePicker), findsNothing);
       Future<void> tap(String text) async {
         final target = find.text(text).last;
         await t.ensureVisible(target);
@@ -383,7 +384,21 @@ void main() {
         await t.pumpAndSettle();
       }
 
-      await tap('Отмена');
+      final x = find.descendant(
+        of: find.byKey(const ValueKey('dialog-position-0')),
+        matching: find.byType(EditableText),
+      );
+      expect(
+        t.widget<EditableText>(x).controller.text,
+        e.lengthInput.format(door.origin.x),
+      );
+      await t.enterText(x, '1,2');
+      await tap('Применить');
+      expect(e.single!.origin, Vector3(12, door.origin.y, door.origin.z));
+      expect(e.single!.hinge, door.hinge);
+      e.undo();
+      await t.pumpAndSettle();
+      expect(e.single, same(door));
       await tap('Открыть дверцу');
       expect(e.single!.doorOpen, isTrue);
       await tap('Закрыть дверцу');

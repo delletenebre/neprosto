@@ -13,6 +13,7 @@ part 'panel_hole.dart';
 part 'door.dart';
 
 Vector3 axis(int i) => Vector3.zero()..[i] = 1;
+Vector3 offsetDirection(int i) => i == 1 ? -axis(i) : axis(i);
 String mm(double value) {
   final rounded = (value * 100).round() / 100;
   return rounded == rounded.truncateToDouble()
@@ -128,8 +129,10 @@ class Beam {
   final Map<RabbetEdge, Rabbet> rabbets;
   // Longitudinal offset across the full width and thickness of each end.
   final ({double y, double z}) startCut, endCut;
-  bool get bevelled =>
-      startCut.y != 0 || startCut.z != 0 || endCut.y != 0 || endCut.z != 0;
+  int get bevelledEndCount =>
+      (startCut == (y: 0.0, z: 0.0) ? 0 : 1) +
+      (endCut == (y: 0.0, z: 0.0) ? 0 : 1);
+  bool get bevelled => bevelledEndCount != 0;
   double get minimumLength =>
       ((endCut.y - startCut.y).abs() + (endCut.z - startCut.z).abs()) * .5 +
       .001;
@@ -485,6 +488,43 @@ class Bounds3 {
     return Bounds3(lo, hi);
   }
   Vector3 get center => (low + high) * .5;
+  Vector3 get rearLowerLeft => Vector3(low.x, high.y, low.z);
+
+  Vector3 clampTranslation(Vector3 delta, {Vector3? planeNormal}) {
+    final limited = delta.clone()..clamp(low, high);
+    if (planeNormal != null &&
+        (limited - delta).dot(planeNormal).abs() > 1e-7) {
+      // On a sloping work plane, stop along the drag direction rather than
+      // letting independent world-axis limits lift the part off its plane.
+      var fraction = 1.0;
+      for (var i = 0; i < 3; i++) {
+        if (limited[i] != delta[i]) {
+          fraction = math.min(fraction, limited[i] / delta[i]);
+        }
+      }
+      return delta * fraction;
+    }
+    return limited;
+  }
+}
+
+List<Vector3> clipPolygon(
+  List<Vector3> points,
+  double Function(Vector3) distance,
+) {
+  if (points.isEmpty) return points;
+  final clipped = <Vector3>[];
+  var previous = points.last, prev = distance(previous);
+  for (final current in points) {
+    final d = distance(current);
+    if ((prev >= 0) != (d >= 0)) {
+      clipped.add(previous + (current - previous) * (prev / (prev - d)));
+    }
+    if (d >= 0) clipped.add(current);
+    previous = current;
+    prev = d;
+  }
+  return clipped;
 }
 
 class Project {
@@ -493,6 +533,13 @@ class Project {
   final List<Dimension> dimensions;
   final LengthUnit unit;
   final Vector3? workspaceSize;
+  final double? _savedRearY;
+  // Older unbounded projects used the rear of the assembly for the wall grid.
+  // Keep that plane fixed when parts are moved, resized or hidden.
+  late final double rearY =
+      workspaceSize?.y ?? _savedRearY ?? partBounds?.high.y ?? 0;
+  Vector3 offsetsOf(Bounds3 bounds) =>
+      Vector3(bounds.low.x, rearY - bounds.high.y, bounds.low.z);
   Map<int, String> _groupNames = const {};
   Map<int, String> get groupNames => _groupNames;
   late final Bounds3? partBounds = beams.isEmpty
@@ -512,7 +559,7 @@ class Project {
   }
 
   Project withWorkspace(Vector3? size) =>
-      Project(name, beams, dimensions, unit, size, groupNames);
+      Project(name, beams, dimensions, unit, size, groupNames, rearY);
   Project(
     this.name,
     Iterable<Beam> beams, [
@@ -520,6 +567,7 @@ class Project {
     this.unit = LengthUnit.millimeter,
     this.workspaceSize,
     Map<int, String> groupNames = const {},
+    this._savedRearY,
   ]) : beams = List.unmodifiable(beams),
        dimensions = List.unmodifiable(dimensions) {
     if (groupNames.isNotEmpty) {
@@ -557,6 +605,7 @@ class Project {
     unit ?? this.unit,
     workspaceSize,
     groupNames ?? this.groupNames,
+    rearY,
   );
   Set<int> assembly(int id) {
     final b = byId[id];
@@ -571,8 +620,30 @@ class Project {
 
   Project edit(Set<int> ids, Beam Function(Beam) update) =>
       copy(beams: beams.map((b) => ids.contains(b.id) ? update(b) : b));
-  Project move(Set<int> ids, Vector3 delta) =>
-      edit(ids, (b) => b.copy(origin: b.origin + delta));
+  Bounds3? moveLimits(Set<int> ids, {Project? placed}) {
+    final room = workspaceSize;
+    if (room == null || ids.isEmpty) return null;
+    Bounds3 boundsOf(Project p) =>
+        Bounds3.points(ids.expand((id) => p.byId[id]!.corners));
+    final start = boundsOf(this);
+    final bounds = placed == null ? start : boundsOf(placed);
+    // Parts already beyond a wall may move back in without jumping.
+    final low = Vector3.zero(), high = Vector3.zero();
+    for (var i = 0; i < 3; i++) {
+      low[i] = math.min(0, start.low[i]) - bounds.low[i];
+      high[i] = math.max(room[i], start.high[i]) - bounds.high[i];
+    }
+    return Bounds3(low, high);
+  }
+
+  Project move(Set<int> ids, Vector3 delta, {bool withinWorkspace = false}) {
+    if (withinWorkspace) {
+      delta = moveLimits(ids)?.clampTranslation(delta) ?? delta;
+      if (delta.length2 < 1e-14) return this;
+    }
+    return edit(ids, (b) => b.copy(origin: b.origin + delta));
+  }
+
   Project rotate(Set<int> ids, Vector3 normal, double degrees) {
     if (ids.isEmpty) return this;
     final pivot = Bounds3.points(
@@ -611,6 +682,7 @@ class Project {
     'version': 1,
     'unit': unit.name,
     if (workspaceSize case final size?) 'workspaceSize': _xyz(size),
+    if (workspaceSize == null) 'rearY': rearY,
     'name': name,
     if (groupNames.isNotEmpty)
       'groupNames': {
@@ -632,6 +704,10 @@ class Project {
     if (room != null && (room.x <= 0 || room.y <= 0 || room.z <= 0)) {
       throw FormatException(editorStrings.invalidWorkspaceDimensions);
     }
+    final rearY = data['rearY'];
+    if (rearY != null && (rearY is! num || !rearY.isFinite)) {
+      throw FormatException(editorStrings.invalidWorkspaceDimensions);
+    }
     final p = Project(
       data['name'] as String,
       (data['beams'] as List).map((e) => Beam.fromJson(e)),
@@ -650,6 +726,7 @@ class Project {
         for (final entry in (data['groupNames'] as Map? ?? const {}).entries)
           int.parse(entry.key as String): entry.value as String,
       },
+      (rearY as num?)?.toDouble(),
     );
     if (p.beams.length != p.byId.length ||
         p.dimensions

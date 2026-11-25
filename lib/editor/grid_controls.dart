@@ -32,7 +32,7 @@ class GridControls extends StatelessWidget {
               onPressed: () => changed(value.toggle(plane)),
               child: Row(
                 children: [
-                  GridPlaneIcon(plane, size: 25),
+                  GridPlaneIcon(plane, size: 25, axisGrid: true),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -47,7 +47,7 @@ class GridControls extends StatelessWidget {
                         : CupertinoIcons.circle,
                     size: 17,
                     color: value.planes.contains(plane)
-                        ? plane.color
+                        ? context.colors.accent
                         : context.colors.muted,
                   ),
                 ],

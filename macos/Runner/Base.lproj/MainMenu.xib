@@ -83,11 +83,6 @@
                                     <action selector="workspaceCommand:" target="Voe-Tx-rLC" id="np-act-open"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Open Bench Example" identifier="np.demo" id="np-mi-demo">
-                                <connections>
-                                    <action selector="workspaceCommand:" target="Voe-Tx-rLC" id="np-act-demo"/>
-                                </connections>
-                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="np-sep-1"/>
                             <menuItem title="Close Tab" identifier="np.close" id="np-mi-close">
                                 <connections>

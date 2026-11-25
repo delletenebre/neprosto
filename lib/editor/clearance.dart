@@ -51,19 +51,8 @@ part of 'model.dart';
     final start = face[i],
         edge = face[(i + 1) % 4] - start,
         inward = n.cross(edge).normalized();
-    final clipped = <Vector3>[];
     if (polygon.isEmpty) return null;
-    var previous = polygon.last, prev = (previous - start).dot(inward);
-    for (final current in polygon) {
-      final d = (current - start).dot(inward);
-      if ((prev >= 0) != (d >= 0)) {
-        clipped.add(previous + (current - previous) * (prev / (prev - d)));
-      }
-      if (d >= 0) clipped.add(current);
-      previous = current;
-      prev = d;
-    }
-    polygon = clipped;
+    polygon = clipPolygon(polygon, (p) => (p - start).dot(inward));
   }
   if (polygon.length < 3) return null;
   final base = polygon.first;

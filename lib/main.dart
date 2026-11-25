@@ -13,6 +13,7 @@ import 'editor/platform_ui.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show AppExitResponse, ViewFocusEvent, ViewFocusState;
 
 import 'package:flutter/services.dart';
@@ -36,6 +37,7 @@ import 'editor/parts_panel.dart';
 import 'editor/part_type_picker.dart';
 import 'editor/parts_list.dart';
 import 'editor/project_settings.dart';
+import 'editor/project_picker.dart';
 import 'editor/template_picker.dart';
 import 'editor/project_tabs.dart';
 import 'editor/project_tab_bar.dart';
@@ -77,6 +79,11 @@ Future<void> main() async {
     }
   } catch (_) {
     issue = editorStrings.draftOpenError;
+  }
+  try {
+    tabs.restoreRecent(await prefs.getString(ProjectTabs.recentKey));
+  } catch (_) {
+    tabs.restoreRecent(null);
   }
   final editor = tabs.value.editor;
   try {
@@ -292,6 +299,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
   Object? lastToolbarState;
   static const menu = MethodChannel('neprosto/editor');
   Future<void> writes = Future.value();
+  List<RecentProject>? cachedRecent;
   bool retryDraft = false;
   late bool autosave = widget.autosave;
   late int autosaveMinutes = widget.autosaveMinutes;
@@ -317,7 +325,6 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
               'saveAs' ||
               'rename' ||
               'close' ||
-              'demo' ||
               'projectSettings':
             await file(call.method);
           case 'settings':
@@ -523,9 +530,14 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     final prefs = widget.preferences;
     if (prefs == null) return;
     final data = tabs.encode();
+    final recent = tabs.recent;
     writes = writes.then((_) async {
       try {
         await prefs.setString(ProjectTabs.storageKey, data);
+        if (recent.isNotEmpty && !identical(cachedRecent, recent)) {
+          await prefs.setString(ProjectTabs.recentKey, jsonEncode(recent));
+          cachedRecent = recent;
+        }
         retryDraft = false;
       } catch (_) {
         retryDraft = true;
@@ -564,7 +576,9 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       final file = tab.file;
       if (file == null || !tab.dirty) continue;
       try {
-        tab.file = await writeProject(project, file);
+        final output = await writeProject(project, file);
+        tab.file = output;
+        tabs.refreshRecentFile(file, output, project.name);
         tab.saved = project;
         changed = true;
       } catch (_) {
@@ -1017,14 +1031,18 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         ? tab.file!
         : await chooseProjectFile(current);
     if (target == null) return false;
-    final owner = tabs.forFile(target);
+    final owner = tabs.forDocument(target.path);
     if (owner != null && owner != tab) {
       e.message = editorStrings.fileAlreadyOpen;
       e.refresh();
       return false;
     }
     final output = await writeProject(current, target);
-    if (!kIsWeb) tab.file = output;
+    if (!kIsWeb) {
+      tab.file = output;
+      tab.recentId = null;
+    }
+    tabs.remember(tabs.savedDocument(tab, current), previousId: target.path);
     tab.saved = tab.draft = current;
     tab.editor.message = editorStrings.projectSaved;
     tab.editor.refresh();
@@ -1051,10 +1069,21 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       final source =
           DialogSource.current ??
           DialogSource.of(
-            action == 'new'
+            action == 'new' || action == 'addTab'
                 ? newProjectButton.currentContext
                 : GlobalObjectKey(tab ?? active).currentContext,
           );
+      RecentProject? recent;
+      if (action == 'addTab') {
+        final choice = await chooseProjectForTab(
+          context,
+          tabs.recent,
+          source: source,
+        );
+        if (!mounted || choice == null) return;
+        action = choice.action;
+        recent = choice.recent;
+      }
       if (action == 'projectSettings') {
         await showProjectSettings(context, e, source: source);
         return;
@@ -1084,13 +1113,23 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         case 'open':
           final input = await openProject();
           if (!mounted || input == null) return;
-          final existing = input.file == null
-              ? null
-              : tabs.forFile(input.file!);
+          tabs.openDocument(input.project, source: input.file);
+        case 'recent':
+          final entry = recent!;
+          final existing = tabs.forDocument(entry.id);
           if (existing != null) {
             tabs.select(existing);
+            tabs.remember(entry);
+          } else if (entry.file case final file?) {
+            final input = await readProjectFile(file);
+            if (!mounted) return;
+            tabs.openDocument(
+              input.project,
+              source: input.file,
+              recentId: entry.id,
+            );
           } else {
-            tabs.open(input.project, file: input.file);
+            tabs.openDocument(entry.snapshot!, recentId: entry.id);
           }
         case 'new':
           final choice = await chooseProjectTemplate(
@@ -1100,14 +1139,13 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           );
           if (!mounted || choice == null) return;
           tabs.create(template: choice.template, unit: choice.unit);
-        case 'demo':
-          tabs.open(Project.bench());
         default:
           return;
       }
       cache();
     } catch (error) {
-      e.message = action == 'open'
+      if (!mounted) return;
+      e.message = action == 'open' || action == 'recent'
           ? context.strings.openProjectError
           : context.strings.saveProjectError;
       e.refresh();
@@ -1212,13 +1250,12 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
             tabs: tabs.items,
             active: active,
             select: focusTab,
-            create: () => file('new'),
+            addTab: () => file('addTab'),
             close: (tab) => file('close', tab: tab),
             menuItems: [
               if (!macControls || kIsWeb) ...[
                 ('new', context.strings.newProject),
                 ('open', context.strings.openProjectMenu),
-                ('demo', context.strings.openBenchExample),
               ],
               ('save', context.strings.saveProject),
               ('saveAs', context.strings.saveAs),

@@ -21,6 +21,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get finishPresets => 'Готовые образцы';
 
   @override
+  String get chooseFinishPreset => 'Выбрать образец';
+
+  @override
+  String get pineColor => 'Сосна';
+
+  @override
+  String get oakColor => 'Дуб';
+
+  @override
+  String get whiteColor => 'Белый';
+
+  @override
+  String get grayColor => 'Серый';
+
+  @override
+  String get graphiteColor => 'Графит';
+
+  @override
+  String get beigeColor => 'Бежевый';
+
+  @override
   String get finishTexture => 'Текстура';
 
   @override
@@ -768,7 +789,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get open => 'Открыть';
 
   @override
-  String get openBenchExample => 'Открыть пример скамьи';
+  String get newTab => 'Новая вкладка';
+
+  @override
+  String get recentProjects => 'Недавние проекты';
+
+  @override
+  String get noRecentProjects => 'Пока нет недавних проектов';
 
   @override
   String get openProject => 'Открыть проект';
@@ -913,7 +940,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get floor => 'Пол';
 
   @override
-  String get position => 'Положение';
+  String get partOffsets => 'Отступы';
+
+  @override
+  String get xFromLeft => 'X · слева';
+
+  @override
+  String get yFromBack => 'Y · от задней стенки';
+
+  @override
+  String get zFromFloor => 'Z · от пола';
 
   @override
   String crossRail(Object number) {
@@ -1256,6 +1292,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get frontPlane => 'Фронтальная';
+
+  @override
+  String get rearPlane => 'Задняя';
 
   @override
   String get centerPoint => 'Центр';
@@ -1957,31 +1996,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sawCutLine => 'Линия пропила';
 
   @override
-  String get sawFenceKey => 'Упор';
-
-  @override
-  String get sawBladeKey => 'Диск';
-
-  @override
   String get sawFeed => 'Подача';
 
   @override
   String get sawCrosscutFence => 'Поперечный упор';
-
-  @override
-  String get sawMiterPlan => 'Сверху · рукоятка снизу';
-
-  @override
-  String get sawHandPlan => 'Сверху · ход пилы';
-
-  @override
-  String get sawTablePlan => 'Сверху · передний край внизу';
-
-  @override
-  String get sawMiterSight => 'От рукоятки вдоль реза';
-
-  @override
-  String get sawHandSight => 'Сзади пилы по ходу реза';
 
   @override
   String get sawTableSight => 'В разрезе';
@@ -2031,7 +2049,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get rabbetTitle => 'Фальцевые срезы';
+  String get rabbetTitle => 'Выборка фальца';
 
   @override
   String get rabbetTopLeft => 'Верхнее левое';

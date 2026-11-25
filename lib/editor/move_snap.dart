@@ -22,13 +22,15 @@ class _Footprint {
 /// All extents are measured in the working plane. Building the reference
 /// footprints once per drag keeps pointer updates independent of mesh size.
 class MoveSnap {
+  final Bounds3? workspaceLimits;
   final List<Vector3> _axes;
   late final _Footprint _moving;
   final List<_Footprint> _fixed = [];
   final List<double?> _held = [null, null];
 
   MoveSnap(Project project, Set<int> ids, WorkPlane plane)
-    : _axes = _basis(project.byId[ids.first]!, plane) {
+    : workspaceLimits = project.moveLimits(ids),
+      _axes = _basis(project.byId[ids.first]!, plane) {
     _moving = _footprint(project.beams.where((b) => ids.contains(b.id)));
     for (final b in project.beams) {
       if (!ids.contains(b.id)) _fixed.add(_footprint([b]));

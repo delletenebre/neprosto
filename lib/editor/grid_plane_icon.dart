@@ -4,21 +4,28 @@ import 'grid_visibility.dart';
 import 'palette.dart';
 
 class GridPlaneIcon extends StatelessWidget {
-  const GridPlaneIcon(this.plane, {required this.size, super.key});
+  const GridPlaneIcon(
+    this.plane, {
+    required this.size,
+    this.axisGrid = false,
+    super.key,
+  });
 
   final GridPlane plane;
   final double size;
+  final bool axisGrid;
 
   @override
   Widget build(BuildContext context) => CustomPaint(
     size: Size.square(size),
-    painter: _PlaneDiagram(plane, context.colors),
+    painter: _PlaneDiagram(plane, axisGrid, context.colors),
   );
 }
 
 class _PlaneDiagram extends CustomPainter {
-  const _PlaneDiagram(this.plane, this.colors);
+  const _PlaneDiagram(this.plane, this.axisGrid, this.colors);
   final GridPlane plane;
+  final bool axisGrid;
   final EditorPalette colors;
 
   // All three views use the same cabinet, with its wider front facing right.
@@ -42,13 +49,29 @@ class _PlaneDiagram extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..strokeWidth = 1.2
       ..color = colors.muted;
+    final offset = axisGrid
+        ? switch (plane) {
+            GridPlane.xy => const Offset(0, 18),
+            GridPlane.xz => const Offset(-10, -6),
+            GridPlane.yz => Offset.zero,
+          }
+        : Offset.zero;
+    if (offset != Offset.zero) {
+      final face = (Path()..addPolygon(faces[plane]!, true)).shift(offset);
+      canvas.drawPath(face, Paint()..color = EditorPalette.highlight);
+      canvas.drawPath(face, outline);
+    }
     for (final entry in faces.entries) {
       final path = Path()..addPolygon(entry.value, true);
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = entry.key == plane ? EditorPalette.highlight : colors.panel,
-      );
+      if (offset == Offset.zero) {
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = entry.key == plane
+                ? EditorPalette.highlight
+                : colors.panel,
+        );
+      }
       canvas.drawPath(path, outline);
     }
     canvas.restore();
@@ -56,5 +79,5 @@ class _PlaneDiagram extends CustomPainter {
 
   @override
   bool shouldRepaint(_PlaneDiagram old) =>
-      old.plane != plane || old.colors != colors;
+      old.plane != plane || old.axisGrid != axisGrid || old.colors != colors;
 }

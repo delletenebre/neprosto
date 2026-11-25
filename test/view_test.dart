@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter/rendering.dart' show PictureLayer, RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -44,9 +45,9 @@ void main() {
   );
 
   testWidgets(
-    'Orbit and cube faces select the correct view without replacing presets',
+    'Cube and tabs select fixed views that pan and 3D views that orbit',
     (t) async {
-      await t.binding.setSurfaceSize(const Size(1260, 800));
+      await t.binding.setSurfaceSize(const Size(1440, 800));
       addTearDown(() => t.binding.setSurfaceSize(null));
       final e = Editor(Project.bench());
       await t.pumpWidget(NeprostoApp(editor: e));
@@ -57,7 +58,8 @@ void main() {
           matching: find.byType(DeskButton),
         ),
       );
-      expect(tab(ViewAngle.iso).primary, isTrue);
+      expect(tab(ViewAngle.perspective).primary, isTrue);
+      expect(e.camera.perspective, isTrue);
       final axes = find.byWidgetPredicate(
         (w) => w is CustomPaint && w.painter is AxesPainter,
       );
@@ -72,45 +74,68 @@ void main() {
             matching: find.byType(CustomPaint),
           )
           .first;
-      // The center of +Z projects vertically above the cube origin in the initial axonometric view.
+      // The center of +Z projects vertically above the cube origin.
       final top =
           t.getCenter(cube) + Offset(e.camera.right.z, -e.camera.up.z) * 24;
       await t.tapAt(top);
       await t.pumpAndSettle();
       expect(e.activeView, ViewAngle.top);
       expect(tab(ViewAngle.top).primary, isTrue);
-      expect(tab(ViewAngle.iso).active, isFalse);
+      expect(tab(ViewAngle.perspective).active, isFalse);
       expect(find.text('Сверху · XY'), findsNothing);
       e.camera.scale = .7;
-      final canvas = find.byKey(const Key('drawing'));
-      final origin =
-          t.getTopLeft(canvas) +
-          e.camera.project(
-            e.project.beams.first.pointAt(Vector3.all(.5)),
-            t.getSize(canvas),
-          );
-      final mouse = await t.startGesture(
-        origin,
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await mouse.moveBy(const Offset(30, -60));
-      await mouse.up();
-      await t.pumpAndSettle();
-      expect(e.activeView, isNull);
-      expect(tab(ViewAngle.top).active, isTrue);
-      expect(tab(ViewAngle.top).primary, isFalse);
-      expect(tab(ViewAngle.iso).active, isFalse);
-      expect(find.text('Свободный вид · Ортография'), findsNothing);
-      await t.tap(find.text('Сверху'));
-      await t.pumpAndSettle();
-      expect(tab(ViewAngle.top).primary, isTrue);
-      expect(e.camera.pitch, ViewAngle.top.pitch);
-      expect(e.camera.scale, .7);
-      await t.tap(find.text('Аксонометрия'));
-      await t.pumpAndSettle();
-      expect(e.camera.pitch, ViewAngle.iso.pitch);
-      expect(e.camera.yaw, ViewAngle.iso.yaw);
+      final origin = canvasBounds.center;
+      const delta = Offset(30, -60);
+      Future<void> rightDrag() async {
+        final mouse = await t.startGesture(
+          origin,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await mouse.moveBy(delta);
+        await mouse.up();
+        await t.pumpAndSettle();
+      }
+
+      for (final view in const [
+        ViewAngle.top,
+        ViewAngle.front,
+        ViewAngle.right,
+        ViewAngle.back,
+        ViewAngle.left,
+        ViewAngle.bottom,
+      ]) {
+        await t.tap(find.text(view.label));
+        await t.pumpAndSettle();
+        final pan = e.camera.pan;
+        await rightDrag();
+        expect(e.camera.pan - pan, delta);
+        final pad = await t.createGesture(kind: PointerDeviceKind.trackpad);
+        await t.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await pad.panZoomStart(origin);
+        await pad.panZoomUpdate(origin, pan: delta);
+        await pad.panZoomEnd();
+        await t.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await t.pumpAndSettle();
+        expect(e.camera.pan - pan, delta * 2);
+        expect(tab(view).primary, isTrue);
+        expect(e.camera.yaw, view.yaw);
+        expect(e.camera.pitch, view.pitch);
+      }
+      for (final view in [ViewAngle.iso, ViewAngle.perspective]) {
+        await t.tap(find.text(view.label));
+        await t.pumpAndSettle();
+        await rightDrag();
+        expect(e.camera.yaw, isNot(view.yaw));
+        expect(e.camera.perspective, view == ViewAngle.perspective);
+        expect(e.activeView, isNull);
+        expect(tab(view).active, isTrue);
+        expect(tab(view).primary, isFalse);
+        await t.tap(find.text(view.label));
+        await t.pumpAndSettle();
+        expect(e.camera.yaw, view.yaw);
+        expect(e.camera.pitch, view.pitch);
+      }
       await t.tap(find.text('Сверху'));
       await t.pumpAndSettle();
       expect(e.camera.pitch, ViewAngle.top.pitch);
@@ -195,6 +220,7 @@ void main() {
       expect(buttonBackground(), EditorPalette.light.pale);
       await t.tap(find.text('По осям'));
       await t.pumpAndSettle();
+      expect(find.text('XZ · Задняя'), findsOneWidget);
       for (final plane in GridPlane.values) {
         final row = find.byKey(ValueKey('grid-${plane.name}'));
         final icon = find.descendant(
@@ -202,6 +228,17 @@ void main() {
           matching: find.byType(GridPlaneIcon),
         );
         expect(t.widget<GridPlaneIcon>(icon).plane, plane);
+        if (plane != GridPlane.yz) {
+          final floor = plane == GridPlane.xy;
+          expect(
+            icon,
+            paints..path(
+              color: EditorPalette.highlight,
+              includes: [floor ? const Offset(17, 28) : const Offset(8, 15)],
+              excludes: [floor ? const Offset(17, 10) : const Offset(26, 20)],
+            ),
+          );
+        }
       }
       await t.tap(find.byKey(const ValueKey('grid-xy')));
       await t.pumpAndSettle();
@@ -297,12 +334,12 @@ void main() {
     }),
   );
 
-  testWidgets('Hover reuses the grid picture and panning updates it', (
+  testWidgets('Hover reuses the grid while pan and project resize repaint it', (
     t,
   ) async {
     await t.binding.setSurfaceSize(const Size(1260, 800));
     addTearDown(() => t.binding.setSurfaceSize(null));
-    final e = Editor(Project.bench())
+    final e = Editor(Project.bench().withWorkspace(Vector3(600, 400, 300)))
       ..gridVisibility = const GridVisibility(
         automatic: false,
         planes: {GridPlane.xy, GridPlane.xz, GridPlane.yz},
@@ -332,44 +369,180 @@ void main() {
     );
     await t.pump();
     expect(picture(grid), isNot(same(initialGrid)));
+
+    final pannedGrid = picture(grid);
+    final resized = Vector3(800, 500, 350);
+    e.commit(e.project.withWorkspace(resized));
+    await t.pump();
+    expect(
+      (t.widget<CustomPaint>(grid).painter! as GridPainter)
+          .project
+          .workspaceSize,
+      resized,
+    );
+    expect(picture(grid), isNot(same(pannedGrid)));
   });
 
-  test('Each grid covers the viewport and fades at grazing angles', () async {
-    const size = Size(240, 180);
-    final cam = Camera()..scale = .1;
-    Future<List<int>> pixels([
-      GridVisibility grid = const GridVisibility(),
-    ]) async {
-      final recorder = ui.PictureRecorder();
-      GridPainter(
-        camera: cam,
-        plane: WorkPlane.xy(),
-        visibility: grid,
-        paper: EditorPalette.light.paper,
-      ).paint(Canvas(recorder), size);
-      final picture = recorder.endRecording();
-      final image = await picture.toImage(240, 180);
-      final data = (await image.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
-      ))!;
-      final result = [
-        for (var i = 0; i < data.lengthInBytes; i += 4) data.getUint32(i),
-      ];
-      image.dispose();
-      picture.dispose();
-      return result;
+  const size = Size(240, 180);
+  Future<List<int>> gridPixels(
+    Camera cam, {
+    WorkPlane? plane,
+    Project? project,
+    GridVisibility grid = const GridVisibility(),
+    EditorPalette colors = EditorPalette.light,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    GridPainter(
+      camera: cam,
+      project: project ?? Project('', []),
+      plane: plane ?? WorkPlane.xy(),
+      visibility: grid,
+      colors: colors,
+    ).paint(Canvas(recorder), size);
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(240, 180);
+    final data = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    final result = [
+      for (var i = 0; i < data.lengthInBytes; i += 4) data.getUint32(i),
+    ];
+    image.dispose();
+    picture.dispose();
+    return result;
+  }
+
+  test(
+    'An unbounded grid covers the viewport and fades at grazing angles',
+    () async {
+      final cam = Camera()..scale = .1;
+      final floor = await gridPixels(cam);
+      expect(floor.toSet().length, greaterThan(1));
+      expect(floor.take(240 * 30).toSet().length, greaterThan(1));
+      const hidden = GridVisibility(automatic: false, planes: {});
+      final empty = (await gridPixels(cam, grid: hidden)).toSet();
+      expect(empty, hasLength(1));
+      cam.pitch = .005;
+      expect((await gridPixels(cam)).toSet(), empty);
+      final walls = hidden.toggle(GridPlane.xz).toggle(GridPlane.yz);
+      expect(
+        (await gridPixels(cam, grid: walls)).toSet().length,
+        greaterThan(1),
+      );
+      expect(GridVisibility.decode(walls.encode()).planes, walls.planes);
+    },
+  );
+
+  test('Grid lines follow their world axis in both themes', () async {
+    for (final colors in EditorPalette.values) {
+      for (final (plane, horizontal, vertical) in [
+        (WorkPlane.xy(), 0, 1),
+        (WorkPlane.xz(), 0, 2),
+        (WorkPlane.yz(), 1, 2),
+      ]) {
+        final camera = Camera()
+          ..facePlane(plane)
+          ..scale = .4
+          ..pan = const Offset(.5, .5);
+        final pixels = await gridPixels(camera, plane: plane, colors: colors);
+        for (final (x, y, axis) in [
+          (128, 90, horizontal),
+          (120, 97, vertical),
+        ]) {
+          final pixel = pixels[y * 240 + x];
+          final expected = Color.lerp(
+            colors.paper,
+            colors.axisColor(axis),
+            .5,
+          )!.toARGB32();
+          for (final shift in [16, 8, 0]) {
+            expect(
+              (pixel >> (shift + 8)) & 255,
+              closeTo((expected >> shift) & 255, 2),
+            );
+          }
+        }
+      }
     }
-
-    final floor = await pixels();
-    expect(floor.toSet().length, greaterThan(1));
-    expect(floor.take(240 * 30).toSet().length, greaterThan(1));
-    const hidden = GridVisibility(automatic: false, planes: {});
-    final empty = (await pixels(hidden)).toSet();
-    expect(empty, hasLength(1));
-    cam.pitch = .005;
-    expect((await pixels()).toSet(), empty);
-    final walls = hidden.toggle(GridPlane.xz).toggle(GridPlane.yz);
-    expect((await pixels(walls)).toSet().length, greaterThan(1));
-    expect(GridVisibility.decode(walls.encode()).planes, walls.planes);
   });
+
+  test(
+    'Project bounds clip each grid, including an oblique part face',
+    () async {
+      final room = Vector3(375, 265, 185);
+      final project = Project('', []).withWorkspace(room);
+      final center = room * .5;
+      final u = Vector3(1, 1, 0).normalized();
+      final v = Vector3(-1, 1, 2).normalized();
+      final face = WorkPlane('Грань', center, u, v);
+      final paper = (await gridPixels(
+        Camera(),
+        grid: const GridVisibility(automatic: false, planes: {}),
+      )).first;
+      for (final perspective in [false, true]) {
+        for (final axes in [...GridPlane.values, null]) {
+          final plane = axes == GridPlane.xz
+              ? WorkPlane.xz().through(Vector3(0, room.y, 0))
+              : axes?.plane ?? face;
+          final cam = Camera()
+            ..scale = .4
+            ..target = center
+            ..facePlane(plane)
+            ..perspective = perspective;
+          final grid = axes == null
+              ? const GridVisibility()
+              : GridVisibility(automatic: false, planes: {axes});
+          final pixels = await gridPixels(
+            cam,
+            plane: plane,
+            project: project,
+            grid: grid,
+          );
+          var drawn = 0;
+          for (var i = 0; i < pixels.length; i++) {
+            if (pixels[i] == paper) continue;
+            final at = Offset(i % 240 + .5, i ~/ 240 + .5);
+            final point = cam.onPlane(at, size, plane)!;
+            // Allow a pixel of antialiasing at the boundary.
+            for (var axis = 0; axis < 3; axis++) {
+              expect(point[axis], inInclusiveRange(-3, room[axis] + 3));
+            }
+            drawn++;
+          }
+          expect(drawn, greaterThan(100));
+        }
+      }
+
+      final above = WorkPlane.xy().through(Vector3(0, 0, room.z + 1));
+      final cam = Camera()..facePlane(above);
+      expect((await gridPixels(cam, plane: above, project: project)).toSet(), {
+        paper,
+      });
+    },
+  );
+
+  test(
+    'The XZ axis grid follows the rear of the workspace or assembly',
+    () async {
+      final assembly = Project.bench();
+      final cam = Camera()..scale = .28;
+      const grid = GridVisibility(automatic: false, planes: {GridPlane.xz});
+      for (final (project, rearY) in [
+        (assembly.withWorkspace(Vector3(380, 250, 180)), 250.0),
+        (assembly.withWorkspace(Vector3(380, 400, 180)), 400.0),
+        (assembly, assembly.partBounds!.high.y),
+      ]) {
+        cam.target = Vector3(190, rearY * .5, 90);
+        final rear = WorkPlane.xz().through(Vector3(0, rearY, 0));
+        final manual = await gridPixels(cam, project: project, grid: grid);
+        expect(manual, await gridPixels(cam, project: project, plane: rear));
+        expect(
+          manual,
+          isNot(
+            equals(
+              await gridPixels(cam, project: project, plane: WorkPlane.xz()),
+            ),
+          ),
+        );
+      }
+    },
+  );
 }

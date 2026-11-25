@@ -119,6 +119,48 @@ abstract class AppLocalizations {
   /// **'Готовые образцы'**
   String get finishPresets;
 
+  /// No description provided for @chooseFinishPreset.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать образец'**
+  String get chooseFinishPreset;
+
+  /// No description provided for @pineColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сосна'**
+  String get pineColor;
+
+  /// No description provided for @oakColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуб'**
+  String get oakColor;
+
+  /// No description provided for @whiteColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Белый'**
+  String get whiteColor;
+
+  /// No description provided for @grayColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Серый'**
+  String get grayColor;
+
+  /// No description provided for @graphiteColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Графит'**
+  String get graphiteColor;
+
+  /// No description provided for @beigeColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Бежевый'**
+  String get beigeColor;
+
   /// No description provided for @finishTexture.
   ///
   /// In ru, this message translates to:
@@ -1432,11 +1474,23 @@ abstract class AppLocalizations {
   /// **'Открыть'**
   String get open;
 
-  /// No description provided for @openBenchExample.
+  /// No description provided for @newTab.
   ///
   /// In ru, this message translates to:
-  /// **'Открыть пример скамьи'**
-  String get openBenchExample;
+  /// **'Новая вкладка'**
+  String get newTab;
+
+  /// No description provided for @recentProjects.
+  ///
+  /// In ru, this message translates to:
+  /// **'Недавние проекты'**
+  String get recentProjects;
+
+  /// No description provided for @noRecentProjects.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пока нет недавних проектов'**
+  String get noRecentProjects;
 
   /// No description provided for @openProject.
   ///
@@ -1696,11 +1750,29 @@ abstract class AppLocalizations {
   /// **'Пол'**
   String get floor;
 
-  /// No description provided for @position.
+  /// No description provided for @partOffsets.
   ///
   /// In ru, this message translates to:
-  /// **'Положение'**
-  String get position;
+  /// **'Отступы'**
+  String get partOffsets;
+
+  /// No description provided for @xFromLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'X · слева'**
+  String get xFromLeft;
+
+  /// No description provided for @yFromBack.
+  ///
+  /// In ru, this message translates to:
+  /// **'Y · от задней стенки'**
+  String get yFromBack;
+
+  /// No description provided for @zFromFloor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Z · от пола'**
+  String get zFromFloor;
 
   /// No description provided for @crossRail.
   ///
@@ -2300,6 +2372,12 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Фронтальная'**
   String get frontPlane;
+
+  /// No description provided for @rearPlane.
+  ///
+  /// In ru, this message translates to:
+  /// **'Задняя'**
+  String get rearPlane;
 
   /// No description provided for @centerPoint.
   ///
@@ -3633,18 +3711,6 @@ abstract class AppLocalizations {
   /// **'Линия пропила'**
   String get sawCutLine;
 
-  /// No description provided for @sawFenceKey.
-  ///
-  /// In ru, this message translates to:
-  /// **'Упор'**
-  String get sawFenceKey;
-
-  /// No description provided for @sawBladeKey.
-  ///
-  /// In ru, this message translates to:
-  /// **'Диск'**
-  String get sawBladeKey;
-
   /// No description provided for @sawFeed.
   ///
   /// In ru, this message translates to:
@@ -3656,36 +3722,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Поперечный упор'**
   String get sawCrosscutFence;
-
-  /// No description provided for @sawMiterPlan.
-  ///
-  /// In ru, this message translates to:
-  /// **'Сверху · рукоятка снизу'**
-  String get sawMiterPlan;
-
-  /// No description provided for @sawHandPlan.
-  ///
-  /// In ru, this message translates to:
-  /// **'Сверху · ход пилы'**
-  String get sawHandPlan;
-
-  /// No description provided for @sawTablePlan.
-  ///
-  /// In ru, this message translates to:
-  /// **'Сверху · передний край внизу'**
-  String get sawTablePlan;
-
-  /// No description provided for @sawMiterSight.
-  ///
-  /// In ru, this message translates to:
-  /// **'От рукоятки вдоль реза'**
-  String get sawMiterSight;
-
-  /// No description provided for @sawHandSight.
-  ///
-  /// In ru, this message translates to:
-  /// **'Сзади пилы по ходу реза'**
-  String get sawHandSight;
 
   /// No description provided for @sawTableSight.
   ///
@@ -3762,7 +3798,7 @@ abstract class AppLocalizations {
   /// No description provided for @rabbetTitle.
   ///
   /// In ru, this message translates to:
-  /// **'Фальцевые срезы'**
+  /// **'Выборка фальца'**
   String get rabbetTitle;
 
   /// No description provided for @rabbetTopLeft.

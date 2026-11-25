@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 
 import 'grid_visibility.dart';
 import 'model.dart';
+import 'palette.dart';
 import 'scene.dart';
 
 class GridPainter extends CustomPainter {
@@ -11,31 +12,38 @@ class GridPainter extends CustomPainter {
 
   GridPainter({
     required Camera camera,
+    required this.project,
     required this.plane,
     required this.visibility,
-    required this.paper,
+    required this.colors,
   }) : camera = camera.copy();
 
   final Camera camera;
+  final Project project;
   final WorkPlane plane;
   final GridVisibility visibility;
-  final Color paper;
+  final EditorPalette colors;
+
+  Color _lineTint(Vector3 direction) {
+    for (var i = 0; i < 3; i++) {
+      if (direction[i].abs() > 1 - 1e-6) return colors.axisColor(i);
+    }
+    return colors.muted;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final viewport = Offset.zero & size;
-    canvas.drawRect(viewport, Paint()..color = paper);
+    canvas.drawRect(viewport, Paint()..color = colors.paper);
     canvas.save();
     canvas.clipRect(viewport);
     if (visibility.automatic) {
-      final axes = GridPlane.values
-          .where((p) => p.axes == plane.name)
-          .firstOrNull;
-      _grid(canvas, size, plane, axes?.color ?? GridPlane.xy.color);
+      _grid(canvas, size, plane);
     } else {
       for (final axes in GridPlane.values) {
         if (visibility.planes.contains(axes)) {
-          _grid(canvas, size, axes.plane, axes.color);
+          final gridPlane = axes.plane.through(Vector3(0, project.rearY, 0));
+          _grid(canvas, size, gridPlane);
         }
       }
     }
@@ -83,24 +91,58 @@ class GridPainter extends CustomPainter {
       }
     }
     if (points.isEmpty) return null;
-    return points
-        .map((p) {
-          final d = p - plane.origin;
-          final at = Offset(d.dot(plane.u), d.dot(plane.v));
-          return Rect.fromPoints(at, at);
-        })
-        .reduce((a, b) => a.expandToInclude(b));
+    return _planeBounds(plane, points);
   }
 
-  void _grid(Canvas canvas, Size size, WorkPlane plane, Color tint) {
+  Rect _planeBounds(WorkPlane plane, List<Vector3> points) => points
+      .map((p) {
+        final d = p - plane.origin;
+        final at = Offset(d.dot(plane.u), d.dot(plane.v));
+        return Rect.fromPoints(at, at);
+      })
+      .reduce((a, b) => a.expandToInclude(b));
+
+  void _grid(Canvas canvas, Size size, WorkPlane plane) {
     final normal = plane.normal;
     final at =
         camera.target - normal * (camera.target - plane.origin).dot(normal);
     final facing = camera.towardEye(at).normalized().dot(normal).abs();
     final opacity = ((facing - .035) / .32).clamp(0.0, 1.0);
     if (opacity == 0) return;
-    final bounds = _visibleGrid(plane, size);
+    var bounds = _visibleGrid(plane, size);
     if (bounds == null || bounds.isEmpty) return;
+    final room = project.workspaceSize;
+    if (room != null) {
+      var polygon = [
+        for (final p in [
+          bounds.topLeft,
+          bounds.topRight,
+          bounds.bottomRight,
+          bounds.bottomLeft,
+        ])
+          plane.origin + plane.u * p.dx + plane.v * p.dy,
+      ];
+      for (var i = 0; i < 3; i++) {
+        polygon = clipPolygon(polygon, (p) => p[i]);
+        polygon = clipPolygon(polygon, (p) => room[i] - p[i]);
+      }
+      if (camera.perspective) {
+        final nearDepth = camera.eyeDistance * (1 - _near);
+        final eye = camera.eye;
+        polygon = clipPolygon(
+          polygon,
+          (p) => nearDepth - (p - camera.target).dot(eye),
+        );
+      }
+      if (polygon.length < 3) return;
+      bounds = _planeBounds(plane, polygon);
+      canvas.save();
+      canvas.clipPath(
+        Path()..addPolygon([
+          for (final p in polygon) camera.project(p, size),
+        ], true),
+      );
+    }
 
     var step = 50.0;
     while (step * camera.scale < 5) {
@@ -133,6 +175,7 @@ class GridPainter extends CustomPainter {
       Vector3 along,
       Vector3 start,
       Vector3 end,
+      Color tint,
     ) {
       var stride = 1;
       while ((max - min) / (step * stride) > 500) {
@@ -171,14 +214,18 @@ class GridPainter extends CustomPainter {
           path,
           Paint()
             ..style = PaintingStyle.stroke
-            ..color = Color.lerp(paper, tint, mix)!.withValues(alpha: alpha)
+            ..color = Color.lerp(
+              colors.paper,
+              tint,
+              mix,
+            )!.withValues(alpha: alpha)
             ..strokeWidth = width,
         );
       }
 
-      draw(minor, .24, minorAlpha, .75);
-      draw(major, .46, majorAlpha, .75);
-      draw(axis, .8, opacity, 1);
+      draw(minor, .17, minorAlpha, .75);
+      draw(major, .32, majorAlpha, .75);
+      draw(axis, .5, opacity, 1);
     }
 
     family(
@@ -188,6 +235,7 @@ class GridPainter extends CustomPainter {
       du,
       origin + dv * bounds.top,
       origin + dv * bounds.bottom,
+      _lineTint(plane.v),
     );
     family(
       bounds.top,
@@ -196,16 +244,23 @@ class GridPainter extends CustomPainter {
       dv,
       origin + du * bounds.left,
       origin + du * bounds.right,
+      _lineTint(plane.u),
     );
+    if (room != null) canvas.restore();
   }
 
   @override
   bool shouldRepaint(GridPainter old) {
-    if (paper != old.paper || visibility.encode() != old.visibility.encode()) {
+    if (colors != old.colors ||
+        visibility.encode() != old.visibility.encode()) {
       return true;
     }
     if (visibility.automatic && plane != old.plane) return true;
     if (!visibility.automatic && visibility.planes.isEmpty) return false;
+    if (project.workspaceSize != old.project.workspaceSize) return true;
+    if (!visibility.automatic && project.rearY != old.project.rearY) {
+      return true;
+    }
     final previous = old.camera;
     return camera.yaw != previous.yaw ||
         camera.pitch != previous.pitch ||

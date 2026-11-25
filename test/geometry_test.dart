@@ -33,6 +33,64 @@ Beam bar(
 void near(Vector3 a, Vector3 b) => expect(a.distanceTo(b), lessThan(1e-6));
 
 void main() {
+  test('Rear offset datum survives edits and reopening an unbounded project', () {
+    final legacy = Project('', [
+      bar(1, 0, 70, 0, 40),
+      bar(2, 12, 20, 8, 50),
+    ]).toJson()..remove('rearY');
+    final project = Project.fromJson(legacy);
+    Vector3 offsets(Project p, int id) =>
+        p.offsetsOf(Bounds3.points(p.byId[id]!.corners));
+
+    near(offsets(project, 1), Vector3.zero());
+    near(offsets(project, 2), Vector3(12, 50, 8));
+    final moved = project.move({1}, Vector3(0, -20, 0));
+    final restored = Project.decode(moved.encode());
+    near(offsets(restored, 1), Vector3(0, 20, 0));
+    near(offsets(restored, 2), Vector3(12, 50, 8));
+    near(offsets(restored.remove({1}), 2), Vector3(12, 50, 8));
+    final bounded = restored.withWorkspace(Vector3(200, 150, 200));
+    near(offsets(bounded, 1), Vector3(0, 70, 0));
+    near(offsets(bounded.withWorkspace(null), 1), Vector3(0, 70, 0));
+  });
+
+  test('Workspace travel uses all selected corners and permits a return from outside', () {
+    final room = Vector3(200, 180, 160);
+    const ids = {1, 2};
+    final project = Project('', [
+      bar(1, 20, 30, 40, 60),
+      bar(2, 100, 90, 80, 40),
+    ]).rotate(ids, axis(2), 25).withWorkspace(room);
+    final low = project.move(ids, Vector3.all(-1000), withinWorkspace: true);
+    near(low.partBounds!.low, Vector3.zero());
+    final high = project.move(ids, Vector3.all(1000), withinWorkspace: true);
+    near(high.partBounds!.high, room);
+    near(
+      high.byId[2]!.origin - high.byId[1]!.origin,
+      project.byId[2]!.origin - project.byId[1]!.origin,
+    );
+
+    final outside = low.move(ids, Vector3(-12, 0, 0));
+    expect(
+      outside.move(ids, Vector3(-8, 0, 0), withinWorkspace: true),
+      same(outside),
+    );
+    near(
+      outside
+          .move(ids, Vector3(5, 0, 0), withinWorkspace: true)
+          .partBounds!
+          .low,
+      Vector3(-7, 0, 0),
+    );
+
+    final normal = Vector3(1, 0, -1).normalized();
+    final diagonal = project
+        .moveLimits(ids)!
+        .clampTranslation(Vector3(150, 0, 150), planeNormal: normal);
+    expect(diagonal.dot(normal), closeTo(0, 1e-7));
+    expect(diagonal.x, lessThan(150));
+  });
+
   test('Ruler guides stay on the visible face in perspective', () {
     const viewport = Size(900, 600);
     final board = bar(1, 0, 0, 0, 600, height: 60);

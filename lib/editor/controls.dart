@@ -19,6 +19,41 @@ import 'step.dart';
 
 const double inspectorFieldWidth = 92;
 
+class PartOffsetRow extends StatelessWidget {
+  const PartOffsetRow(
+    this.axis,
+    this.field, {
+    this.fieldWidth = inspectorFieldWidth,
+    super.key,
+  });
+  final int axis;
+  final Widget field;
+  final double fieldWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon) = switch (axis) {
+      0 => (context.strings.xFromLeft, cu.CupertinoIcons.arrow_right),
+      1 => (context.strings.yFromBack, cu.CupertinoIcons.arrow_down_left),
+      _ => (context.strings.zFromFloor, cu.CupertinoIcons.arrow_up),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        spacing: controlGap,
+        children: [
+          Icon(icon, size: 18, color: context.colors.axisColor(axis)),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
+          SizedBox(
+            width: fieldWidth,
+            child: Semantics(label: label, child: field),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class StockSizeRow extends StatelessWidget {
   const StockSizeRow(
     this.editor,

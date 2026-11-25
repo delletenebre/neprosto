@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neprosto/editor/contact.dart';
 import 'package:neprosto/editor/controller.dart';
+import 'package:neprosto/editor/desktop.dart' show DeskDialog;
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/part_finish.dart';
 import 'package:neprosto/editor/parts_workbook.dart' show blankLength;
@@ -376,9 +377,22 @@ void main() {
         await t.pumpAndSettle();
       }
 
-      final newButton = find.byTooltip('Новый проект');
-      await tap(newButton);
+      Future<void> chooseTemplate() async {
+        await tap(find.byTooltip('Новая вкладка'));
+        await tap(find.text('Создать проект'));
+      }
+
+      await chooseTemplate();
       expect(find.text('Фирменная тумба neprosto'), findsWidgets);
+      await tap(find.text('Табуреты и скамьи'));
+      expect(
+        find.descendant(
+          of: find.byType(DeskDialog),
+          matching: find.text('Деталей · 12'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('1200 × 360 × 450 мм'), findsOneWidget);
       await t.scrollUntilVisible(
         find.text('Сад и дача'),
         100,
@@ -408,11 +422,11 @@ void main() {
       expect(created.dirty, isTrue);
       expect(created.editor.canUndo, isFalse);
       expect(tabs.items.first, same(original));
-      await tap(newButton);
+      await chooseTemplate();
       await tap(find.text('Отмена'));
       expect(tabs.value, same(created));
       expect(tabs.items, hasLength(2));
-      await tap(newButton);
+      await chooseTemplate();
       await tap(find.text('Пустой проект'));
       expect(tabs.value.committed.unit, LengthUnit.inch);
       expect(tabs.value.committed.beams, isEmpty);

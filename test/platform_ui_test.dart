@@ -455,14 +455,17 @@ void main() {
       final openPicker = invoke('new');
       await t.pumpAndSettle();
       expect(menuEnabled, isFalse);
-      await invoke('demo');
+      await invoke('close');
       expect(tabs.items, hasLength(1));
       await t.tap(find.text('Отмена'));
       await t.pumpAndSettle();
       await openPicker;
       expect(menuEnabled, isTrue);
-      await invoke('demo');
+      final newTab = invoke('new');
       await t.pumpAndSettle();
+      await t.tap(find.text('Пустой проект'));
+      await t.pumpAndSettle();
+      await newTab;
       expect(tabs.items, hasLength(2));
       await invoke('close');
       await t.pumpAndSettle();
@@ -646,7 +649,9 @@ void main() {
     addTearDown(t.platformDispatcher.clearPlatformBrightnessTestValue);
     await t.pumpWidget(NeprostoApp(editor: Editor(Project.bench())));
     await t.pumpAndSettle();
-    await t.tap(find.byTooltip('Новый проект'));
+    await t.tap(find.byTooltip('Новая вкладка'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Создать проект'));
     await t.pumpAndSettle();
     final create = find.text('Создать проект');
     final surface = find

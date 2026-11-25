@@ -21,6 +21,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get finishPresets => 'Presets';
 
   @override
+  String get chooseFinishPreset => 'Choose a preset';
+
+  @override
+  String get pineColor => 'Pine';
+
+  @override
+  String get oakColor => 'Oak';
+
+  @override
+  String get whiteColor => 'White';
+
+  @override
+  String get grayColor => 'Gray';
+
+  @override
+  String get graphiteColor => 'Graphite';
+
+  @override
+  String get beigeColor => 'Beige';
+
+  @override
   String get finishTexture => 'Texture';
 
   @override
@@ -765,7 +786,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get open => 'Open';
 
   @override
-  String get openBenchExample => 'Open bench example';
+  String get newTab => 'New tab';
+
+  @override
+  String get recentProjects => 'Recent projects';
+
+  @override
+  String get noRecentProjects => 'No recent projects yet';
 
   @override
   String get openProject => 'Open project';
@@ -910,7 +937,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get floor => 'Floor';
 
   @override
-  String get position => 'Position';
+  String get partOffsets => 'Offsets';
+
+  @override
+  String get xFromLeft => 'X · from left';
+
+  @override
+  String get yFromBack => 'Y · from back wall';
+
+  @override
+  String get zFromFloor => 'Z · from floor';
 
   @override
   String crossRail(Object number) {
@@ -1253,6 +1289,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frontPlane => 'Front';
+
+  @override
+  String get rearPlane => 'Rear';
 
   @override
   String get centerPoint => 'Center';
@@ -1955,31 +1994,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sawCutLine => 'Cut line';
 
   @override
-  String get sawFenceKey => 'Fence';
-
-  @override
-  String get sawBladeKey => 'Blade';
-
-  @override
   String get sawFeed => 'Feed';
 
   @override
   String get sawCrosscutFence => 'Miter gauge';
-
-  @override
-  String get sawMiterPlan => 'Top view · handle below';
-
-  @override
-  String get sawHandPlan => 'Top view · saw travel';
-
-  @override
-  String get sawTablePlan => 'Top view · front edge at bottom';
-
-  @override
-  String get sawMiterSight => 'From the handle along the cut';
-
-  @override
-  String get sawHandSight => 'From behind the saw along the cut';
 
   @override
   String get sawTableSight => 'Cutaway';
@@ -2029,7 +2047,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get rabbetTitle => 'Rabbets';
+  String get rabbetTitle => 'Rabbet cutting';
 
   @override
   String get rabbetTopLeft => 'Upper left';

@@ -73,6 +73,7 @@ enum FurnitureTemplate {
     PlanDifficulty.medium,
     'https://pochertezhu.ru/project/polka-so-skrytym-karkasom/',
   ),
+  bench(TemplateCategory.seating, FinishPreset.wood, (1200, 360, 450)),
   stool.plan(
     TemplateCategory.seating,
     FinishPreset.plywood,
@@ -393,10 +394,10 @@ enum FurnitureTemplate {
   const FurnitureTemplate(
     this.category,
     this.material,
-    this.metric,
+    this.metric, [
     this._imperial,
-  ) : source = null,
-      difficulty = null;
+  ]) : source = null,
+       difficulty = null;
 
   const FurnitureTemplate.plan(
     this.category,
@@ -440,6 +441,7 @@ enum FurnitureTemplate {
     bookcase => editorStrings.templateBookcase,
     cubeShelf => editorStrings.templateCubeShelf,
     wallShelf => editorStrings.templateWallShelf,
+    bench => editorStrings.bench,
     stool => editorStrings.templateStool,
     stepStool => editorStrings.templateStepStool,
     gardenBench => editorStrings.templateGardenBench,
@@ -497,6 +499,8 @@ enum FurnitureTemplate {
     final q = parts.measure;
     final flat = parts.flat, side = parts.side, front = parts.front;
     switch (this) {
+      case bench:
+        return Project.bench().copy(unit: unit);
       case laptopTray:
         parts.laptopTrayPlan();
       case bagShelf:

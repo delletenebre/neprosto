@@ -28,6 +28,107 @@ class _Preferences extends Fake implements SharedPreferencesAsync {
 }
 
 void main() {
+  testWidgets('The plus button opens files and reopens recent projects', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(960, 700));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final messenger = t.binding.defaultBinaryMessenger;
+    const picker = MethodChannel('plugins.flutter.io/file_selector');
+    const files = MethodChannel('neprosto/project-files');
+    const path = '/projects/shelf.neprosto';
+    var name = 'Полка';
+    var reads = 0;
+    List<String>? paths;
+    messenger.setMockMethodCallHandler(picker, (call) async {
+      expect(call.method, 'openFile');
+      return paths;
+    });
+    messenger.setMockMethodCallHandler(files, (call) async {
+      expect(call.method, 'read');
+      expect(call.arguments['path'], path);
+      if (reads++ > 0) expect(call.arguments['bookmark'], 'scope');
+      if (name.isEmpty) throw PlatformException(code: 'missing');
+      return {
+        'path': path,
+        'bookmark': 'scope',
+        'bytes': utf8.encode(Project(name, []).encode()),
+      };
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(picker, null));
+    addTearDown(() => messenger.setMockMethodCallHandler(files, null));
+    final prefs = _Preferences();
+    final tabs = ProjectTabs(Editor(Project.bench()));
+    final original = tabs.value;
+    await t.pumpWidget(NeprostoApp.withTabs(tabs, preferences: prefs));
+    await t.pumpAndSettle();
+    Future<void> tap(Finder finder) async {
+      await t.tap(finder);
+      await t.pumpAndSettle();
+    }
+
+    final plus = find.byTooltip('Новая вкладка');
+    await tap(plus);
+    expect(find.text('Пока нет недавних проектов'), findsOneWidget);
+    expect(find.text('Создать проект'), findsOneWidget);
+    await tap(find.text('Открыть проект…'));
+    expect(tabs.value, same(original));
+    expect(original.editor.message, isNot(editorStrings.openProjectError));
+    paths = [path];
+    await tap(plus);
+    await tap(find.text('Открыть проект…'));
+    final opened = tabs.value;
+    expect(opened.file!.path, path);
+    expect(reads, 1);
+    opened.editor.commit(opened.committed.copy(name: 'Правки'));
+    tabs.select(original);
+    await t.pumpAndSettle();
+    await tap(plus);
+    await tap(find.text(path));
+    expect(tabs.value, same(opened));
+    expect(tabs.value.committed.name, 'Правки');
+    expect(tabs.items, hasLength(2));
+    expect(reads, 1);
+    tabs.close(opened);
+    await t.pumpAndSettle();
+    name = 'Полка с диска';
+    await tap(plus);
+    await tap(find.text(path));
+    expect(tabs.value.committed.name, name);
+    expect(reads, 2);
+    expect(tabs.recent, hasLength(1));
+    final restored = ProjectTabs.decode(tabs.encode())
+      ..restoreRecent(prefs.values[ProjectTabs.recentKey] as String);
+    expect(restored.recent.single.name, name);
+    expect(restored.recent.single.file!.bookmark, 'scope');
+    tabs.close(tabs.value);
+    await t.pumpAndSettle();
+    name = '';
+    await tap(plus);
+    await tap(find.text(path));
+    expect(tabs.items.single, same(original));
+    expect(original.editor.message, editorStrings.openProjectError);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  test(
+    'Browser copies survive closing and preserve the last saved version',
+    () {
+      final tabs = ProjectTabs(Editor(Project.bench()));
+      final imported = Project('Полка', []);
+      tabs.openDocument(imported);
+      final id = tabs.recent.single.id;
+      tabs.value.editor.commit(imported.copy(name: 'Несохранённая правка'));
+      final restored = ProjectTabs.decode(tabs.encode())
+        ..restoreRecent(jsonEncode(tabs.recent));
+      expect(restored.forDocument(id), same(restored.value));
+      restored.close(restored.value);
+      restored.openDocument(restored.recent.single.snapshot!, recentId: id);
+      expect(restored.value.committed.name, 'Полка');
+      expect(restored.value.file, isNull);
+      expect(restored.recent.single.id, id);
+    },
+  );
+
   testWidgets(
     'All three languages and both themes work on an open project',
     (t) async {
@@ -151,7 +252,9 @@ void main() {
       await t.pumpAndSettle();
       editor.commit(editor.project.copy(name: 'Скамья садовая'));
       await t.pump();
-      await t.tap(find.byTooltip('Новый проект'));
+      await t.tap(find.byTooltip('Новая вкладка'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Создать проект'));
       await t.pumpAndSettle();
       await t.tap(find.text('Пустой проект'));
       await t.pumpAndSettle();
@@ -230,7 +333,9 @@ void main() {
       await t.pumpWidget(NeprostoApp.withTabs(tabs, preferences: prefs));
       await t.pumpAndSettle();
       linked.editor.commit(linked.committed.copy(name: 'Первый'));
-      await t.tap(find.byTooltip('Новый проект'));
+      await t.tap(find.byTooltip('Новая вкладка'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Создать проект'));
       await t.pumpAndSettle();
       await t.tap(find.text('Пустой проект'));
       await t.pumpAndSettle();
@@ -299,6 +404,10 @@ void main() {
       await t.pumpAndSettle();
       expect(fileWrites.last, 'Не записывать');
       expect(linked.dirty, false);
+      final history = ProjectTabs.decode(tabs.encode())
+        ..restoreRecent(prefs.values[ProjectTabs.recentKey] as String);
+      expect(history.recent.single.name, 'Не записывать');
+      expect(history.recent.single.file!.path, linked.file!.path);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );

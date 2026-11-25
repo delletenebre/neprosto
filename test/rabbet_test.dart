@@ -10,6 +10,7 @@ import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/editor/step.dart';
+import 'package:neprosto/l10n/strings.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
@@ -22,6 +23,73 @@ void main() {
     axis(1),
   );
   final part = blank.copy(rabbets: {RabbetEdge.topLeft: (width: 12, depth: 8)});
+
+  testWidgets(
+    'Inspector machining badges count the operations on the selected part',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1320, 880));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final editor = Editor(Project('', [blank]))..select(blank.id);
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
+
+      void checkCounts(int ends, int rabbets, int holes) {
+        for (final (title, count) in [
+          (editorStrings.endCutsTitle, ends),
+          (editorStrings.rabbetTitle, rabbets),
+          (editorStrings.panelHoles, holes),
+        ]) {
+          final button = find.widgetWithText(DeskButton, title);
+          expect(button, findsOneWidget);
+          final badge = find.descendant(
+            of: button,
+            matching: find.byType(Badge),
+          );
+          if (count == 0) {
+            expect(badge, findsNothing);
+          } else {
+            expect(
+              find.descendant(of: badge, matching: find.text('$count')),
+              findsOneWidget,
+            );
+          }
+        }
+        expect(find.text(editorStrings.endMarkings), findsNothing);
+      }
+
+      checkCounts(0, 0, 0);
+      editor.commit(
+        editor.project.edit(
+          {blank.id},
+          (b) => b.copy(
+            startCut: (y: 5, z: -3),
+            rabbets: const {
+              RabbetEdge.topLeft: (width: 5, depth: 2),
+              RabbetEdge.bottomRight: (width: 6, depth: 3),
+            },
+            holes: const [
+              PanelHole(20, 20, 3),
+              PanelHole(40, 20, 3),
+              PanelHole(60, 20, 3),
+            ],
+          ),
+        ),
+      );
+      await t.pump();
+      checkCounts(1, 2, 3);
+      editor.commit(
+        editor.project.edit({blank.id}, (b) => b.copy(endCut: (y: 0, z: -4))),
+      );
+      await t.pump();
+      checkCounts(2, 2, 3);
+      editor.undo();
+      await t.pump();
+      checkCounts(1, 2, 3);
+      editor.undo();
+      await t.pump();
+      checkCounts(0, 0, 0);
+    },
+  );
 
   test('Cut profile drives picking, snaps, clearance and contact', () {
     final stock = Project('', [part]);
@@ -111,7 +179,7 @@ void main() {
       ]),
     );
     for (final sheet in book.tables.values) {
-      expect(sheet.rows[0].last!.value.toString(), 'Фальцевые срезы');
+      expect(sheet.rows[0].last!.value.toString(), 'Выборка фальца');
       expect(
         sheet.rows[1].last!.value.toString(),
         contains('Верхнее левое · 1.2 × 0.4 см'),
@@ -136,7 +204,7 @@ void main() {
         matching: find.byType(EditableText),
       );
       Future<void> open() async {
-        final button = find.text('Фальцевые срезы');
+        final button = find.text('Выборка фальца');
         await t.ensureVisible(button);
         await t.tap(button.hitTestable());
         await t.pumpAndSettle();

@@ -3,6 +3,7 @@ import '../l10n/strings.dart';
 import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 
 import 'model.dart';
 import 'grid_visibility.dart';
@@ -23,17 +24,23 @@ class Editor extends ChangeNotifier {
   void Function(Project)? onDocumentChange;
   Set<int> selection = {};
   final List<Project> _past = [], _future = [];
-  Camera camera = Camera();
+  static const _defaultView = ViewAngle.perspective;
+  Camera camera = Camera()..view(_defaultView);
   final _viewCameras = <ViewAngle, (Camera, WorkPlane)>{};
-  ViewAngle selectedView = ViewAngle.iso;
+  ViewAngle selectedView = _defaultView;
   bool _freeView = false;
   ViewAngle? get activeView => _freeView ? null : selectedView;
+  bool get canOrbit => selectedView.projectionPlane == null;
 
   GridVisibility gridVisibility = const GridVisibility();
   WorkPlane plane = WorkPlane.xy();
   Tool tool = Tool.select;
   bool snap = true;
   bool snapByDefault = true;
+  bool get movementSnapping =>
+      snapByDefault !=
+      (HardwareKeyboard.instance.isControlPressed ||
+          HardwareKeyboard.instance.isMetaPressed);
   bool dimensionsByDefault = true;
   bool showHiddenOutlines = false;
   bool showHoleNumbers = true;
@@ -66,9 +73,8 @@ class Editor extends ChangeNotifier {
   ({int axis, Vector3 origin})? get positionGuide {
     final dim = _focusedPositionAxis;
     if (dim == null || selection.isEmpty) return null;
-    final origin =
-        single?.origin ?? Bounds3.points(selected.expand((b) => b.corners)).low;
-    return (axis: dim, origin: origin);
+    final bounds = Bounds3.points(selected.expand((b) => b.corners));
+    return (axis: dim, origin: bounds.rearLowerLeft);
   }
 
   int? get highlightedSize => hoveredSize ?? focusedSize;
@@ -121,7 +127,7 @@ class Editor extends ChangeNotifier {
 
   void ensureVisibleRotationPlane() {
     final n = rotationBasis[rotationAxis];
-    if (n.dot(camera.eye).abs() < .20) {
+    if (canOrbit && n.dot(camera.eye).abs() < .20) {
       final u = rotationBasis[(rotationAxis + 1) % 3];
       _rememberView();
       camera.facePlane(WorkPlane('', Vector3.zero(), u, n.cross(u)));
@@ -309,16 +315,27 @@ class Editor extends ChangeNotifier {
         axis(dim) *
         (screenDirection[dim] >= 0 ? sign.toDouble() : -sign.toDouble());
     var travel = step.millimeters(project.unit);
+    final limits = movementSnapping ? project.moveLimits(selection) : null;
+    final wall = limits == null
+        ? double.infinity
+        : direction[dim] > 0
+        ? limits.high[dim]
+        : -limits.low[dim];
     if (untilStop) {
       final stop = travelToStop(project.visibleGeometry, selection, direction);
-      if (stop == null) {
+      if (wall.isFinite && (stop == null || wall < stop.travel)) {
+        travel = wall;
+        message = editorStrings.projectBounds;
+      } else if (stop != null) {
+        travel = stop.travel;
+        message = editorStrings.stop(project.byId[stop.obstacle]!.name);
+      } else {
         message = editorStrings.noStopInThisDirection;
         refresh();
         return;
       }
-      travel = stop.travel;
-      message = editorStrings.stop(project.byId[stop.obstacle]!.name);
     } else {
+      if (travel > wall) travel = wall;
       message = editorStrings.nudgeDistance(
         project.unit.format(travel),
         project.unit.symbol,
@@ -512,7 +529,7 @@ class Editor extends ChangeNotifier {
     resetTransient();
     tool = Tool.select;
     plane = WorkPlane.xy();
-    selectedView = ViewAngle.iso;
+    selectedView = _defaultView;
     _freeView = false;
     camera.view(selectedView);
     fitRequested = true;
@@ -578,7 +595,7 @@ class Editor extends ChangeNotifier {
 
   void setPlane(WorkPlane next) {
     resetTransient(keepPartToPlace: true);
-    if (next.normal.dot(camera.eye).abs() < .025) {
+    if (canOrbit && next.normal.dot(camera.eye).abs() < .025) {
       _rememberView();
       camera.facePlane(next);
       _freeView = true;
@@ -597,6 +614,10 @@ class Editor extends ChangeNotifier {
 
   void orbit(Offset delta, Vector3 pivot) {
     if (delta == Offset.zero) return;
+    if (!canOrbit) {
+      camera.pan += delta;
+      return;
+    }
     _rememberView();
     _freeView = true;
     camera.orbit(delta, pivot);

@@ -1,17 +1,14 @@
 import '../l10n/strings.dart';
 
-import 'dart:ui' show Color;
-
 import 'scene.dart';
 
 enum GridPlane {
-  xy('XY', Color(0xff94a48a)),
-  xz('XZ', Color(0xff889db6)),
-  yz('YZ', Color(0xffae93a4));
+  xy('XY'),
+  xz('XZ'),
+  yz('YZ');
 
-  const GridPlane(this.axes, this.color);
+  const GridPlane(this.axes);
   final String axes;
-  final Color color;
   WorkPlane get plane => switch (this) {
     xy => WorkPlane.xy(),
     xz => WorkPlane.xz(),
@@ -19,7 +16,7 @@ enum GridPlane {
   };
   String get label => switch (this) {
     GridPlane.xy => editorStrings.floor,
-    GridPlane.xz => editorStrings.frontPlane,
+    GridPlane.xz => editorStrings.rearPlane,
     GridPlane.yz => editorStrings.side,
   };
 }

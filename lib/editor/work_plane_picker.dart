@@ -35,50 +35,52 @@ class WorkPlanePicker extends StatelessWidget {
     }) => PopupMenuItem<void>(
       enabled: enabled,
       onTap: choose,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Semantics(
         selected: current == plane,
-        child: Row(
-          spacing: 10,
-          children: [
-            icon(plane, 32),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 2,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: enabled ? colors.ink : colors.muted,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: current == plane ? colors.pale : null,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          child: Row(
+            spacing: 7,
+            children: [
+              icon(plane, 21),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                        color: enabled ? colors.ink : colors.muted,
+                      ),
                     ),
-                  ),
-                  Text(
-                    hint,
-                    style: TextStyle(fontSize: 12, color: colors.muted),
-                  ),
-                ],
+                    Text(
+                      hint,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.2,
+                        color: colors.muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (plane != null)
-              Text(
-                plane.axes,
-                style: TextStyle(fontSize: 11, color: colors.muted),
-              ),
-            SizedBox(
-              width: 16,
-              child: current == plane
-                  ? Icon(
-                      CupertinoIcons.check_mark,
-                      size: 16,
-                      color: colors.accent,
-                    )
-                  : null,
-            ),
-          ],
+              if (plane != null)
+                Text(
+                  plane.axes,
+                  style: TextStyle(fontSize: 11, color: colors.muted),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -93,7 +95,8 @@ class WorkPlanePicker extends StatelessWidget {
         tooltip: label,
         position: PopupMenuPosition.under,
         offset: const Offset(0, 3),
-        constraints: const BoxConstraints.tightFor(width: 312),
+        constraints: const BoxConstraints.tightFor(width: 264),
+        menuPadding: const EdgeInsets.symmetric(vertical: 4),
         borderRadius: BorderRadius.circular(6),
         color: colors.field,
         shape: RoundedRectangleBorder(
@@ -103,10 +106,11 @@ class WorkPlanePicker extends StatelessWidget {
         itemBuilder: (_) => [
           PopupMenuItem<void>(
             enabled: false,
-            height: 32,
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
               s.workPlanePurpose,
-              style: TextStyle(fontSize: 12, color: colors.muted),
+              style: TextStyle(fontSize: 11, color: colors.muted),
             ),
           ),
           for (final plane in GridPlane.values)
@@ -120,7 +124,7 @@ class WorkPlanePicker extends StatelessWidget {
               },
               choose: () => editor.setPlane(plane.plane),
             ),
-          const PopupMenuDivider(height: 9),
+          const PopupMenuDivider(height: 5),
           option(
             title: s.partFacePlane,
             hint: canPickFace ? s.selectWorkPlaneFace : s.workPlaneNeedsPart,

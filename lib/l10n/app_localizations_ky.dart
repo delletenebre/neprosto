@@ -21,6 +21,27 @@ class AppLocalizationsKy extends AppLocalizations {
   String get finishPresets => 'Даяр үлгүлөр';
 
   @override
+  String get chooseFinishPreset => 'Үлгү тандоо';
+
+  @override
+  String get pineColor => 'Карагай';
+
+  @override
+  String get oakColor => 'Эмен';
+
+  @override
+  String get whiteColor => 'Ак';
+
+  @override
+  String get grayColor => 'Боз';
+
+  @override
+  String get graphiteColor => 'Графит';
+
+  @override
+  String get beigeColor => 'Ачык күрөң';
+
+  @override
   String get finishTexture => 'Текстура';
 
   @override
@@ -769,7 +790,13 @@ class AppLocalizationsKy extends AppLocalizations {
   String get open => 'Ачуу';
 
   @override
-  String get openBenchExample => 'Отургучтун мисалын ачуу';
+  String get newTab => 'Жаңы өтмөк';
+
+  @override
+  String get recentProjects => 'Акыркы долбоорлор';
+
+  @override
+  String get noRecentProjects => 'Азырынча акыркы долбоорлор жок';
 
   @override
   String get openProject => 'Долбоорду ачуу';
@@ -914,7 +941,16 @@ class AppLocalizationsKy extends AppLocalizations {
   String get floor => 'Пол';
 
   @override
-  String get position => 'Орду';
+  String get partOffsets => 'Чегинүүлөр';
+
+  @override
+  String get xFromLeft => 'X · сол жактан';
+
+  @override
+  String get yFromBack => 'Y · арткы дубалдан';
+
+  @override
+  String get zFromFloor => 'Z · полдон';
 
   @override
   String crossRail(Object number) {
@@ -1258,6 +1294,9 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get frontPlane => 'Маңдайкы';
+
+  @override
+  String get rearPlane => 'Арткы';
 
   @override
   String get centerPoint => 'Борбор';
@@ -1960,31 +1999,10 @@ class AppLocalizationsKy extends AppLocalizations {
   String get sawCutLine => 'Кесүү сызыгы';
 
   @override
-  String get sawFenceKey => 'Таяныч';
-
-  @override
-  String get sawBladeKey => 'Диск';
-
-  @override
   String get sawFeed => 'Берүү';
 
   @override
   String get sawCrosscutFence => 'Туурасынан кесүү таянычы';
-
-  @override
-  String get sawMiterPlan => 'Үстүнөн · тутка төмөндө';
-
-  @override
-  String get sawHandPlan => 'Үстүнөн · араанын жүрүшү';
-
-  @override
-  String get sawTablePlan => 'Үстүнөн · алдыңкы чети төмөндө';
-
-  @override
-  String get sawMiterSight => 'Туткадан кесимди бойлой';
-
-  @override
-  String get sawHandSight => 'Араанын артынан, кесимди бойлой';
 
   @override
   String get sawTableSight => 'Кесилиште';
@@ -2034,7 +2052,7 @@ class AppLocalizationsKy extends AppLocalizations {
   }
 
   @override
-  String get rabbetTitle => 'Фальц оюктары';
+  String get rabbetTitle => 'Фальц оюу';
 
   @override
   String get rabbetTopLeft => 'Жогорку сол';

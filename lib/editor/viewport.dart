@@ -73,10 +73,6 @@ class DrawingViewportState extends State<DrawingViewport> {
       (HardwareKeyboard.instance.isMetaPressed ||
           HardwareKeyboard.instance.isControlPressed);
 
-  bool get sticky =>
-      e.snapByDefault !=
-      (HardwareKeyboard.instance.isControlPressed ||
-          HardwareKeyboard.instance.isMetaPressed);
   @override
   void initState() {
     super.initState();
@@ -124,7 +120,8 @@ class DrawingViewportState extends State<DrawingViewport> {
     if (moveSnap != null && dragged && last != null && e.tool == Tool.select) {
       translate(last!);
       e.refresh();
-    } else if (e.tool == Tool.measure && hoverPosition != null) {
+    } else if ((e.tool == Tool.measure || e.tool == Tool.move) &&
+        hoverPosition != null) {
       hover(hoverPosition!);
     }
     return false;
@@ -331,6 +328,14 @@ class DrawingViewportState extends State<DrawingViewport> {
   (Anchor, Anchor) moveEndpoints(Anchor first, Anchor second) =>
       e.selection.contains(first.beam) ? (first, second) : (second, first);
 
+  Project moveToAnchors(Anchor from, Anchor to) => mate(
+    e.project,
+    e.selection,
+    from,
+    to,
+    withinWorkspace: e.tool == Tool.move && e.movementSnapping,
+  );
+
   void hover(Offset pos) {
     hoverPosition = pos;
     if (e.partToPlace != null) {
@@ -406,7 +411,7 @@ class DrawingViewportState extends State<DrawingViewport> {
         );
       } else if (isMove && e.selection.isNotEmpty) {
         final (from, to) = moveEndpoints(e.first!, e.hover!);
-        e.preview = mate(e.project, e.selection, from, to).byId[from.beam];
+        e.preview = moveToAnchors(from, to).byId[from.beam];
       }
     }
     e.refresh();
@@ -464,7 +469,11 @@ class DrawingViewportState extends State<DrawingViewport> {
   }
 
   Anchor? measurePoint(Offset pos) {
-    rulerTarget = scene.rulerTarget(pos, sticky: sticky, mode: e.snapMode);
+    rulerTarget = scene.rulerTarget(
+      pos,
+      sticky: e.movementSnapping,
+      mode: e.snapMode,
+    );
     if (rulerTarget case final target?) return target.anchor;
     final first = e.first;
     final plane = first == null
@@ -575,7 +584,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     switch (e.tool) {
       case Tool.move || Tool.align:
         final (source, target) = moveEndpoints(start, a);
-        final next = mate(e.project, e.selection, source, target);
+        final next = moveToAnchors(source, target);
         e.setTool(Tool.select);
         e.commit(next);
       case Tool.beam:
@@ -817,7 +826,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     moveGuides = [];
     e.hover = null;
     e.message = '';
-    if (sticky) {
+    if (e.movementSnapping) {
       final snap = moveSnap!.apply(point - anchor, free, e.camera);
       delta = snap.delta;
       moveGuides = snap.guides;
@@ -830,6 +839,16 @@ class DrawingViewportState extends State<DrawingViewport> {
           e.hover = hit;
           moveGuides = [];
         }
+      }
+      final limited = moveSnap!.workspaceLimits?.clampTranslation(
+        delta,
+        planeNormal: e.hover == null ? plane.normal : null,
+      );
+      if (limited != null && limited != delta) {
+        delta = limited;
+        moveGuides = [];
+        moveSnap!.release();
+        e.hover = null;
       }
       final gap = moveGuides.map((g) => g.gap).nonNulls.firstOrNull;
       if (gap != null) {
@@ -1148,9 +1167,10 @@ class DrawingViewportState extends State<DrawingViewport> {
                     child: CustomPaint(
                       painter: GridPainter(
                         camera: c,
+                        project: e.project,
                         plane: e.plane,
                         visibility: e.gridVisibility,
-                        paper: context.colors.paper,
+                        colors: context.colors,
                       ),
                     ),
                   ),
