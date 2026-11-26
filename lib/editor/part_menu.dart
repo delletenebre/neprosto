@@ -66,7 +66,7 @@ Future<void> showDrawingMenu(
   final String heading;
   if (partId == null) {
     heading = context.strings.drawing;
-    if (doc.beams.any((b) => !b.hidden)) {
+    if (editor.canAddConnection) {
       add(
         context.strings.addConnection,
         CupertinoIcons.link,
@@ -221,6 +221,14 @@ Future<void> showDrawingMenu(
         );
       }
     }
+    if (ids.length == 2 && editor.canAddConnection) {
+      add(
+        context.strings.addConnection,
+        CupertinoIcons.link,
+        'link',
+        () => chooseConnection(context, editor),
+      );
+    }
     add(
       context.strings.placeAgainstReference,
       CupertinoIcons.move,
@@ -236,7 +244,7 @@ Future<void> showDrawingMenu(
       () => editor.setTool(Tool.rotate),
       key: editor.hotkeys[Command.rotate].label,
     );
-    if (ids.length == 2) {
+    if (editor.selectedJoint != null) {
       add(
         context.strings.miterJointMenu,
         CupertinoIcons.triangle,

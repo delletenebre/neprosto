@@ -8,6 +8,7 @@ import 'package:flutter/services.dart' show HardwareKeyboard;
 import 'model.dart';
 import 'grid_visibility.dart';
 import 'hotkeys.dart';
+import 'joint.dart';
 import 'scene.dart';
 import 'step.dart';
 import 'stock_sketch.dart';
@@ -54,6 +55,25 @@ class Editor extends ChangeNotifier {
     dowels: 1,
   );
   ConnectionBase? connectionBase;
+  (Beam, Beam)? _connectionPair;
+  List<PartContact> _connectionContacts = const [];
+  List<PartContact> get selectedContacts {
+    if (selection.length != 2) return const [];
+    final first = project.byId[selection.first],
+        second = project.byId[selection.last];
+    if (first == null || second == null) return const [];
+    final pair = (first, second);
+    if (pair != _connectionPair) {
+      _connectionPair = pair;
+      _connectionContacts = connectionContacts([first, second]);
+    }
+    return _connectionContacts;
+  }
+
+  bool get canAddConnection => selection.length <= 1
+      ? project.visibleGeometry.beams.isNotEmpty
+      : selectedContacts.isNotEmpty;
+
   void beginConnection(ConnectionPattern pattern) {
     connectionPattern = pattern;
     setTool(Tool.connection);
@@ -510,6 +530,21 @@ class Editor extends ChangeNotifier {
       project.beams.where((b) => selection.contains(b.id)).toList();
   Beam? get single =>
       selection.length == 1 ? project.byId[selection.first] : null;
+  (Beam, Beam)? _jointPair;
+  JointOptions? _jointOptions;
+  JointOptions? get selectedJoint {
+    if (selection.length != 2) return null;
+    final visible = project.visibleGeometry.byId;
+    final first = visible[selection.first], second = visible[selection.last];
+    if (first == null || second == null) return null;
+    final pair = (first, second);
+    if (_jointPair != pair) {
+      _jointPair = pair;
+      _jointOptions = jointOptionsFor(first, second);
+    }
+    return _jointOptions;
+  }
+
   int? get selectedGroup {
     if (selection.isEmpty) return null;
     final id = selection.first, group = project.byId[id]?.group;

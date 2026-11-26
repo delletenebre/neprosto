@@ -14,12 +14,7 @@ typedef _FaceGap = ({
   List<Vector3> polygon,
 });
 
-_FaceGap? _faceGap(
-  Beam a,
-  int fa,
-  Beam b,
-  int fb,
-) {
+_FaceGap? _faceGap(Beam a, int fa, Beam b, int fb) {
   final n = a.faceNormal(fa);
   if (n.dot(b.faceNormal(fb)) > -1 + 1e-7) return null;
   if (a.rabbets.isEmpty && b.rabbets.isEmpty) {
@@ -51,11 +46,7 @@ _FaceGap? _faceGap(
   return best;
 }
 
-_FaceGap? _polygonGap(
-  List<Vector3> face,
-  List<Vector3> other,
-  Vector3 n,
-) {
+_FaceGap? _polygonGap(List<Vector3> face, List<Vector3> other, Vector3 n) {
   final distance = (other.first - face.first).dot(n);
   if (distance < -.00001) return null;
   var polygon = other.map((p) => p - n * distance).toList();

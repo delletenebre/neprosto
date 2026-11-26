@@ -15,15 +15,16 @@ import 'scene.dart';
 import 'step.dart';
 
 Future<void> showPartJoint(BuildContext context, Editor editor) async {
-  if (editor.selection.length != 2) return;
-  final pair = editor.selection.map((id) => editor.project.byId[id]!).toList();
+  final joint = editor.selectedJoint;
+  if (joint == null) return;
   final result = await showDeskDialog<List<JointCut>>(
     context: context,
-    builder: (_) => JointDialog(pair[0], pair[1]),
+    builder: (_) => JointDialog(joint),
   );
   if (result == null ||
       !context.mounted ||
-      pair.any((b) => editor.project.byId[b.id] != b)) {
+      editor.project.byId[joint.first.id] != joint.first ||
+      editor.project.byId[joint.second.id] != joint.second) {
     return;
   }
   final changes = {for (final cut in result) cut.part.id: cut.part};
@@ -33,31 +34,25 @@ Future<void> showPartJoint(BuildContext context, Editor editor) async {
 }
 
 class JointDialog extends StatefulWidget {
-  final Beam a, b;
-  const JointDialog(this.a, this.b, {super.key});
+  final JointOptions joint;
+  const JointDialog(this.joint, {super.key});
 
   @override
   State<JointDialog> createState() => _JointDialogState();
 }
 
 class _JointDialogState extends State<JointDialog> {
-  late final List<JointCut>? ends;
-  late final List<FaceJoint> faces;
-  FaceJoint? face;
-  bool byFace = false;
+  List<JointCut>? get ends => widget.joint.ends;
+  List<FaceJoint> get faces => widget.joint.faces;
+  late bool byFace = ends == null;
+  late FaceJoint? face = faces.firstOrNull;
 
-  @override
-  void initState() {
-    super.initState();
-    ends = endJointOption(widget.a, widget.b);
-    faces = faceJointOptions(widget.a, widget.b);
-    face = faces.firstOrNull;
-    byFace = ends == null && face != null;
+  String partLabel(Beam part) {
+    final first = widget.joint.first, second = widget.joint.second;
+    return first.name != second.name
+        ? part.name
+        : '${part.id == first.id ? 1 : 2} · ${part.name}';
   }
-
-  String partLabel(Beam part) => widget.a.name != widget.b.name
-      ? part.name
-      : '${part.id == widget.a.id ? 1 : 2} · ${part.name}';
 
   String faceLabel(int face) {
     final s = context.strings;
@@ -104,15 +99,15 @@ class _JointDialogState extends State<JointDialog> {
     final input = Units.of(context);
     final angle = Units.angleOf(context);
     final option = byFace ? face : null;
-    final cuts = option == null ? ends : [option.cut];
-    final inside = ends != null && !byFace
-        ? jointInsideAngle(
-            ends!.first.part,
-            ends!.first.end,
-            ends!.last.part,
-            ends!.last.end,
-          )
-        : null;
+    final cuts = option == null ? ends! : [option.cut];
+    final inside = byFace
+        ? null
+        : jointInsideAngle(
+            cuts.first.part,
+            cuts.first.end,
+            cuts.last.part,
+            cuts.last.end,
+          );
     return DeskDialog(
       title: Text(s.miterJoint),
       maxWidth: 520,
@@ -122,84 +117,76 @@ class _JointDialogState extends State<JointDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: controlGap,
           children: [
-            if (cuts == null)
+            if (ends != null && faces.isNotEmpty)
+              DeskSegments(byFace, {
+                false: s.jointEndToEnd,
+                true: s.jointEndToFace,
+              }, (value) => setState(() => byFace = value))
+            else
               Text(
-                intersects(widget.a, widget.b)
-                    ? s.jointNoAvailableCut
-                    : s.jointNeedsOverlap,
-              )
-            else ...[
-              if (ends != null && faces.isNotEmpty)
-                DeskSegments(byFace, {
-                  false: s.jointEndToEnd,
-                  true: s.jointEndToFace,
-                }, (value) => setState(() => byFace = value))
-              else
-                Text(
-                  byFace ? s.jointEndToFace : s.jointEndToEnd,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              _JointDrawing(cuts: cuts, support: option?.support),
-              Wrap(
-                spacing: 14,
-                runSpacing: controlGap,
-                children: [
-                  _legend(s.jointCutLine, colors.accent),
-                  _legend(s.jointOffcut, colors.danger),
-                  if (inside != null)
-                    Text(
-                      '${s.insideAngle} · ${angle.format(inside)}°',
-                      style: TextStyle(fontSize: 11, color: colors.muted),
-                    ),
-                ],
+                byFace ? s.jointEndToFace : s.jointEndToEnd,
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              if (option != null)
-                _partRow(
-                  option.support,
-                  '${s.referencePart} · ${faceLabel(option.face)}',
-                  trailing: faces.length < 2
-                      ? null
-                      : Flexible(
-                          child: MenuChoice<int>(
-                            selected: faces.indexOf(option),
-                            label: s.jointChooseFace,
-                            items: [
-                              for (final (index, other) in faces.indexed)
-                                (
-                                  index,
-                                  '${partLabel(other.support)} · ${faceLabel(other.face)}',
-                                ),
-                            ],
-                            change: (index) =>
-                                setState(() => face = faces[index]),
-                          ),
+            _JointDrawing(cuts: cuts, support: option?.support),
+            Wrap(
+              spacing: 14,
+              runSpacing: controlGap,
+              children: [
+                _legend(s.jointCutLine, colors.accent),
+                _legend(s.jointOffcut, colors.danger),
+                if (inside != null)
+                  Text(
+                    '${s.insideAngle} · ${angle.format(inside)}°',
+                    style: TextStyle(fontSize: 11, color: colors.muted),
+                  ),
+              ],
+            ),
+            if (option != null)
+              _partRow(
+                option.support,
+                '${s.referencePart} · ${faceLabel(option.face)}',
+                trailing: faces.length < 2
+                    ? null
+                    : Flexible(
+                        child: MenuChoice<int>(
+                          selected: faces.indexOf(option),
+                          label: s.jointChooseFace,
+                          items: [
+                            for (final (index, other) in faces.indexed)
+                              (
+                                index,
+                                '${partLabel(other.support)} · ${faceLabel(other.face)}',
+                              ),
+                          ],
+                          change: (index) =>
+                              setState(() => face = faces[index]),
                         ),
-                ),
-              Text(
-                s.shortAndLongEdgeLengths(input.unit.symbol),
-                style: TextStyle(fontSize: 12, color: colors.muted),
-              ),
-              for (final cut in cuts)
-                Builder(
-                  builder: (_) {
-                    final lengths = edgeLengths(cut.part)..sort();
-                    final saw = sawAngles(cut.part, cut.end);
-                    final blade = angle.format(saw.bevel);
-                    return _partRow(
-                      cut.part,
-                      [
-                        cut.end ? s.endCut : s.startCut,
-                        '${s.sawTableRotation} ${angle.format(saw.miter)}°',
-                        if (blade != '0') '${s.sawBladeTilt} $blade°',
-                      ].join(' · '),
-                      trailing: Text(
-                        '${input.format(lengths.first)} / ${input.format(lengths.last)}',
-                        style: mono,
                       ),
-                    );
-                  },
-                ),
-            ],
+              ),
+            Text(
+              s.shortAndLongEdgeLengths(input.unit.symbol),
+              style: TextStyle(fontSize: 12, color: colors.muted),
+            ),
+            for (final cut in cuts)
+              Builder(
+                builder: (_) {
+                  final lengths = edgeLengths(cut.part)..sort();
+                  final saw = sawAngles(cut.part, cut.end);
+                  final blade = angle.format(saw.bevel);
+                  return _partRow(
+                    cut.part,
+                    [
+                      cut.end ? s.endCut : s.startCut,
+                      '${s.sawTableRotation} ${angle.format(saw.miter)}°',
+                      if (blade != '0') '${s.sawBladeTilt} $blade°',
+                    ].join(' · '),
+                    trailing: Text(
+                      '${input.format(lengths.first)} / ${input.format(lengths.last)}',
+                      style: mono,
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -211,7 +198,7 @@ class _JointDialogState extends State<JointDialog> {
         ),
         DeskButton(
           primary: true,
-          onPressed: cuts == null ? null : () => Navigator.pop(context, cuts),
+          onPressed: () => Navigator.pop(context, cuts),
           child: Text(s.jointApplyCut),
         ),
       ],

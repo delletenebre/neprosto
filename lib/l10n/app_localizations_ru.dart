@@ -101,6 +101,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addConnection => 'Добавить соединение';
 
   @override
+  String get connectionWoodScrew => 'Саморез по дереву';
+
+  @override
+  String get connectionTouchRequired =>
+      'Выберите две детали, которые соприкасаются гранями';
+
+  @override
+  String get connectionLayoutUnavailable =>
+      'Для этих деталей не получается разместить выбранный крепёж. Проверьте положение деталей или параметры присадки.';
+
+  @override
   String get confirmat => 'Конфирмат';
 
   @override
@@ -1438,14 +1449,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get jointChooseFace => 'Выбрать грань';
-
-  @override
-  String get jointNeedsOverlap =>
-      'Выставьте выбранные детали с нахлёстом у стыка.';
-
-  @override
-  String get jointNoAvailableCut =>
-      'Здесь не получается сквозной запил по месту. Проверьте, хватает ли нахлёста и свободна ли длина деталей.';
 
   @override
   String get jointBottomFace => 'Нижняя грань';

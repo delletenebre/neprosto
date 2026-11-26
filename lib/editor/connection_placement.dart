@@ -17,6 +17,7 @@ class _ConnectionPlacement {
   final double offset;
   final ConnectionPattern pattern;
   final ConnectionRuler ruler;
+  bool get usesRuler => pattern.kind != ConnectionKind.pocket;
   double get length => base.edge.length(part.size);
   late final layout = pattern.layout(
     part,
@@ -91,11 +92,13 @@ class _ConnectionPlacement {
       final f0 = cam.projectionFactor(start), f1 = cam.projectionFactor(end);
       final along = t * f0 / (t * f0 + (1 - t) * f1);
       final far = locked?.fromEnd ?? (along > .5);
-      final offset = locked == null || pointer == null
+      final length = edge.length(part.size);
+      final distance = (far ? 1 - along : along) * length;
+      final offset = editor.connectionPattern.kind == ConnectionKind.pocket
+          ? (pointer == null ? length / 2 : distance)
+          : locked == null || pointer == null
           ? editor.connectionRuler.first
-          : editor.connectionRuler.snap(
-              (far ? 1 - along : along) * edge.length(part.size),
-            );
+          : editor.connectionRuler.snap(distance);
       nearest = gap;
       best = _ConnectionPlacement(
         scene,
@@ -138,16 +141,19 @@ class _ConnectionScalePainter extends CustomPainter {
       canvas.drawLine(axis.first, axis.last, outline);
     }
     canvas.drawLine(a, b, pen);
-    final stride = math.max(
-      1,
-      (8 * view.length / (line.distance * view.ruler.pitch)).ceil(),
-    );
-    final count = ((view.length - view.ruler.first) / view.ruler.pitch).floor();
-    // Bound rendering work when a zoomed edge extends far beyond the viewport.
-    final drawStride = math.max(stride, (count / 2000).ceil());
-    for (var n = 0; n <= count; n += drawStride) {
-      final at = view.at(view.ruler.first + n * view.ruler.pitch);
-      canvas.drawLine(at - normal * 3, at + normal * 3, pen);
+    if (view.usesRuler) {
+      final stride = math.max(
+        1,
+        (8 * view.length / (line.distance * view.ruler.pitch)).ceil(),
+      );
+      final count = ((view.length - view.ruler.first) / view.ruler.pitch)
+          .floor();
+      // Bound rendering work when a zoomed edge extends far beyond the viewport.
+      final drawStride = math.max(stride, (count / 2000).ceil());
+      for (var n = 0; n <= count; n += drawStride) {
+        final at = view.at(view.ruler.first + n * view.ruler.pitch);
+        canvas.drawLine(at - normal * 3, at + normal * 3, pen);
+      }
     }
     canvas.drawCircle(a, 5, Paint()..color = colors.field);
     canvas.drawCircle(a, 5, pen..style = PaintingStyle.stroke);

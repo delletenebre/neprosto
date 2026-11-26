@@ -564,16 +564,7 @@ class DrawingViewportState extends State<DrawingViewport> {
       } else if (view.issue == null) {
         final layout = view.layout;
         e.commit(
-          e.project.edit(
-            {view.part.id},
-            (b) => b.copy(
-              drillGroups: b.drillGroups.assign(
-                layoutRefs(layout, b.holes.length, b.edgeHoles.length),
-              ),
-              holes: [...b.holes, ...layout.faces],
-              edgeHoles: [...b.edgeHoles, ...layout.edges],
-            ),
-          ),
+          e.project.edit({view.part.id}, (b) => withDrillLayout(b, layout)),
         );
         e.setTool(Tool.select);
       }

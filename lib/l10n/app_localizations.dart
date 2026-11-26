@@ -257,6 +257,24 @@ abstract class AppLocalizations {
   /// **'Добавить соединение'**
   String get addConnection;
 
+  /// No description provided for @connectionWoodScrew.
+  ///
+  /// In ru, this message translates to:
+  /// **'Саморез по дереву'**
+  String get connectionWoodScrew;
+
+  /// No description provided for @connectionTouchRequired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите две детали, которые соприкасаются гранями'**
+  String get connectionTouchRequired;
+
+  /// No description provided for @connectionLayoutUnavailable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для этих деталей не получается разместить выбранный крепёж. Проверьте положение деталей или параметры присадки.'**
+  String get connectionLayoutUnavailable;
+
   /// No description provided for @confirmat.
   ///
   /// In ru, this message translates to:
@@ -2666,18 +2684,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Выбрать грань'**
   String get jointChooseFace;
-
-  /// No description provided for @jointNeedsOverlap.
-  ///
-  /// In ru, this message translates to:
-  /// **'Выставьте выбранные детали с нахлёстом у стыка.'**
-  String get jointNeedsOverlap;
-
-  /// No description provided for @jointNoAvailableCut.
-  ///
-  /// In ru, this message translates to:
-  /// **'Здесь не получается сквозной запил по месту. Проверьте, хватает ли нахлёста и свободна ли длина деталей.'**
-  String get jointNoAvailableCut;
 
   /// No description provided for @jointBottomFace.
   ///

@@ -19,6 +19,86 @@ import 'package:neprosto/editor/saw_preview.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
+  testWidgets('Angular joint is enabled only for two parts with an end cut', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(1280, 820));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final board = Beam(
+      1,
+      'Доска',
+      Vector3.zero(),
+      Vector3(1800, 140, 40),
+      axis(0),
+      axis(1),
+    );
+    final beside = board.copy(id: 2, origin: Vector3(0, 140, 0));
+    final across = Beam(
+      3,
+      'Поперечина',
+      Vector3(1100, -700, 0),
+      Vector3(1540, 140, 40),
+      axis(1),
+      -axis(0),
+    );
+    final apart = across.copy(id: 4, origin: Vector3(2200, -700, 0));
+    final editor = Editor(Project('Стол', [board, beside, across, apart]));
+    await t.pumpWidget(NeprostoApp(editor: editor));
+    await t.pumpAndSettle();
+    final label = find.text('Угловой стык…');
+    final button = find.ancestor(of: label, matching: find.byType(DeskButton));
+    expect(button, findsNothing);
+    editor.select(board.id);
+    await t.pumpAndSettle();
+    expect(button, findsNothing);
+
+    for (final other in [beside, apart, across]) {
+      editor.select(board.id);
+      editor.select(other.id, multi: true);
+      await t.pumpAndSettle();
+      expect(
+        t.widget<DeskButton>(button).onPressed,
+        isNull,
+        reason: '${other.id}',
+      );
+    }
+    expect(intersects(board, across), isTrue);
+
+    editor.select(board.id);
+    editor.select(beside.id, multi: true);
+    await t.pumpAndSettle();
+    final drawing = find.byKey(const Key('drawing'));
+    final position = editor.camera.project(
+      board.pointAt(Vector3(.2, .5, 1)),
+      t.getSize(drawing),
+    );
+    final gesture = await t.startGesture(
+      t.getTopLeft(drawing) + position,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await t.pumpAndSettle();
+    final menuItems = find.byType(PopupMenuItem<int>);
+    expect(menuItems, findsWidgets);
+    expect(find.descendant(of: menuItems, matching: label), findsNothing);
+    await t.sendKeyEvent(LogicalKeyboardKey.escape);
+    await t.pumpAndSettle();
+
+    editor.select(board.id);
+    editor.select(across.id, multi: true);
+    editor.commit(
+      editor.project.edit({
+        across.id,
+      }, (b) => b.copy(origin: Vector3(1750, -30, 0))),
+    );
+    await t.pumpAndSettle();
+    expect(t.widget<DeskButton>(button).onPressed, isNotNull);
+    editor.select(beside.id, multi: true);
+    await t.pumpAndSettle();
+    expect(button, findsNothing);
+  }, variant: const TargetPlatformVariant({TargetPlatform.windows}));
+
   testWidgets('The selected pair trims to the support from the context menu', (
     t,
   ) async {

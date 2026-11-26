@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
+import 'package:neprosto/editor/desktop.dart';
 import 'package:neprosto/editor/hole_dialog.dart';
 import 'package:neprosto/editor/model.dart';
+import 'package:neprosto/editor/part_finish.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
 import 'package:neprosto/editor/scene.dart';
 import 'package:neprosto/main.dart';
@@ -19,6 +21,145 @@ void main() {
     axis(1),
   );
   const ruler = ConnectionRuler();
+
+  test('Wood rows follow the overlap and Pocket Hole has its own spacing', () {
+    final a = board.copy(size: Vector3(720, 140, 19));
+    final b = board.copy(
+      id: 2,
+      origin: Vector3(80, 140, 0),
+      size: Vector3(450, 140, 19),
+    );
+    final contact = connectionContacts([a, b]).first;
+    const dowel = ConnectionPattern(ConnectionKind.dowel);
+    final layout = contact.plan(dowel, ruler)!;
+    final first = layout.layouts[1]!.edges;
+    final second = layout.layouts[2]!.edges;
+    expect(first, hasLength(greaterThan(2)));
+    expect(first.every((h) => h.diameter == 10), isTrue);
+    for (final (i, hole) in first.indexed) {
+      expect(hole.offset, inExclusiveRange(80, 530));
+      expect(hole.offset, closeTo(second[i].offset + 80, 1e-6));
+    }
+    const pocket = ConnectionPattern(ConnectionKind.pocket);
+    final pockets = contact.plan(pocket, ruler)!;
+    expect(pockets.layouts[2]!.edges, isEmpty);
+    expect(pockets.stations.first.$2, closeTo(105.4, 1e-6));
+    expect(pockets.stations.last.$2, closeTo(504.6, 1e-6));
+    expect(
+      contact
+          .plan(pocket, const ConnectionRuler(first: 10, pitch: 80))!
+          .stations,
+      pockets.stations,
+    );
+    expect(
+      contact.plan(const ConnectionPattern(ConnectionKind.woodScrew), ruler),
+      isNull,
+    );
+    expect(
+      connectionContacts([a, b.copy(origin: Vector3(80, 140.1, 0))]),
+      isEmpty,
+    );
+    expect(
+      connectionContacts([a, b.copy(origin: Vector3(720, 140, 0))]),
+      isEmpty,
+    );
+  });
+
+  test(
+    'Cabinet and wood options follow the stock at a rotated edge-to-face joint',
+    () {
+      final side = board.copy(
+        id: 2,
+        origin: Vector3(0, 229, 0),
+        size: Vector3(360, 90, 19),
+        along: axis(0),
+        across: axis(2),
+      );
+      final parts = Project('', [
+        board.copy(finish: FinishPreset.whiteBoard.finish),
+        side.copy(finish: FinishPreset.oakBoard.finish),
+      ]).rotate({1, 2}, axis(0), 31).beams;
+      final contact = connectionContacts(parts)
+          .firstWhere((c) => c.part.id == 1);
+      const confirmat = ConnectionPattern(
+        ConnectionKind.confirmat,
+        dowels: 2,
+        side: DowelSide.both,
+      );
+      final fasteners = contact.plan(confirmat, ruler)!;
+      expect(fasteners.stations.map((s) => s.$2), [37, 69, 101]);
+      final pilot = fasteners.layouts[1]!.edges[1];
+      final clearance = fasteners.layouts[2]!.faces[1];
+      expect(pilot.kind, EdgeHoleKind.confirmat);
+      expect(clearance.x, closeTo(pilot.offset, 1e-6));
+      expect(clearance.diameter, 7);
+      expect(clearance.depth, isNull);
+      expect(
+        contact.plan(const ConnectionPattern(ConnectionKind.pocket), ruler),
+        isNull,
+      );
+      expect(
+        contact.plan(const ConnectionPattern(ConnectionKind.woodScrew), ruler),
+        isNull,
+      );
+
+      final wood = connectionContacts([board, side]).first;
+      final screws = wood.plan(
+        const ConnectionPattern(ConnectionKind.woodScrew),
+        ruler,
+      )!;
+      final woodPilot = screws.layouts[1]!.edges.first;
+      expect(woodPilot.kind, EdgeHoleKind.woodScrew);
+      expect(screws.layouts[2]!.faces.first.diameter, 4.5);
+      final drilled = withDrillLayout(board, screws.layouts[1]!);
+      expect(Beam.fromJson(drilled.toJson()).edgeHoles, drilled.edgeHoles);
+    },
+  );
+
+  testWidgets(
+    'A touching pair previews and applies both sets of holes in one edit',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(790, 740));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final mate = board.copy(id: 2, origin: Vector3(0, 211, 0));
+      final editor = Editor(Project('Стол', [board, mate]))
+        ..select(1)
+        ..select(2, multi: true);
+      await t.pumpWidget(NeprostoApp(editor: editor));
+      await t.pumpAndSettle();
+      final button = find.widgetWithText(DeskButton, 'Добавить соединение');
+      expect(t.widget<DeskButton>(button).onPressed, isNull);
+      expect(
+        find.byTooltip('Выберите две детали, которые соприкасаются гранями'),
+        findsOneWidget,
+      );
+
+      editor.commit(editor.project.move({2}, Vector3(0, -1, 0)));
+      final touching = editor.project;
+      await t.pumpAndSettle();
+      expect(t.widget<DeskButton>(button).onPressed, isNotNull);
+      await t.tap(button);
+      await t.pumpAndSettle();
+      final preview = find.byKey(const ValueKey('paired-connection-preview'));
+      expect(preview, findsOneWidget);
+      expect(find.byKey(const ValueKey('connection-confirmat')), findsNothing);
+      await t.tap(find.byKey(const ValueKey('connection-pocket')));
+      await t.pumpAndSettle();
+      expect(preview, findsOneWidget);
+      expect(editor.project, same(touching));
+      await t.tap(find.byKey(const ValueKey('connection-dowel')));
+      await t.pumpAndSettle();
+      await t.tap(find.widgetWithText(DeskButton, 'Применить'));
+      await t.pumpAndSettle();
+      for (final old in touching.beams) {
+        final next = editor.project.byId[old.id]!;
+        expect(next.origin, old.origin);
+        expect(next.edgeHoles, isNotEmpty);
+      }
+      editor.undo();
+      expect(editor.project, same(touching));
+    },
+  );
 
   test('All templates use a single datum, survive storage and reject overlapping placements', () {
     for (final kind in ConnectionKind.values) {

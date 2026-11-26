@@ -338,7 +338,9 @@ class Inspector extends StatelessWidget {
                   size: _actionIconSize,
                 ),
                 label: Text(context.strings.miterJointMenu),
-                onPressed: () => showPartJoint(context, e),
+                onPressed: e.selectedJoint == null
+                    ? null
+                    : () => showPartJoint(context, e),
               ),
             ),
           if (e.tool == Tool.rotate) ...[

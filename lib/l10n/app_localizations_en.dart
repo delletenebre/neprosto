@@ -102,6 +102,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addConnection => 'Add connection';
 
   @override
+  String get connectionWoodScrew => 'Wood screw';
+
+  @override
+  String get connectionTouchRequired =>
+      'Select two parts with faces in contact';
+
+  @override
+  String get connectionLayoutUnavailable =>
+      'The selected fastening does not fit these parts. Check their position or the drilling settings.';
+
+  @override
   String get confirmat => 'Confirmat';
 
   @override
@@ -1436,14 +1447,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jointChooseFace => 'Choose face';
-
-  @override
-  String get jointNeedsOverlap =>
-      'Position the selected parts so they overlap at the joint.';
-
-  @override
-  String get jointNoAvailableCut =>
-      'A through cut is unavailable here. Check the overlap and whether the parts’ lengths are locked.';
 
   @override
   String get jointBottomFace => 'Bottom face';

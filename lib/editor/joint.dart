@@ -50,6 +50,12 @@ List<double> edgeLengths(Beam b) => [
 
 typedef JointCut = ({Beam stock, Beam part, bool end});
 typedef FaceJoint = ({Beam support, int face, JointCut cut});
+typedef JointOptions = ({
+  Beam first,
+  Beam second,
+  List<JointCut>? ends,
+  List<FaceJoint> faces,
+});
 
 const _cutTolerance = 1e-6;
 
@@ -183,6 +189,15 @@ JointCut trimJointToFace(Beam part, Beam reference, int face) {
   return cut;
 }
 
+bool _nearJointEnd(JointCut cut, double depth, {double reach = 0}) {
+  final stock = cut.stock;
+  if (cut.part.size.x <= stock.size.x / 2 + _cutTolerance) return false;
+  final section = math.max(stock.size.y, stock.size.z);
+  final slope = cut.end ? cut.part.endCut : cut.part.startCut;
+  return depth <=
+      section + math.max(section, slope.y.abs() + slope.z.abs()) + reach;
+}
+
 List<JointCut>? endJointOption(Beam a, Beam b) {
   List<JointCut>? best;
   var shortest = double.infinity;
@@ -193,13 +208,9 @@ List<JointCut>? endJointOption(Beam a, Beam b) {
         final depths = cuts.map(jointOffcutDepth).toList();
         if (depths.every((depth) => depth <= _cutTolerance)) continue;
         // A board that continues well past the joint can serve as a support.
-        final atEnds = cuts.indexed.every((entry) {
-          final (i, cut) = entry;
-          final section = math.max(cut.stock.size.y, cut.stock.size.z);
-          final slope = cut.end ? cut.part.endCut : cut.part.startCut;
-          return depths[i] <=
-              section + math.max(section, slope.y.abs() + slope.z.abs());
-        });
+        final atEnds = cuts.indexed.every(
+          (entry) => _nearJointEnd(entry.$2, depths[entry.$1]),
+        );
         if (!atEnds) continue;
         final score = depths[0] + depths[1];
         if (score < shortest) {
@@ -220,7 +231,12 @@ List<FaceJoint> faceJointOptions(Beam a, Beam b) {
     for (var face = 2; face < 6; face++) {
       try {
         final cut = trimJointToFace(part, support, face);
-        if (jointOffcutDepth(cut) > _cutTolerance) {
+        // The offcut can extend through the support before reaching the end.
+        final reach =
+            support.size[face ~/ 2] /
+            support.faceNormal(face).dot(part.along).abs();
+        if (_nearJointEnd(cut, part.size.x - cut.part.size.x, reach: reach) &&
+            jointOffcutDepth(cut) > _cutTolerance) {
           options.add((support: support, face: face, cut: cut));
         }
       } on FormatException {
@@ -238,6 +254,13 @@ List<FaceJoint> faceJointOptions(Beam a, Beam b) {
             q.support.id == b.id ? 0 : 1,
           );
   });
+}
+
+JointOptions? jointOptionsFor(Beam a, Beam b) {
+  if (!intersects(a, b)) return null;
+  final ends = endJointOption(a, b), faces = faceJointOptions(a, b);
+  if (ends == null && faces.isEmpty) return null;
+  return (first: a, second: b, ends: ends, faces: faces);
 }
 
 /// Place the second end at the first end's centre. The cut plane bisects the

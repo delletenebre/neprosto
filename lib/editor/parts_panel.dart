@@ -404,6 +404,7 @@ class _PartsPanelState extends State<PartsPanel> {
     final p = e.project;
     final selectedGroup = e.selectedGroup;
     final measures = e.rulerActive;
+    final canConnect = e.canAddConnection;
     final addLabel = measures
         ? context.strings.newDimension
         : context.strings.newPart;
@@ -461,13 +462,18 @@ class _PartsPanelState extends State<PartsPanel> {
                 macControls ? 8 : 10,
                 8,
               ),
-              child: DeskButton(
-                active: e.tool == Tool.connection,
-                icon: const Icon(cu.CupertinoIcons.link, size: 16),
-                label: Text(context.strings.addConnection),
-                onPressed: p.beams.any((b) => !b.hidden)
-                    ? () => chooseConnection(context, e)
-                    : null,
+              child: Tooltip(
+                message: e.selection.length > 1 && !canConnect
+                    ? context.strings.connectionTouchRequired
+                    : '',
+                child: DeskButton(
+                  active: e.tool == Tool.connection,
+                  icon: const Icon(cu.CupertinoIcons.link, size: 16),
+                  label: Text(context.strings.addConnection),
+                  onPressed: canConnect
+                      ? () => chooseConnection(context, e)
+                      : null,
+                ),
               ),
             ),
           if (e.tool == Tool.measure || e.tool == Tool.gap)

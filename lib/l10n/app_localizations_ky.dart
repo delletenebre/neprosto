@@ -103,6 +103,16 @@ class AppLocalizationsKy extends AppLocalizations {
   String get addConnection => 'Бириктиргич кошуу';
 
   @override
+  String get connectionWoodScrew => 'Жыгач бурама';
+
+  @override
+  String get connectionTouchRequired => 'Беттери тийишкен эки тетикти тандаңыз';
+
+  @override
+  String get connectionLayoutUnavailable =>
+      'Тандалган бекиткич бул тетиктерге батпайт. Тетиктердин абалын же бургулоо жөндөөлөрүн текшериңиз.';
+
+  @override
   String get confirmat => 'Конфирмат';
 
   @override
@@ -1442,14 +1452,6 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get jointChooseFace => 'Бетти тандоо';
-
-  @override
-  String get jointNeedsOverlap =>
-      'Тандалган тетиктерди бирикме жеринде кабатташтырып жайгаштырыңыз.';
-
-  @override
-  String get jointNoAvailableCut =>
-      'Бул жерден тетикти толук кесүү мүмкүн эмес. Кабатталууну жана узундуктун кулпуланганын текшериңиз.';
 
   @override
   String get jointBottomFace => 'Төмөнкү бет';
