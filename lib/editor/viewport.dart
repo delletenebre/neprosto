@@ -487,11 +487,12 @@ class DrawingViewportState extends State<DrawingViewport> {
 
   Anchor? get measurementStart {
     final start = e.first, end = e.hover;
+    if (start == null || !start.onWorkspace) return start;
+    final room = e.project.workspaceSize;
+    if (room == null) return Anchor(start.point);
     final axis = firstBoundaryDepthAxis;
     if (e.tool != Tool.measure ||
         axis == null ||
-        start == null ||
-        !start.onWorkspace ||
         end == null ||
         end.beam == null ||
         e.camera.orthographicDepthAxis != axis) {
@@ -499,8 +500,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     }
     // A boundary picked first has the same projected position at every depth.
     // Once a part supplies the measurement plane, use it for both endpoints.
-    final room = e.project.workspaceSize!;
-    final point = start.point.clone()
+    final point = start.resolve(e.project)
       ..[axis] = end.point[axis].clamp(0.0, room[axis]);
     return Anchor.workspace(point, room, start.label);
   }
