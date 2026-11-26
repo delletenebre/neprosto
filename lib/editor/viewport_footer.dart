@@ -41,98 +41,15 @@ class ViewportFooter extends StatelessWidget {
       }
     }
 
-    Widget group(Widget control, {Widget? leading}) => Material(
-      color: colors.field,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
-        side: BorderSide(color: colors.line, width: .8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (leading != null) ...[
-              leading,
-              SizedBox(
-                height: 15,
-                child: VerticalDivider(width: 5, color: colors.line),
-              ),
-            ],
-            Flexible(child: control),
-          ],
-        ),
-      ),
+    final views = ViewportViews(
+      selectedView: editor.selectedView,
+      onView: editor.setView,
+      tooltip: (angle) =>
+          editor.selectedView == angle && editor.activeView == null
+          ? '${s.freeView} · ${angle.label}'
+          : angle.label,
     );
-
-    Widget viewButton(ViewAngle angle) {
-      final selected = editor.selectedView == angle;
-      return Tooltip(
-        message: selected && editor.activeView == null
-            ? '${s.freeView} · ${angle.label}'
-            : angle.label,
-        child: Semantics(
-          selected: selected,
-          child: DeskControl(
-            key: ValueKey(angle),
-            onPressed: () => editor.setView(angle),
-            minimumSize: const Size(28, 26),
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            background: selected ? colors.pale : null,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 5,
-              children: [
-                ViewAngleIcon(
-                  angle,
-                  color: selected ? colors.accent : colors.muted,
-                ),
-                if (selected)
-                  Text(
-                    angle.label,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    Widget viewGroup(List<ViewAngle> angles) => group(
-      Wrap(
-        spacing: 2,
-        runSpacing: 2,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: angles.map(viewButton).toList(),
-      ),
-    );
-    final views = Semantics(
-      container: true,
-      explicitChildNodes: true,
-      label: s.views,
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          viewGroup(const [ViewAngle.perspective, ViewAngle.iso]),
-          viewGroup(const [
-            ViewAngle.top,
-            ViewAngle.bottom,
-            ViewAngle.front,
-            ViewAngle.back,
-            ViewAngle.left,
-            ViewAngle.right,
-          ]),
-        ],
-      ),
-    );
-
-    final step = group(
+    final step = _ViewportControlGroup(
       Tooltip(
         message: s.editingIncrement,
         child: DeskButton(
@@ -152,7 +69,7 @@ class ViewportFooter extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, box) {
-          final snapControl = group(
+          final snapControl = _ViewportControlGroup(
             MenuChoice<SnapMode>(
               label: '${s.snapToAnchors} · $mode',
               compactLabel: mode,
@@ -211,6 +128,119 @@ class ViewportFooter extends StatelessWidget {
             children: [views, settings],
           );
         },
+      ),
+    );
+  }
+}
+
+class _ViewportControlGroup extends StatelessWidget {
+  const _ViewportControlGroup(this.control, {this.leading});
+  final Widget control;
+  final Widget? leading;
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Material(
+      color: colors.field,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: BorderSide(color: colors.line, width: .8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[
+              leading!,
+              SizedBox(
+                height: 15,
+                child: VerticalDivider(width: 5, color: colors.line),
+              ),
+            ],
+            Flexible(child: control),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ViewportViews extends StatelessWidget {
+  const ViewportViews({
+    required this.selectedView,
+    required this.onView,
+    this.tooltip,
+    super.key,
+  });
+  final ViewAngle? selectedView;
+  final ValueChanged<ViewAngle> onView;
+  final String Function(ViewAngle)? tooltip;
+  @override
+  Widget build(BuildContext context) {
+    final s = context.strings, colors = context.colors;
+    Widget viewButton(ViewAngle angle) {
+      final selected = selectedView == angle;
+      return Tooltip(
+        message: tooltip?.call(angle) ?? angle.label,
+        child: Semantics(
+          selected: selected,
+          child: DeskControl(
+            key: ValueKey(angle),
+            onPressed: () => onView(angle),
+            minimumSize: const Size(28, 26),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            background: selected ? colors.pale : null,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 5,
+              children: [
+                ViewAngleIcon(
+                  angle,
+                  color: selected ? colors.accent : colors.muted,
+                ),
+                if (selected)
+                  Text(
+                    angle.label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget viewGroup(List<ViewAngle> angles) => _ViewportControlGroup(
+      Wrap(
+        spacing: 2,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: angles.map(viewButton).toList(),
+      ),
+    );
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: s.views,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          viewGroup(const [ViewAngle.perspective, ViewAngle.iso]),
+          viewGroup(const [
+            ViewAngle.top,
+            ViewAngle.bottom,
+            ViewAngle.front,
+            ViewAngle.back,
+            ViewAngle.left,
+            ViewAngle.right,
+          ]),
+        ],
       ),
     );
   }

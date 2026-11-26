@@ -60,6 +60,7 @@ class _PartsListState extends State<PartsList> {
 
   Record stockShape(Beam b) {
     return (
+      b.banding,
       sizeKey(b.size.x),
       sizeKey(b.size.y),
       sizeKey(b.size.z),
@@ -74,6 +75,23 @@ class _PartsListState extends State<PartsList> {
             sizeKey(h.centerY(b.size)),
             sizeKey(h.diameter),
             if (h.depth != null) ...[sizeKey(h.depth!), h.back ? 1 : 0],
+            if (h.boltBore case final bolt?) ...[
+              h.boringEdge!.faceIndex,
+              sizeKey(bolt.diameter),
+              sizeKey(h.back ? b.size.z - bolt.faceOffset : bolt.faceOffset),
+            ],
+          ].join(','),
+      ]..sort()).join('|'),
+      ([
+        for (final h in b.edgeHoles)
+          [
+            h.edge.index,
+            h.kind.index,
+            if (h.kind == EdgeHoleKind.pocket) h.back ? 1 : 0,
+            sizeKey(h.position(b.size)),
+            sizeKey(h.height),
+            sizeKey(h.diameter),
+            if (h.depth != null) sizeKey(h.depth!),
           ].join(','),
       ]..sort()).join('|'),
       (

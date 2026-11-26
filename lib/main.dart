@@ -101,6 +101,10 @@ Future<void> main() async {
     autosave = await prefs.getBool('autosave-enabled') ?? true;
     final interval = await prefs.getInt('autosave-minutes');
     if (interval != null && interval > 0) minutes = interval;
+    editor.connectionRuler = ConnectionRuler.restore(
+      await prefs.getDouble('connection-ruler-first'),
+      await prefs.getDouble('connection-ruler-pitch'),
+    );
     editor.snapByDefault = await prefs.getBool('move-snap-default') ?? true;
     editor.dimensionsByDefault =
         await prefs.getBool('dimensions-by-default') ?? true;
@@ -364,6 +368,12 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         });
       } else if (ModalRoute.of(context)?.isCurrent == true) {
         dispatch(Command.values.byName(call.method));
+      } else if (focus != null &&
+          (call.method == 'undo' || call.method == 'redo')) {
+        Actions.maybeInvoke(
+          focus,
+          DialogHistoryIntent(redo: call.method == 'redo'),
+        );
       }
     });
   }
@@ -939,6 +949,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       }
       e.hotkeys = result.hotkeys;
       e.step = result.step;
+      e.connectionRuler = result.connectionRuler;
       e.gridVisibility = result.grid;
       e.dimensionsByDefault = result.dimensions;
       e.showHiddenOutlines = result.showHiddenOutlines;
@@ -957,6 +968,14 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           saveGrid(result.grid),
           prefs.setString('hotkeys-v1', result.hotkeys.encode()),
           prefs.setString('edit-step-v1', result.step.encode()),
+          prefs.setDouble(
+            'connection-ruler-first',
+            result.connectionRuler.first,
+          ),
+          prefs.setDouble(
+            'connection-ruler-pitch',
+            result.connectionRuler.pitch,
+          ),
           prefs.setBool('dimensions-by-default', result.dimensions),
           prefs.setBool('show-hidden-outlines', result.showHiddenOutlines),
           prefs.setBool('move-snap-default', result.snap),
@@ -1156,6 +1175,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         e.firstShelf == null
             ? context.strings.selectTheFirstShelf
             : context.strings.selectTheSecondShelf,
+      Tool.connection =>
+        e.connectionBase == null
+            ? context.strings.chooseConnectionBase
+            : context.strings.placeConnection,
       Tool.face => context.strings.selectWorkPlaneFace,
       Tool.rotate => context.strings.rotationInputHint,
     };

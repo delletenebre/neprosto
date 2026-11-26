@@ -12,16 +12,200 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
+  String get layFaceDown => 'Положить этой гранью вниз';
+
+  @override
+  String get stockTurnHint =>
+      'Выберите плоскость и нажмите стрелку −90° или +90° на заготовке.';
+
+  @override
+  String linkToHole(int number) {
+    return 'Привязать к центру № $number';
+  }
+
+  @override
+  String get holeGroups => 'Группы отверстий';
+
+  @override
+  String get addLinkedShaft => 'Добавить торцевое к центру';
+
+  @override
+  String get addEdgeBore => 'Добавить торцевое…';
+
+  @override
+  String linkedFaceHole(int number) {
+    return 'К отверстию № $number';
+  }
+
+  @override
+  String anchoredFaceHole(int number) {
+    return 'Привязка к отверстию № $number';
+  }
+
+  @override
+  String get detachHoleAnchor => 'Снять привязку';
+
+  @override
+  String get pointAnchor => 'Привязка к точке';
+
+  @override
+  String get faceMagnet => 'Магнит при перемещении';
+
+  @override
+  String pickHoleAnchor(String modifier) {
+    return '$modifier-клик по схеме — привязать отверстие к точке или центру другого отверстия';
+  }
+
+  @override
+  String get drillMode => '3D';
+
+  @override
+  String get faceMarkA => 'А';
+
+  @override
+  String get faceMarkB => 'Б';
+
+  @override
+  String get spatialOverview => 'Общий вид';
+
+  @override
+  String get clearOrbitPivot => 'Сбросить опору вращения';
+
+  @override
+  String holeNavigationHint(String modifier) {
+    return '$modifier⇧-клик — опора · ПКМ — вращение · $modifier + колесо — масштаб';
+  }
+
+  @override
+  String get openingSensor => 'Датчик открывания';
+
+  @override
+  String get customDrill => 'Своё сверление';
+
+  @override
+  String get drillMagnet => 'Магнит';
+
+  @override
+  String get drillHint => 'Клик — сверлить · Shift-клик — задать ноль';
+
+  @override
+  String get edgeOrbitHint => 'Клик по торцу — выбрать';
+
+  @override
+  String get resetDatum => 'Сбросить базу';
+
+  @override
+  String get drillGridInvalid => 'Введите отступ от нуля и положительный шаг.';
+
+  @override
+  String get addConnection => 'Добавить соединение';
+
+  @override
+  String get confirmat => 'Конфирмат';
+
+  @override
+  String get dowel => 'Шкант';
+
+  @override
+  String get dowels => 'Шканты';
+
+  @override
+  String get connectionRuler => 'Шкала соединений';
+
+  @override
+  String get datumOffset => 'Первая отметка от базы';
+
+  @override
+  String get markPitch => 'Шаг шкалы';
+
+  @override
+  String get baseDistance => 'Расстояние от базы';
+
+  @override
+  String get panelFaces => 'Пласти';
+
+  @override
+  String get panelEdges => 'Торцы';
+
+  @override
+  String get beforeHardware => 'До крепежа';
+
+  @override
+  String get afterHardware => 'После крепежа';
+
+  @override
+  String get bothHardware => 'С двух сторон';
+
+  @override
+  String get chooseConnectionBase =>
+      'Нажмите на торец ближе к тому углу, от которого вести отсчёт.';
+
+  @override
+  String get placeConnection =>
+      'Переместите шаблон вдоль шкалы и нажмите, чтобы добавить отверстия.';
+
+  @override
+  String get placeOnDrawing => 'Разместить на схеме';
+
+  @override
+  String get connectionDoesNotFit => 'Присадка выходит за границы детали.';
+
+  @override
+  String get camThickness => 'Недостаточная толщина для этого эксцентрика';
+
+  @override
+  String get datum => 'База';
+
+  @override
+  String get emptyEdge => 'На этом торце нет отверстий';
+
+  @override
+  String get pocketShoulder => 'Глубина до уступа';
+
+  @override
+  String get edgeBanding => 'Кромка';
+
+  @override
+  String get bandWholePerimeter => 'Весь периметр';
+
+  @override
+  String get deselectAllEdges => 'Снять все';
+
+  @override
+  String get bandingEdges => 'Торцы';
+
+  @override
+  String get bandThickness => 'Толщина ленты';
+
+  @override
+  String get bandWidth => 'Ширина ленты';
+
+  @override
+  String get matchPanelThickness => 'По толщине детали';
+
+  @override
+  String get invalidEdgeBanding => 'Некорректные параметры кромки';
+
+  @override
+  String get positiveBandSize => 'Введите размер больше нуля.';
+
+  @override
+  String get woodBasedPanel => 'ДПМ';
+
+  @override
+  String get woodBasedPanelFullName => 'Древесный плитный материал';
+
+  @override
+  String get panelFaceColor => 'Цвет поверхности';
+
+  @override
+  String get edgeBandColor => 'Цвет кромки';
+
+  @override
   String get partFinish => 'Материал';
 
   @override
   String get mixedValues => 'Разные';
-
-  @override
-  String get finishPresets => 'Готовые образцы';
-
-  @override
-  String get chooseFinishPreset => 'Выбрать образец';
 
   @override
   String get pineColor => 'Сосна';
@@ -1746,7 +1930,74 @@ class AppLocalizationsRu extends AppLocalizations {
   String get faceB => 'Сторона Б';
 
   @override
-  String get cupHole => 'Под петлю Ø35 мм';
+  String get edgeBoringCommand => 'Присадка по кромке…';
+
+  @override
+  String get chooseBoringEdge => 'Нажмите на кромку детали';
+
+  @override
+  String get edgeBoringTitle => 'Присадка по кромке';
+
+  @override
+  String get boltBoreOption => 'Торцевое отверстие';
+
+  @override
+  String get boltFaceOffset => 'От пласти до оси';
+
+  @override
+  String get boltBoreDepth => 'Глубина с торца';
+
+  @override
+  String get boltBoreInvalid =>
+      'Укажите диаметр и положение оси так, чтобы сверло помещалось в торце, а ось попадала в основное отверстие.';
+
+  @override
+  String get drillingParameters => 'Параметры сверления';
+
+  @override
+  String get boringReferenceEdge => 'Кромка отсчёта';
+
+  @override
+  String get boltReferenceFace => 'Базовая пласть';
+
+  @override
+  String get boreCenterDistance => 'До центра';
+
+  @override
+  String get boreRimDistance => 'До края отверстия';
+
+  @override
+  String boreCenterPitch(String length) {
+    return 'Шаг между центрами — $length';
+  }
+
+  @override
+  String get boreCount => 'Количество отверстий';
+
+  @override
+  String get boreOutsidePanel =>
+      'Задайте отступ так, чтобы отверстие помещалось на детали.';
+
+  @override
+  String get enterBoreCount => 'Введите целое количество отверстий от 1.';
+
+  @override
+  String get boreEndOffsets => 'Отступы до центров отверстий';
+
+  @override
+  String get boreEndMarginsInvalid =>
+      'Укажите отступы от торцов так, чтобы отверстия помещались на детали.';
+
+  @override
+  String get boreSpacingInvalid =>
+      'Для такого количества и отступов отверстия расположены слишком близко.';
+
+  @override
+  String get boreCollision =>
+      'Новое отверстие пересекает существующее. Измените отступы или количество.';
+
+  @override
+  String get addBoreRow => 'Добавить отверстия';
 
   @override
   String get fromLeft => 'От левого края';
@@ -1759,10 +2010,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get fromTop => 'От верхнего края';
-
-  @override
-  String get holeDiagramHelp =>
-      'Щёлкните на схеме, чтобы задать центр отверстия.';
 
   @override
   String get invalidHole =>

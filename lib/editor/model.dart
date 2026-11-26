@@ -10,6 +10,9 @@ export 'package:vector_math/vector_math_64.dart' show Vector3;
 part 'clearance.dart';
 part 'rabbet.dart';
 part 'panel_hole.dart';
+part 'drill_groups.dart';
+part 'connection.dart';
+part 'edge_banding.dart';
 part 'door.dart';
 
 Vector3 axis(int i) => Vector3.zero()..[i] = 1;
@@ -81,6 +84,22 @@ Vector3 _readVector(dynamic data) {
   );
 }
 
+/// The four perimeter edges in the local length/width plane of a panel.
+enum PanelEdge {
+  start(true, false),
+  end(true, true),
+  near(false, false),
+  far(false, true);
+
+  const PanelEdge(this.alongWidth, this.atMax);
+  final bool alongWidth, atMax;
+
+  double length(Vector3 size) => alongWidth ? size.y : size.x;
+  double width(Vector3 size) => alongWidth ? size.x : size.y;
+
+  int get faceIndex => (alongWidth ? 0 : 2) + (atMax ? 1 : 0);
+}
+
 // Counterclockwise winding when viewed from outside. Bits 0, 1, 2 select local X, Y, Z.
 const faceCorners = [
   [0, 4, 6, 2],
@@ -130,7 +149,17 @@ class Beam {
   final int locks;
   final bool hidden;
   final PartFinish finish;
+  PartMaterial get material => finish.texture.material;
+  bool get supportsEdgeBanding => material == PartMaterial.panel;
+  // Keep the tape specification when temporarily switching away from panel stock.
+  final EdgeBanding? _banding;
+  EdgeBanding get banding =>
+      (supportsEdgeBanding ? _banding : null) ?? const EdgeBanding.none();
   final List<PanelHole> holes;
+  final DrillGroups? _drillGroups;
+  DrillGroups get drillGroups => _drillGroups ?? DrillGroups.pairs(holes);
+  final List<EdgeHole>? _edgeHoles;
+  List<EdgeHole> get edgeHoles => _edgeHoles ?? const [];
   final DoorHinge? hinge;
   final bool doorOpen;
   final DoorMount? _doorMount;
@@ -202,8 +231,11 @@ class Beam {
     this.locks = 0,
     this.hidden = false,
     this.finish = woodFinish,
+    this._banding,
     FaceBore? bore,
     List<PanelHole> holes = const [],
+    List<EdgeHole> edgeHoles = const [],
+    this._drillGroups,
     this.hinge,
     this.doorOpen = false,
     this._doorMount,
@@ -211,7 +243,8 @@ class Beam {
     Map<RabbetEdge, Rabbet> rabbets = const {},
     this.startCut = (y: 0, z: 0),
     this.endCut = (y: 0, z: 0),
-  }) : holes = bore == null
+  }) : _edgeHoles = edgeHoles.isEmpty ? const [] : List.unmodifiable(edgeHoles),
+       holes = bore == null
            ? (holes.isEmpty ? const [] : List.unmodifiable(holes))
            : List.unmodifiable([
                PanelHole(bore.u * size.x, bore.v * size.y, bore.diameter),
@@ -239,8 +272,11 @@ class Beam {
     int? locks,
     bool? hidden,
     PartFinish? finish,
+    EdgeBanding? banding,
     FaceBore? bore,
     List<PanelHole>? holes,
+    List<EdgeHole>? edgeHoles,
+    DrillGroups? drillGroups,
     DoorHinge? hinge,
     bool? doorOpen,
     DoorMount? doorMount,
@@ -260,8 +296,11 @@ class Beam {
     locks: locks ?? this.locks,
     hidden: hidden ?? this.hidden,
     finish: finish ?? this.finish,
+    banding: banding ?? _banding,
     bore: bore,
     holes: holes ?? this.holes,
+    edgeHoles: edgeHoles ?? this.edgeHoles,
+    drillGroups: drillGroups ?? _drillGroups,
     hinge: clearHinge ? null : hinge ?? this.hinge,
     doorMount: clearHinge ? defaultDoorMount : doorMount ?? this.doorMount,
     doorOpen: doorOpen ?? this.doorOpen,
@@ -304,6 +343,11 @@ class Beam {
     'across': _xyz(across),
     'group': group,
     'locks': locks,
+    if (_drillGroups case final groups?
+        when groups.members.isNotEmpty || holes.any((h) => h.boltBore != null))
+      'holeGroups': groups.toJson(),
+    if (edgeHoles.isNotEmpty)
+      'edgeHoles': [for (final h in edgeHoles) h.toJson()],
     if (holes.isNotEmpty) 'holes': holes.map((h) => h.toJson()).toList(),
     if (hinge != null) 'hinge': hinge!.name,
     if (doorOpen) 'doorOpen': true,
@@ -320,6 +364,8 @@ class Beam {
           e.key.name: [e.value.width, e.value.depth],
       },
     if (hidden) 'hidden': true,
+    if (_banding case final tape? when tape.edges.isNotEmpty)
+      'edgeBanding': tape.toJson(),
     if (finish != woodFinish)
       'finish': {'texture': finish.texture.name, 'rgb': finish.rgb},
     if (bevelled) 'cuts': [startCut.y, startCut.z, endCut.y, endCut.z],
@@ -341,7 +387,14 @@ class Beam {
       locks: json['locks'] as int? ?? 0,
       hidden: json['hidden'] as bool? ?? false,
       finish: readPartFinish(json['finish']),
+      banding: EdgeBanding.fromJson(json['edgeBanding']),
       bore: json.containsKey('holes') ? null : _readBore(json['bore']),
+      drillGroups: json['holeGroups'] is List
+          ? DrillGroups.fromJson(json['holeGroups'])
+          : null,
+      edgeHoles: (json['edgeHoles'] as List? ?? const [])
+          .map(EdgeHoleGeometry.fromJson)
+          .toList(),
       holes: (json['holes'] as List? ?? const [])
           .map(PanelHole.fromJson)
           .toList(),
@@ -475,6 +528,7 @@ class Dimension {
       locked: _locked,
     );
   }
+
   ({Vector3 from, Vector3 to, Vector3 direction})? geometry(Project p) {
     if (clearance) {
       final first = p.byId[a.beam], second = p.byId[b.beam];
@@ -603,6 +657,7 @@ class Project {
     if (trimmed.isEmpty || trimmed == groupName(id)) return this;
     return copy(groupNames: {...groupNames, id: trimmed});
   }
+
   Map<int, GroupDoor> _groupDoors = const {};
   Map<int, GroupDoor> get groupDoors => _groupDoors;
   late final Bounds3? partBounds = beams.isEmpty
@@ -729,9 +784,14 @@ class Project {
     return edit(ids, (b) => b.copy(origin: b.origin + delta));
   }
 
-  Project rotate(Set<int> ids, Vector3 normal, double degrees) {
+  Project rotate(
+    Set<int> ids,
+    Vector3 normal,
+    double degrees, {
+    Vector3? pivot,
+  }) {
     if (ids.isEmpty) return this;
-    final pivot = Bounds3.points(
+    pivot ??= Bounds3.points(
       beams.where((b) => ids.contains(b.id)).expand((b) => b.corners),
     ).center;
     return _rotateAround(ids, normal, pivot, degrees * math.pi / 180);
@@ -856,7 +916,8 @@ class Project {
   }
 
   factory Project.bench([LengthUnit unit = LengthUnit.millimeter]) {
-    double q(double mm, double inches) => unit == LengthUnit.inch ? inches * unit.factor : mm;
+    double q(double mm, double inches) =>
+        unit == LengthUnit.inch ? inches * unit.factor : mm;
     final beams = <Beam>[];
     void add(String name, Vector3 start, Vector3 size, Vector3 x, Vector3 y) {
       beams.add(Beam(beams.length + 1, name, start, size, x, y));

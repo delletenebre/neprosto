@@ -1,5 +1,26 @@
 import '../l10n/strings.dart';
 
+String hexColor(int rgb) =>
+    '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+enum PartMaterial {
+  panel,
+  wood,
+  metal;
+
+  String get label => switch (this) {
+    panel => editorStrings.woodBasedPanel,
+    wood => editorStrings.naturalWood,
+    metal => editorStrings.metal,
+  };
+
+  FinishPreset get defaultPreset => switch (this) {
+    panel => FinishPreset.whiteBoard,
+    wood => FinishPreset.wood,
+    metal => FinishPreset.aluminum,
+  };
+}
+
 enum PartTexture {
   wood,
   laminate,
@@ -9,21 +30,16 @@ enum PartTexture {
   brushedMetal,
   paintedMetal;
 
-  static const choices = [wood, brushedMetal, paintedMetal];
-
-  PartTexture get choice => switch (this) {
-    woodLaminate || plywood => wood,
-    laminate || mdf => paintedMetal,
-    _ => this,
+  PartMaterial get material => switch (this) {
+    wood => PartMaterial.wood,
+    laminate || woodLaminate || plywood || mdf => PartMaterial.panel,
+    brushedMetal || paintedMetal => PartMaterial.metal,
   };
 
   String get label => switch (this) {
-    wood => editorStrings.naturalWood,
-    brushedMetal => editorStrings.metal,
-    paintedMetal => editorStrings.solidColor,
     plywood => editorStrings.plywood,
     mdf => editorStrings.mdf,
-    woodLaminate || laminate => choice.label,
+    _ => material.label,
   };
 }
 

@@ -226,6 +226,12 @@ Future<T?> showDeskDialog<T>({
   );
 }
 
+/// Routes a native Edit menu command to the dialog owning keyboard focus.
+class DialogHistoryIntent extends Intent {
+  const DialogHistoryIntent({required this.redo});
+  final bool redo;
+}
+
 class DeskDialog extends StatelessWidget {
   final Widget title, content;
   final List<Widget> actions;
@@ -381,8 +387,9 @@ class _DialogActions extends StatelessWidget {
       if (leading != null && constraints.maxWidth >= 520) {
         return Row(
           children: [
-            leading!,
-            const Spacer(),
+            Expanded(
+              child: Align(alignment: Alignment.centerLeft, child: leading!),
+            ),
             ...buttons.expand((b) => [const SizedBox(width: 7), b]),
           ],
         );
@@ -526,6 +533,7 @@ class DeskIcon extends StatelessWidget {
   final Color? foreground, background;
   final BorderRadius? borderRadius;
   final double size;
+  final Widget Function(Color color, double size)? glyphBuilder;
   const DeskIcon(
     this.icon,
     this.tip,
@@ -536,28 +544,67 @@ class DeskIcon extends StatelessWidget {
     this.background,
     this.borderRadius,
     this.size = 17,
+    this.glyphBuilder,
   });
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tip,
-    waitDuration: const Duration(milliseconds: 380),
-    child: DeskControl(
-      onPressed: action,
-      borderRadius: borderRadius,
-      background: active && action != null
-          ? (macControls ? context.selectionFill : EditorPalette.highlight)
-          : background,
-      minimumSize: const Size(29, 28),
-      padding: const EdgeInsets.all(4),
-      child: Icon(
-        icon,
-        semanticLabel: tip,
-        size: size,
-        color: action == null
-            ? context.colors.disabled
-            : active
-            ? (macControls ? context.colors.ink : EditorPalette.onHighlight)
-            : foreground ?? context.colors.muted,
+  Widget build(BuildContext context) {
+    final color = action == null
+        ? context.colors.disabled
+        : active
+        ? (macControls ? context.colors.ink : EditorPalette.onHighlight)
+        : foreground ?? context.colors.muted;
+    return Tooltip(
+      message: tip,
+      waitDuration: const Duration(milliseconds: 380),
+      child: DeskControl(
+        onPressed: action,
+        borderRadius: borderRadius,
+        background: active && action != null
+            ? (macControls ? context.selectionFill : EditorPalette.highlight)
+            : background,
+        minimumSize: const Size(29, 28),
+        padding: const EdgeInsets.all(4),
+        child: glyphBuilder == null
+            ? Icon(icon, semanticLabel: tip, size: size, color: color)
+            : Semantics(label: tip, child: glyphBuilder!(color, size)),
+      ),
+    );
+  }
+}
+
+class DeskListRow extends StatefulWidget {
+  const DeskListRow({
+    super.key,
+    required this.selected,
+    required this.onPressed,
+    required this.builder,
+    this.padding = EdgeInsets.zero,
+  });
+  final bool selected;
+  final VoidCallback? onPressed;
+  final Widget Function(bool hovered) builder;
+  final EdgeInsetsGeometry padding;
+  @override
+  State<DeskListRow> createState() => _DeskListRowState();
+}
+
+class _DeskListRowState extends State<DeskListRow> {
+  bool hovered = false;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: widget.selected,
+    child: MouseRegion(
+      onEnter: (_) => setState(() => hovered = true),
+      onExit: (_) => setState(() => hovered = false),
+      child: DeskControl(
+        onPressed: widget.onPressed,
+        padding: widget.padding,
+        background: widget.selected
+            ? context.selectionFill
+            : hovered && widget.onPressed == null
+            ? context.colors.ink.withValues(alpha: .06)
+            : null,
+        child: widget.builder(hovered),
       ),
     ),
   );

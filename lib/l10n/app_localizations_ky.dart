@@ -12,16 +12,202 @@ class AppLocalizationsKy extends AppLocalizations {
   AppLocalizationsKy([String locale = 'ky']) : super(locale);
 
   @override
+  String get layFaceDown => 'Ушул бетин ылдый каратып коюу';
+
+  @override
+  String get stockTurnHint =>
+      'Тегиздикти тандап, тетиктеги −90° же +90° жебесин басыңыз.';
+
+  @override
+  String linkToHole(int number) {
+    return '№ $number тешиктин борборуна байлоо';
+  }
+
+  @override
+  String get holeGroups => 'Тешик топтору';
+
+  @override
+  String get addLinkedShaft => 'Байланышкан каптал тешигин кошуу';
+
+  @override
+  String get addEdgeBore => 'Каптал тешигин кошуу…';
+
+  @override
+  String linkedFaceHole(int number) {
+    return '№ $number тешикке өтүү';
+  }
+
+  @override
+  String anchoredFaceHole(int number) {
+    return '№ $number тешикке байланган';
+  }
+
+  @override
+  String get detachHoleAnchor => 'Байланышты алып салуу';
+
+  @override
+  String get pointAnchor => 'Чекитке байланган';
+
+  @override
+  String get faceMagnet => 'Жылдырууда жабыштыруу';
+
+  @override
+  String pickHoleAnchor(String modifier) {
+    return 'Чекитке же башка тешиктин борборуна байлоо үчүн чиймени $modifier менен басыңыз';
+  }
+
+  @override
+  String get drillMode => '3D';
+
+  @override
+  String get faceMarkA => 'А';
+
+  @override
+  String get faceMarkB => 'Б';
+
+  @override
+  String get spatialOverview => 'Жалпы көрүнүш';
+
+  @override
+  String get clearOrbitPivot => 'Айлануу таянычын алып салуу';
+
+  @override
+  String holeNavigationHint(String modifier) {
+    return '$modifier+Shift менен басып таяныч тандаңыз · Оң баскыч — буруу · $modifier + дөңгөлөк — масштаб';
+  }
+
+  @override
+  String get openingSensor => 'Ачылуу сенсору';
+
+  @override
+  String get customDrill => 'Өз өлчөмүңүз';
+
+  @override
+  String get drillMagnet => 'Магнит';
+
+  @override
+  String get drillHint =>
+      'Бургулоо үчүн басыңыз · Нөлдү коюу үчүн Shift менен басыңыз';
+
+  @override
+  String get edgeOrbitHint => 'Тандоо үчүн кырын басыңыз';
+
+  @override
+  String get resetDatum => 'Баштапкы чекитти калыбына келтирүү';
+
+  @override
+  String get drillGridInvalid =>
+      'Терс эмес чегинүүнү жана оң кадамды киргизиңиз.';
+
+  @override
+  String get addConnection => 'Бириктиргич кошуу';
+
+  @override
+  String get confirmat => 'Конфирмат';
+
+  @override
+  String get dowel => 'Шкант';
+
+  @override
+  String get dowels => 'Шканттар';
+
+  @override
+  String get connectionRuler => 'Бириктиргич сызгычы';
+
+  @override
+  String get datumOffset => 'Базадан биринчи белги';
+
+  @override
+  String get markPitch => 'Белги кадамы';
+
+  @override
+  String get baseDistance => 'Базадан аралык';
+
+  @override
+  String get panelFaces => 'Беттер';
+
+  @override
+  String get panelEdges => 'Кырлар';
+
+  @override
+  String get beforeHardware => 'Бекиткичке чейин';
+
+  @override
+  String get afterHardware => 'Бекиткичтен кийин';
+
+  @override
+  String get bothHardware => 'Эки жакта';
+
+  @override
+  String get chooseConnectionBase =>
+      'Эсеп баштала турган бурчка жакын кырды басыңыз.';
+
+  @override
+  String get placeConnection =>
+      'Калыпты сызгыч боюнча жылдырып, тешиктерди кошуу үчүн басыңыз.';
+
+  @override
+  String get placeOnDrawing => 'Чиймеге жайгаштыруу';
+
+  @override
+  String get connectionDoesNotFit => 'Тешиктер деталдын чегинен чыгат.';
+
+  @override
+  String get camThickness => 'Бул эксцентрик үчүн детал жука';
+
+  @override
+  String get datum => 'База';
+
+  @override
+  String get emptyEdge => 'Бул кырда тешик жок';
+
+  @override
+  String get pocketShoulder => 'Баскычка чейинки тереңдик';
+
+  @override
+  String get edgeBanding => 'Жээк тасмасы';
+
+  @override
+  String get bandWholePerimeter => 'Бардык кырлар';
+
+  @override
+  String get deselectAllEdges => 'Тандоону тазалоо';
+
+  @override
+  String get bandingEdges => 'Кырлар';
+
+  @override
+  String get bandThickness => 'Тасманын калыңдыгы';
+
+  @override
+  String get bandWidth => 'Тасманын туурасы';
+
+  @override
+  String get matchPanelThickness => 'Тетиктин калыңдыгына барабар';
+
+  @override
+  String get invalidEdgeBanding => 'Жээк тасмасынын параметрлери туура эмес';
+
+  @override
+  String get positiveBandSize => 'Нөлдөн чоң өлчөм киргизиңиз.';
+
+  @override
+  String get woodBasedPanel => 'Жыгач плита';
+
+  @override
+  String get woodBasedPanelFullName => 'Жыгач негизиндеги плита';
+
+  @override
+  String get panelFaceColor => 'Беттин түсү';
+
+  @override
+  String get edgeBandColor => 'Жээк тасмасынын түсү';
+
+  @override
   String get partFinish => 'Материал';
 
   @override
   String get mixedValues => 'Ар түрдүү';
-
-  @override
-  String get finishPresets => 'Даяр үлгүлөр';
-
-  @override
-  String get chooseFinishPreset => 'Үлгү тандоо';
 
   @override
   String get pineColor => 'Карагай';
@@ -1749,7 +1935,75 @@ class AppLocalizationsKy extends AppLocalizations {
   String get faceB => 'Б жагы';
 
   @override
-  String get cupHole => 'Илмек үчүн Ø35 мм';
+  String get edgeBoringCommand => 'Кыр бойлой бургулоо…';
+
+  @override
+  String get chooseBoringEdge => 'Тетиктин кырын тандаңыз';
+
+  @override
+  String get edgeBoringTitle => 'Кыр бойлой бургулоо';
+
+  @override
+  String get boltBoreOption => 'Кырдагы тешик';
+
+  @override
+  String get boltFaceOffset => 'Беттен огуна чейин';
+
+  @override
+  String get boltBoreDepth => 'Кырынан тереңдиги';
+
+  @override
+  String get boltBoreInvalid =>
+      'Бургунун диаметрин жана огунун ордун бургу кырдын ичине батып, огу негизги тешикке киргидей тандаңыз.';
+
+  @override
+  String get drillingParameters => 'Бургулоо параметрлери';
+
+  @override
+  String get boringReferenceEdge => 'Эсептөө кыры';
+
+  @override
+  String get boltReferenceFace => 'Эсептөө бети';
+
+  @override
+  String get boreCenterDistance => 'Борборго чейин';
+
+  @override
+  String get boreRimDistance => 'Тешиктин четине чейин';
+
+  @override
+  String boreCenterPitch(String length) {
+    return 'Борборлордун аралыгы — $length';
+  }
+
+  @override
+  String get boreCount => 'Тешиктердин саны';
+
+  @override
+  String get boreOutsidePanel =>
+      'Тешик тетикке баткыдай кылып кырдан аралыкты бериңиз.';
+
+  @override
+  String get enterBoreCount =>
+      'Тешиктердин санын 1ден баштап бүтүн сан менен киргизиңиз.';
+
+  @override
+  String get boreEndOffsets => 'Тешиктердин борборлоруна чейинки аралыктар';
+
+  @override
+  String get boreEndMarginsInvalid =>
+      'Тешиктер тетикке баткыдай кылып учтарынан аралыкты бериңиз.';
+
+  @override
+  String get boreSpacingInvalid =>
+      'Бул сандагы тешиктерге көрсөтүлгөн аралыктарда орун жетишсиз.';
+
+  @override
+  String get boreCollision =>
+      'Жаңы тешик мурунку тешик менен кесилишет. Аралыкты же санын өзгөртүңүз.';
+
+  @override
+  String get addBoreRow => 'Тешиктерди кошуу';
 
   @override
   String get fromLeft => 'Сол четинен';
@@ -1762,10 +2016,6 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get fromTop => 'Жогорку четинен';
-
-  @override
-  String get holeDiagramHelp =>
-      'Тешиктин борборун жайгаштыруу үчүн схеманы басыңыз.';
 
   @override
   String get invalidHole =>

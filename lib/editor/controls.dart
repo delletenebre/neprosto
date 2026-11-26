@@ -191,7 +191,15 @@ class LengthEditingController extends TextEditingController {
 }
 
 class DraftLengthField extends StatefulWidget {
-  const DraftLengthField(this.controller, this.changed, {super.key});
+  const DraftLengthField(
+    this.controller,
+    this.changed, {
+    super.key,
+    this.placeholder,
+    this.onBlur,
+  });
+  final String? placeholder;
+  final VoidCallback? onBlur;
   final LengthEditingController controller;
   final VoidCallback changed;
   @override
@@ -210,6 +218,7 @@ class _DraftLengthFieldState extends State<DraftLengthField> {
   void normalize() {
     final field = widget.controller;
     if (focus.hasFocus) return;
+    widget.onBlur?.call();
     if (field.millimeters case final mm?) {
       field.setMillimeters(mm);
     }
@@ -225,6 +234,7 @@ class _DraftLengthFieldState extends State<DraftLengthField> {
   @override
   Widget build(BuildContext context) => DeskTextField(
     controller: widget.controller,
+    placeholder: widget.placeholder,
     focusNode: focus,
     onStep: (direction) {
       final field = widget.controller;
@@ -241,19 +251,21 @@ class _DraftLengthFieldState extends State<DraftLengthField> {
     onSubmitted: (text) {
       final field = widget.controller;
       final value = field.millimeters;
-      if (value != null && !isNumberLiteral(text)) {
+      if (widget.onBlur == null && value != null && !isNumberLiteral(text)) {
         field.setMillimeters(value);
       } else {
         focus.unfocus();
       }
     },
-    suffix: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      child: Text(
-        widget.controller.input.unit.symbol,
-        style: TextStyle(fontSize: 12, color: context.colors.muted),
-      ),
-    ),
+    suffix: widget.placeholder != null && widget.controller.text.isEmpty
+        ? null
+        : Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            child: Text(
+              widget.controller.input.unit.symbol,
+              style: TextStyle(fontSize: 12, color: context.colors.muted),
+            ),
+          ),
   );
 }
 

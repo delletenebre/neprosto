@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart';
+import 'package:neprosto/editor/edge_banding_dialog.dart';
 import 'package:neprosto/editor/finish_picker.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/part_finish.dart';
@@ -59,8 +60,14 @@ void main() {
       await tap(
         find.descendant(of: dialog, matching: find.byType(PartFinishButton)),
       );
-      await tap(find.byType(DropdownButton<FinishPreset>));
-      await tap(find.text('ЛДСП · дуб').hitTestable());
+      await tap(
+        find
+            .descendant(
+              of: find.byType(DeskSegments<PartMaterial>),
+              matching: find.text('ДПМ'),
+            )
+            .hitTestable(),
+      );
       await tap(find.text('Применить').hitTestable());
       expect(editor.single!.finish, woodFinish);
     }
@@ -70,13 +77,16 @@ void main() {
     expect(editor.canUndo, isFalse);
     await stageBoard();
     await tap(find.text('Применить').hitTestable());
-    expect(editor.single!.finish, FinishPreset.oakBoard.finish);
+    expect(editor.single!.finish, FinishPreset.whiteBoard.finish);
+    expect(find.byType(EdgeBandingButton), findsOneWidget);
     editor.undo();
+    await t.pumpAndSettle();
+    expect(find.byType(EdgeBandingButton), findsNothing);
     expect(editor.single!.finish, woodFinish);
   });
 
   testWidgets(
-    'Material presets, texture and custom color apply as one part edit',
+    'Material and custom color apply as one part edit',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -92,42 +102,37 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      expect(find.byType(EdgeBandingButton), findsNothing);
       await tester.ensureVisible(button);
       await tap(button);
-      final presets = inside(find.byType(DropdownButton<FinishPreset>));
       final input = inside(find.byType(EditableText));
-      DropdownButton<FinishPreset> picker() =>
-          tester.widget<DropdownButton<FinishPreset>>(presets);
-      expect(picker().value, FinishPreset.wood);
-      expect(find.text('ЛДСП · белая').hitTestable(), findsNothing);
-      await tap(presets);
-      expect(picker().items!.map((item) => item.value), FinishPreset.values);
-      await tap(find.text('ЛДСП · белая').hitTestable());
-      expect(picker().value, FinishPreset.whiteBoard);
-      final textures = inside(find.byType(DeskSegments<PartTexture>));
-      PartTexture selected() =>
-          tester.widget<DeskSegments<PartTexture>>(textures).value;
-      expect(selected(), PartTexture.paintedMetal);
+      expect(inside(find.text('Готовые образцы')), findsNothing);
+      expect(inside(find.byType(DropdownButton<FinishPreset>)), findsNothing);
+      final materials = inside(find.byType(DeskSegments<PartMaterial>));
+      PartMaterial selected() =>
+          tester.widget<DeskSegments<PartMaterial>>(materials).value;
+      Finder segment(String label) => find
+          .descendant(of: materials, matching: find.text(label))
+          .hitTestable();
+      for (final label in ['ДПМ', 'Дерево', 'Металл']) {
+        expect(segment(label), findsOneWidget);
+      }
+      expect(selected(), PartMaterial.wood);
+      await tap(segment('ДПМ'));
+      expect(selected(), PartMaterial.panel);
+      expect(tester.widget<EditableText>(input).controller.text, '#F4F2EC');
       await tap(find.byTooltip('Дуб · #B39474'));
-      expect(picker().value, isNull);
       expect(tester.widget<EditableText>(input).controller.text, '#B39474');
-      expect(selected(), PartTexture.paintedMetal);
+      expect(selected(), PartMaterial.panel);
+      await tap(segment('Металл'));
+      await tap(segment('ДПМ'));
+      expect(tester.widget<EditableText>(input).controller.text, '#B39474');
       await tap(inside(find.text('Отмена')));
       expect(editor.canUndo, isFalse);
       await tap(button);
-      await tap(presets);
-      await tap(find.text('Алюминиевый профиль').hitTestable());
+      await tap(segment('Металл'));
       expect(tester.widget<EditableText>(input).controller.text, '#B0B8C1');
-      expect(selected(), PartTexture.brushedMetal);
-      Finder segment(String label) => find
-          .descendant(of: textures, matching: find.text(label))
-          .hitTestable();
-      for (final label in ['Дерево', 'Металл', 'Однотонный']) {
-        expect(segment(label), findsOneWidget);
-      }
-      await tap(segment('Однотонный'));
-      expect(selected(), PartTexture.paintedMetal);
-      expect(tester.widget<EditableText>(input).controller.text, '#B0B8C1');
+      expect(selected(), PartMaterial.metal);
       await tester.enterText(input, '22xx');
       await tester.pump();
       final apply = inside(find.text('Применить'));
@@ -142,8 +147,9 @@ void main() {
       await tester.enterText(input, '#225599');
       await tester.pump();
       await tap(apply);
-      const custom = (texture: PartTexture.paintedMetal, rgb: 0x225599);
+      const custom = (texture: PartTexture.brushedMetal, rgb: 0x225599);
       expect(editor.single!.finish, custom);
+      expect(find.byType(EdgeBandingButton), findsNothing);
       expect(editor.project.byId[2]!.finish, woodFinish);
       editor.undo();
       expect(editor.single!.finish, woodFinish);

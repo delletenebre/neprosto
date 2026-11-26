@@ -463,12 +463,21 @@ void main() {
 
       await tap('Отверстия');
       expect(find.text('Вперёд · К вам'), findsOneWidget);
-      await tap('Под петлю Ø35 мм');
+      await tap('Присадка по кромке…');
+      await t.tap(find.byKey(const ValueKey('cup-edge-right')));
+      await t.pumpAndSettle();
+      await input('cup-count', '2');
+      await tap('Добавить отверстия');
       expect(
-        t.widget<Text>(find.byKey(const ValueKey('hole-view-face'))).data,
-        'Сторона Б',
+        t
+            .widget<DeskSegmentedControl<bool>>(
+              find.byKey(const ValueKey('hole-view-face')),
+            )
+            .value,
+        isTrue,
       );
       expect(find.text('Вперёд · От вас'), findsOneWidget);
+      await tap('Параметры сверления');
       await t.tap(find.text('Сторона А').hitTestable());
       await t.pump();
       await t.pump(const Duration(milliseconds: 70));
@@ -487,7 +496,8 @@ void main() {
         isNull,
       );
       await input('hole-depth', '1,2');
-      await tap('Под петлю Ø35 мм');
+      await t.tap(find.byKey(const ValueKey('hole-number-3')));
+      await t.pumpAndSettle();
       await tap('Сторона А');
       final diagram = t.getRect(find.byKey(const ValueKey('hole-diagram')));
       await t.tapAt(diagram.center + const Offset(8, 20));
@@ -499,7 +509,15 @@ void main() {
       expect(saved.holes.last.x, isNot(120));
       expect(saved.holes.take(2), [
         door.holes.single,
-        const PanelHole(120, 22, 35, depth: 12, back: true),
+        const PanelHole(
+          120,
+          22,
+          35,
+          depth: 12,
+          back: true,
+          fromEnd: true,
+          boringEdge: PanelEdge.near,
+        ),
       ]);
       await tap('Отверстия');
       await t.tap(find.byTooltip('Удалить').hitTestable().last);

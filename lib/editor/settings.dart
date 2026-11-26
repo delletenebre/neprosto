@@ -47,6 +47,7 @@ typedef SettingsResult = ({
   Locale locale,
   LengthUnit unit,
   EditStep step,
+  ConnectionRuler connectionRuler,
   bool snap,
   bool dimensions,
   bool showHiddenOutlines,
@@ -98,6 +99,8 @@ class _EditorSettingsState extends State<EditorSettings> {
     return integer == value ? integer : null;
   }
 
+  late double firstMark = widget.editor.connectionRuler.first,
+      pitch = widget.editor.connectionRuler.pitch;
   bool stepValid = true;
   Command? _recording;
   Command? get recording => _recording;
@@ -301,6 +304,45 @@ class _EditorSettingsState extends State<EditorSettings> {
   List<Widget> drawing() {
     final held = keys[Command.dimensions].label;
     return [
+      heading(context.strings.connectionRuler),
+      card([
+        for (final first in [true, false])
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    first
+                        ? context.strings.datumOffset
+                        : context.strings.markPitch,
+                  ),
+                ),
+                Units(
+                  (unit: unit, increment: null),
+                  child: SizedBox(
+                    width: 96,
+                    child: ValueBox(
+                      first ? firstMark : pitch,
+                      (n) => setState(() {
+                        if (first) {
+                          firstMark = n;
+                        } else {
+                          pitch = n;
+                        }
+                      }),
+                      key: ValueKey(
+                        first ? 'connection-first' : 'connection-pitch',
+                      ),
+                      live: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ]),
+      const SizedBox(height: 18),
       heading(context.strings.dimensionsOnDrawing),
       card([
         DeskSegments(show, {
@@ -453,6 +495,7 @@ class _EditorSettingsState extends State<EditorSettings> {
     final result = (
       unit: unit,
       step: step,
+      connectionRuler: ConnectionRuler(first: firstMark, pitch: pitch),
       snap: snap,
       dimensions: show,
       showHiddenOutlines: showHiddenOutlines,
@@ -566,7 +609,11 @@ class _EditorSettingsState extends State<EditorSettings> {
       DeskButton(
         primary: true,
         onPressed:
-            recording == null && stepValid && (!autosave || (interval ?? 0) > 0)
+            recording == null &&
+                stepValid &&
+                firstMark >= .001 &&
+                pitch >= .001 &&
+                (!autosave || (interval ?? 0) > 0)
             ? apply
             : null,
         child: Text(context.strings.done),

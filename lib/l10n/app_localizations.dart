@@ -101,6 +101,360 @@ abstract class AppLocalizations {
     Locale('ru'),
   ];
 
+  /// No description provided for @layFaceDown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Положить этой гранью вниз'**
+  String get layFaceDown;
+
+  /// No description provided for @stockTurnHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите плоскость и нажмите стрелку −90° или +90° на заготовке.'**
+  String get stockTurnHint;
+
+  /// No description provided for @linkToHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязать к центру № {number}'**
+  String linkToHole(int number);
+
+  /// No description provided for @holeGroups.
+  ///
+  /// In ru, this message translates to:
+  /// **'Группы отверстий'**
+  String get holeGroups;
+
+  /// No description provided for @addLinkedShaft.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить торцевое к центру'**
+  String get addLinkedShaft;
+
+  /// No description provided for @addEdgeBore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить торцевое…'**
+  String get addEdgeBore;
+
+  /// No description provided for @linkedFaceHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'К отверстию № {number}'**
+  String linkedFaceHole(int number);
+
+  /// No description provided for @anchoredFaceHole.
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязка к отверстию № {number}'**
+  String anchoredFaceHole(int number);
+
+  /// No description provided for @detachHoleAnchor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снять привязку'**
+  String get detachHoleAnchor;
+
+  /// No description provided for @pointAnchor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязка к точке'**
+  String get pointAnchor;
+
+  /// No description provided for @faceMagnet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Магнит при перемещении'**
+  String get faceMagnet;
+
+  /// No description provided for @pickHoleAnchor.
+  ///
+  /// In ru, this message translates to:
+  /// **'{modifier}-клик по схеме — привязать отверстие к точке или центру другого отверстия'**
+  String pickHoleAnchor(String modifier);
+
+  /// No description provided for @drillMode.
+  ///
+  /// In ru, this message translates to:
+  /// **'3D'**
+  String get drillMode;
+
+  /// No description provided for @faceMarkA.
+  ///
+  /// In ru, this message translates to:
+  /// **'А'**
+  String get faceMarkA;
+
+  /// No description provided for @faceMarkB.
+  ///
+  /// In ru, this message translates to:
+  /// **'Б'**
+  String get faceMarkB;
+
+  /// No description provided for @spatialOverview.
+  ///
+  /// In ru, this message translates to:
+  /// **'Общий вид'**
+  String get spatialOverview;
+
+  /// No description provided for @clearOrbitPivot.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить опору вращения'**
+  String get clearOrbitPivot;
+
+  /// No description provided for @holeNavigationHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'{modifier}⇧-клик — опора · ПКМ — вращение · {modifier} + колесо — масштаб'**
+  String holeNavigationHint(String modifier);
+
+  /// No description provided for @openingSensor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Датчик открывания'**
+  String get openingSensor;
+
+  /// No description provided for @customDrill.
+  ///
+  /// In ru, this message translates to:
+  /// **'Своё сверление'**
+  String get customDrill;
+
+  /// No description provided for @drillMagnet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Магнит'**
+  String get drillMagnet;
+
+  /// No description provided for @drillHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Клик — сверлить · Shift-клик — задать ноль'**
+  String get drillHint;
+
+  /// No description provided for @edgeOrbitHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Клик по торцу — выбрать'**
+  String get edgeOrbitHint;
+
+  /// No description provided for @resetDatum.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить базу'**
+  String get resetDatum;
+
+  /// No description provided for @drillGridInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите отступ от нуля и положительный шаг.'**
+  String get drillGridInvalid;
+
+  /// No description provided for @addConnection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить соединение'**
+  String get addConnection;
+
+  /// No description provided for @confirmat.
+  ///
+  /// In ru, this message translates to:
+  /// **'Конфирмат'**
+  String get confirmat;
+
+  /// No description provided for @dowel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шкант'**
+  String get dowel;
+
+  /// No description provided for @dowels.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шканты'**
+  String get dowels;
+
+  /// No description provided for @connectionRuler.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шкала соединений'**
+  String get connectionRuler;
+
+  /// No description provided for @datumOffset.
+  ///
+  /// In ru, this message translates to:
+  /// **'Первая отметка от базы'**
+  String get datumOffset;
+
+  /// No description provided for @markPitch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шаг шкалы'**
+  String get markPitch;
+
+  /// No description provided for @baseDistance.
+  ///
+  /// In ru, this message translates to:
+  /// **'Расстояние от базы'**
+  String get baseDistance;
+
+  /// No description provided for @panelFaces.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пласти'**
+  String get panelFaces;
+
+  /// No description provided for @panelEdges.
+  ///
+  /// In ru, this message translates to:
+  /// **'Торцы'**
+  String get panelEdges;
+
+  /// No description provided for @beforeHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'До крепежа'**
+  String get beforeHardware;
+
+  /// No description provided for @afterHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'После крепежа'**
+  String get afterHardware;
+
+  /// No description provided for @bothHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'С двух сторон'**
+  String get bothHardware;
+
+  /// No description provided for @chooseConnectionBase.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на торец ближе к тому углу, от которого вести отсчёт.'**
+  String get chooseConnectionBase;
+
+  /// No description provided for @placeConnection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Переместите шаблон вдоль шкалы и нажмите, чтобы добавить отверстия.'**
+  String get placeConnection;
+
+  /// No description provided for @placeOnDrawing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разместить на схеме'**
+  String get placeOnDrawing;
+
+  /// No description provided for @connectionDoesNotFit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Присадка выходит за границы детали.'**
+  String get connectionDoesNotFit;
+
+  /// No description provided for @camThickness.
+  ///
+  /// In ru, this message translates to:
+  /// **'Недостаточная толщина для этого эксцентрика'**
+  String get camThickness;
+
+  /// No description provided for @datum.
+  ///
+  /// In ru, this message translates to:
+  /// **'База'**
+  String get datum;
+
+  /// No description provided for @emptyEdge.
+  ///
+  /// In ru, this message translates to:
+  /// **'На этом торце нет отверстий'**
+  String get emptyEdge;
+
+  /// No description provided for @pocketShoulder.
+  ///
+  /// In ru, this message translates to:
+  /// **'Глубина до уступа'**
+  String get pocketShoulder;
+
+  /// No description provided for @edgeBanding.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кромка'**
+  String get edgeBanding;
+
+  /// No description provided for @bandWholePerimeter.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весь периметр'**
+  String get bandWholePerimeter;
+
+  /// No description provided for @deselectAllEdges.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снять все'**
+  String get deselectAllEdges;
+
+  /// No description provided for @bandingEdges.
+  ///
+  /// In ru, this message translates to:
+  /// **'Торцы'**
+  String get bandingEdges;
+
+  /// No description provided for @bandThickness.
+  ///
+  /// In ru, this message translates to:
+  /// **'Толщина ленты'**
+  String get bandThickness;
+
+  /// No description provided for @bandWidth.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ширина ленты'**
+  String get bandWidth;
+
+  /// No description provided for @matchPanelThickness.
+  ///
+  /// In ru, this message translates to:
+  /// **'По толщине детали'**
+  String get matchPanelThickness;
+
+  /// No description provided for @invalidEdgeBanding.
+  ///
+  /// In ru, this message translates to:
+  /// **'Некорректные параметры кромки'**
+  String get invalidEdgeBanding;
+
+  /// No description provided for @positiveBandSize.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите размер больше нуля.'**
+  String get positiveBandSize;
+
+  /// No description provided for @woodBasedPanel.
+  ///
+  /// In ru, this message translates to:
+  /// **'ДПМ'**
+  String get woodBasedPanel;
+
+  /// No description provided for @woodBasedPanelFullName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Древесный плитный материал'**
+  String get woodBasedPanelFullName;
+
+  /// No description provided for @panelFaceColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цвет поверхности'**
+  String get panelFaceColor;
+
+  /// No description provided for @edgeBandColor.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цвет кромки'**
+  String get edgeBandColor;
+
   /// No description provided for @partFinish.
   ///
   /// In ru, this message translates to:
@@ -112,18 +466,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Разные'**
   String get mixedValues;
-
-  /// No description provided for @finishPresets.
-  ///
-  /// In ru, this message translates to:
-  /// **'Готовые образцы'**
-  String get finishPresets;
-
-  /// No description provided for @chooseFinishPreset.
-  ///
-  /// In ru, this message translates to:
-  /// **'Выбрать образец'**
-  String get chooseFinishPreset;
 
   /// No description provided for @pineColor.
   ///
@@ -3237,11 +3579,131 @@ abstract class AppLocalizations {
   /// **'Сторона Б'**
   String get faceB;
 
-  /// No description provided for @cupHole.
+  /// No description provided for @edgeBoringCommand.
   ///
   /// In ru, this message translates to:
-  /// **'Под петлю Ø35 мм'**
-  String get cupHole;
+  /// **'Присадка по кромке…'**
+  String get edgeBoringCommand;
+
+  /// No description provided for @chooseBoringEdge.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на кромку детали'**
+  String get chooseBoringEdge;
+
+  /// No description provided for @edgeBoringTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Присадка по кромке'**
+  String get edgeBoringTitle;
+
+  /// No description provided for @boltBoreOption.
+  ///
+  /// In ru, this message translates to:
+  /// **'Торцевое отверстие'**
+  String get boltBoreOption;
+
+  /// No description provided for @boltFaceOffset.
+  ///
+  /// In ru, this message translates to:
+  /// **'От пласти до оси'**
+  String get boltFaceOffset;
+
+  /// No description provided for @boltBoreDepth.
+  ///
+  /// In ru, this message translates to:
+  /// **'Глубина с торца'**
+  String get boltBoreDepth;
+
+  /// No description provided for @boltBoreInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите диаметр и положение оси так, чтобы сверло помещалось в торце, а ось попадала в основное отверстие.'**
+  String get boltBoreInvalid;
+
+  /// No description provided for @drillingParameters.
+  ///
+  /// In ru, this message translates to:
+  /// **'Параметры сверления'**
+  String get drillingParameters;
+
+  /// No description provided for @boringReferenceEdge.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кромка отсчёта'**
+  String get boringReferenceEdge;
+
+  /// No description provided for @boltReferenceFace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Базовая пласть'**
+  String get boltReferenceFace;
+
+  /// No description provided for @boreCenterDistance.
+  ///
+  /// In ru, this message translates to:
+  /// **'До центра'**
+  String get boreCenterDistance;
+
+  /// No description provided for @boreRimDistance.
+  ///
+  /// In ru, this message translates to:
+  /// **'До края отверстия'**
+  String get boreRimDistance;
+
+  /// No description provided for @boreCenterPitch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шаг между центрами — {length}'**
+  String boreCenterPitch(String length);
+
+  /// No description provided for @boreCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Количество отверстий'**
+  String get boreCount;
+
+  /// No description provided for @boreOutsidePanel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Задайте отступ так, чтобы отверстие помещалось на детали.'**
+  String get boreOutsidePanel;
+
+  /// No description provided for @enterBoreCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите целое количество отверстий от 1.'**
+  String get enterBoreCount;
+
+  /// No description provided for @boreEndOffsets.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отступы до центров отверстий'**
+  String get boreEndOffsets;
+
+  /// No description provided for @boreEndMarginsInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите отступы от торцов так, чтобы отверстия помещались на детали.'**
+  String get boreEndMarginsInvalid;
+
+  /// No description provided for @boreSpacingInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для такого количества и отступов отверстия расположены слишком близко.'**
+  String get boreSpacingInvalid;
+
+  /// No description provided for @boreCollision.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новое отверстие пересекает существующее. Измените отступы или количество.'**
+  String get boreCollision;
+
+  /// No description provided for @addBoreRow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить отверстия'**
+  String get addBoreRow;
 
   /// No description provided for @fromLeft.
   ///
@@ -3266,12 +3728,6 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'От верхнего края'**
   String get fromTop;
-
-  /// No description provided for @holeDiagramHelp.
-  ///
-  /// In ru, this message translates to:
-  /// **'Щёлкните на схеме, чтобы задать центр отверстия.'**
-  String get holeDiagramHelp;
 
   /// No description provided for @invalidHole.
   ///

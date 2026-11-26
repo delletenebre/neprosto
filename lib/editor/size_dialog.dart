@@ -15,6 +15,7 @@ import 'model.dart';
 import 'step.dart';
 import 'part_type_picker.dart';
 import 'controller.dart';
+import 'edge_banding_dialog.dart';
 import 'stock_axis.dart';
 
 part 'group_size_dialog.dart';
@@ -65,6 +66,7 @@ Future<void> showPartProperties(
     if (next.name != part.name ||
         next.size != part.size ||
         next.finish != part.finish ||
+        next.banding != part.banding ||
         next.locks != part.locks) {
       changes[part.id] = next.copy(origin: part.origin);
     }
@@ -286,6 +288,21 @@ Future<List<Beam>?> _editParts(
                 ),
               ],
             ),
+            if (!multiple && drafts.single.supportsEdgeBanding) ...[
+              const SizedBox(height: controlGap),
+              EdgeBandingButton(drafts.single, editor.displayUnit, () async {
+                final banding = await editEdgeBanding(
+                  ctx,
+                  drafts.single,
+                  editor.displayUnit,
+                );
+                if (ctx.mounted && banding != null) {
+                  update(
+                    () => drafts[0] = drafts.single.copy(banding: banding),
+                  );
+                }
+              }),
+            ],
           ],
         ),
       ),

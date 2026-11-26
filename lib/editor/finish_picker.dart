@@ -9,8 +9,12 @@ import 'finish_painter.dart';
 import 'palette.dart';
 import 'part_finish.dart';
 
-String _hex(int rgb) =>
-    '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+int? parseHexColor(String text) {
+  final digits = text.trim().replaceFirst(RegExp('^#'), '');
+  return RegExp(r'^[a-fA-F0-9]{6}$').hasMatch(digits)
+      ? int.parse(digits, radix: 16)
+      : null;
+}
 
 FinishPreset? _presetFor(PartFinish? finish) =>
     FinishPreset.values.where((p) => p.finish == finish).firstOrNull;
@@ -23,7 +27,6 @@ class PartFinishButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = finish;
-    final preset = _presetFor(current);
     return DeskButton(
       onPressed: () async {
         final chosen = await showDeskDialog<PartFinish>(
@@ -37,12 +40,18 @@ class PartFinishButton extends StatelessWidget {
       child: Row(
         spacing: controlGap,
         children: [
-          if (current != null) _Sample(current),
+          if (current != null)
+            Tooltip(
+              message: [
+                if (current.texture.material == PartMaterial.panel)
+                  context.strings.woodBasedPanelFullName,
+                _presetFor(current)?.label ?? hexColor(current.rgb),
+              ].join(' · '),
+              child: _Sample(current),
+            ),
           Expanded(
             child: Text(
-              preset?.label ??
-                  current?.texture.label ??
-                  context.strings.mixedValues,
+              current?.texture.material.label ?? context.strings.mixedValues,
             ),
           ),
           const Icon(CupertinoIcons.chevron_down, size: 13),
@@ -62,7 +71,8 @@ class _FinishDialog extends StatefulWidget {
 
 class _FinishDialogState extends State<_FinishDialog> {
   late PartFinish finish = widget.initial;
-  late final hex = TextEditingController(text: _hex(finish.rgb));
+  final materialDrafts = <PartMaterial, PartFinish>{};
+  late final hex = TextEditingController(text: hexColor(finish.rgb));
   bool valid = true;
 
   @override
@@ -74,59 +84,18 @@ class _FinishDialogState extends State<_FinishDialog> {
   void select(PartFinish value) => setState(() {
     finish = value;
     valid = true;
-    hex.text = _hex(value.rgb);
+    hex.text = hexColor(value.rgb);
   });
 
   void typeColor(String value) => setState(() {
-    final digits = value.trim().replaceFirst(RegExp('^#'), '');
-    valid = RegExp(r'^[a-fA-F0-9]{6}$').hasMatch(digits);
-    if (valid) {
-      finish = (texture: finish.texture, rgb: int.parse(digits, radix: 16));
-    }
+    final rgb = parseHexColor(value);
+    valid = rgb != null;
+    if (rgb != null) finish = (texture: finish.texture, rgb: rgb);
   });
 
   void apply() {
     if (valid) Navigator.pop(context, finish);
   }
-
-  Widget presetPicker(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: context.colors.field,
-      border: Border.all(color: context.colors.line),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: DropdownButton<FinishPreset>(
-      value: valid ? _presetFor(finish) : null,
-      hint: Text(context.strings.chooseFinishPreset),
-      isDense: true,
-      isExpanded: true,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      underline: const SizedBox.shrink(),
-      icon: const Icon(CupertinoIcons.chevron_down, size: 14),
-      borderRadius: BorderRadius.circular(6),
-      dropdownColor: context.colors.field,
-      style: DefaultTextStyle.of(context).style
-          .copyWith(fontSize: 13, color: context.colors.ink),
-      onChanged: (preset) {
-        if (preset != null) select(preset.finish);
-      },
-      items: [
-        for (final preset in FinishPreset.values)
-          DropdownMenuItem(
-            value: preset,
-            child: Row(
-              spacing: controlGap,
-              children: [
-                _Sample(preset.finish, width: 22),
-                Flexible(
-                  child: Text(preset.label, overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ),
-          ),
-      ],
-    ),
-  );
 
   @override
   Widget build(BuildContext context) => DeskDialog(
@@ -135,85 +104,31 @@ class _FinishDialogState extends State<_FinishDialog> {
     content: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        DeskSegments(
+          finish.texture.material,
+          {
+            for (final material in PartMaterial.values)
+              material: material.label,
+          },
+          (material) {
+            if (material == finish.texture.material) return;
+            materialDrafts[finish.texture.material] = finish;
+            select(materialDrafts[material] ?? material.defaultPreset.finish);
+          },
+        ),
+        const SizedBox(height: 14),
         _Sample(finish, height: 48),
         const SizedBox(height: 14),
-        sectionTitle(context.strings.finishPresets),
-        const SizedBox(height: 6),
-        presetPicker(context),
-        const SizedBox(height: 14),
-        sectionTitle(context.strings.finishTexture),
-        const SizedBox(height: 6),
-        DeskSegments(
-          finish.texture.choice,
-          {for (final texture in PartTexture.choices) texture: texture.label},
-          (texture) =>
-              setState(() => finish = (texture: texture, rgb: finish.rgb)),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(child: sectionTitle(context.strings.finishColor)),
-            SizedBox(
-              width: 100,
-              child: DeskTextField(
-                controller: hex,
-                placeholder: '#RRGGBB',
-                onChanged: typeColor,
-                onSubmitted: (_) => apply(),
-              ),
-            ),
-          ],
-        ),
-        if (!valid)
-          Text(
-            context.strings.invalidHexColor,
-            style: TextStyle(color: context.colors.danger),
-          ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: controlGap,
-          runSpacing: controlGap,
-          children: [
-            for (final (rgb, name) in [
-              (FinishPreset.plywood.finish.rgb, context.strings.plywood),
-              (woodFinish.rgb, context.strings.pineColor),
-              (FinishPreset.oakBoard.finish.rgb, context.strings.oakColor),
-              (FinishPreset.whiteBoard.finish.rgb, context.strings.whiteColor),
-              (0xd9c9b3, context.strings.beigeColor),
-              (FinishPreset.aluminum.finish.rgb, context.strings.grayColor),
-              (
-                FinishPreset.graphiteSteel.finish.rgb,
-                context.strings.graphiteColor,
-              ),
-              (0x252629, context.strings.blackColor),
-              (0x456351, context.strings.greenColor),
-              (0x446688, context.strings.blueColor),
-              (0xa44c3c, context.strings.brickColor),
-            ])
-              Tooltip(
-                message: '$name · ${_hex(rgb)}',
-                child: Semantics(
-                  label: name,
-                  selected: valid && finish.rgb == rgb,
-                  child: DeskControl(
-                    minimumSize: const Size.square(27),
-                    background: Color(0xff000000 | rgb),
-                    outlined: true,
-                    onPressed: () =>
-                        select((texture: finish.texture, rgb: rgb)),
-                    child: valid && finish.rgb == rgb
-                        ? Icon(
-                            CupertinoIcons.check_mark,
-                            size: 15,
-                            color: finishColor(finish).computeLuminance() < .35
-                                ? Colors.white
-                                : Colors.black,
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-          ],
+        FinishColorPicker(
+          label: finish.texture.material == PartMaterial.panel
+              ? context.strings.panelFaceColor
+              : context.strings.finishColor,
+          selectedRgb: finish.rgb,
+          hex: hex,
+          valid: valid,
+          onText: typeColor,
+          onSelect: (rgb) => select((texture: finish.texture, rgb: rgb)),
+          apply: apply,
         ),
       ],
     ),
@@ -232,16 +147,108 @@ class _FinishDialogState extends State<_FinishDialog> {
   );
 }
 
+class FinishColorPicker extends StatelessWidget {
+  const FinishColorPicker({
+    super.key,
+    required this.label,
+    required this.selectedRgb,
+    required this.hex,
+    required this.valid,
+    required this.onText,
+    required this.onSelect,
+    required this.apply,
+  });
+  final String label;
+  final int selectedRgb;
+  final TextEditingController hex;
+  final bool valid;
+  final ValueChanged<String> onText;
+  final ValueChanged<int> onSelect;
+  final VoidCallback apply;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(child: sectionTitle(label)),
+          SizedBox(
+            width: 100,
+            child: DeskTextField(
+              controller: hex,
+              placeholder: '#RRGGBB',
+              onChanged: onText,
+              onSubmitted: (_) => apply(),
+            ),
+          ),
+        ],
+      ),
+      if (!valid)
+        Text(
+          context.strings.invalidHexColor,
+          style: TextStyle(color: context.colors.danger),
+        ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: controlGap,
+        runSpacing: controlGap,
+        children: [
+          for (final (rgb, name) in [
+            (FinishPreset.plywood.finish.rgb, context.strings.plywood),
+            (woodFinish.rgb, context.strings.pineColor),
+            (FinishPreset.oakBoard.finish.rgb, context.strings.oakColor),
+            (FinishPreset.whiteBoard.finish.rgb, context.strings.whiteColor),
+            (0xd9c9b3, context.strings.beigeColor),
+            (FinishPreset.aluminum.finish.rgb, context.strings.grayColor),
+            (
+              FinishPreset.graphiteSteel.finish.rgb,
+              context.strings.graphiteColor,
+            ),
+            (0x252629, context.strings.blackColor),
+            (0x456351, context.strings.greenColor),
+            (0x446688, context.strings.blueColor),
+            (0xa44c3c, context.strings.brickColor),
+          ])
+            Tooltip(
+              message: '$name · ${hexColor(rgb)}',
+              child: Semantics(
+                label: name,
+                selected: valid && selectedRgb == rgb,
+                child: DeskControl(
+                  minimumSize: const Size.square(27),
+                  background: Color(0xff000000 | rgb),
+                  outlined: true,
+                  onPressed: () => onSelect(rgb),
+                  child: valid && selectedRgb == rgb
+                      ? Icon(
+                          CupertinoIcons.check_mark,
+                          size: 15,
+                          color:
+                              Color(0xff000000 | rgb).computeLuminance() < .35
+                              ? Colors.white
+                              : Colors.black,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
 class _Sample extends StatelessWidget {
-  const _Sample(this.finish, {this.width = 35, this.height = 16});
+  const _Sample(this.finish, {this.height = 16});
   final PartFinish finish;
-  final double width, height;
+  final double height;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(3),
     child: CustomPaint(
-      size: Size(width, height),
+      size: Size(35, height),
       painter: _SamplePainter(finish),
     ),
   );

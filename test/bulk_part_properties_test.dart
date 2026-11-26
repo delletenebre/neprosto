@@ -85,9 +85,14 @@ void main() {
       await t.enterText(input(2), '9*2');
       await t.tap(finish);
       await t.pumpAndSettle();
-      await t.tap(find.byType(DropdownButton<FinishPreset>));
-      await t.pumpAndSettle();
-      await t.tap(find.text('ЛДСП · дуб').hitTestable());
+      await t.tap(
+        find
+            .descendant(
+              of: find.byType(DeskSegments<PartMaterial>),
+              matching: find.text('ДПМ'),
+            )
+            .hitTestable(),
+      );
       await t.pumpAndSettle();
       await t.tap(find.text('Применить').hitTestable());
       await t.pumpAndSettle();
@@ -101,7 +106,7 @@ void main() {
         expect(b.origin, original.origin);
         expect(b.locks, original.locks);
         expect(b.rabbets, original.rabbets);
-        expect(b.finish, FinishPreset.oakBoard.finish);
+        expect(b.finish, FinishPreset.whiteBoard.finish);
       }
       expect(e.selection, {1, 2});
       expect(e.project.byId[3], same(project.byId[3]));

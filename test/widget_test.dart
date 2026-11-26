@@ -1837,7 +1837,16 @@ void main() {
         t.getTopLeft(drawing) +
         e.camera.project(board.pointAt(Vector3.all(.5)), t.getSize(drawing));
     final drag = await t.startGesture(start, kind: PointerDeviceKind.mouse);
-    await drag.moveBy(const Offset(150, -15));
+    await drag.moveTo(start + const Offset(96, 27));
+    await t.pump();
+    expect(e.single!.origin, Vector3(120, 0, 0));
+    await drag.moveTo(start + const Offset(92, 22));
+    await t.pump();
+    expect(e.single!.origin, Vector3(120, 0, 0));
+    await drag.moveTo(start + const Offset(87, -15));
+    await t.pump();
+    expect(e.single!.origin, Vector3(107, 45, 0));
+    await drag.moveTo(start + const Offset(150, -15));
     await t.pump();
     expect(e.single!.origin, Vector3(120, 45, 0));
     await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);

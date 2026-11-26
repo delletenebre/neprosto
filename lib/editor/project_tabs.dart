@@ -170,6 +170,7 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
     final previous = value.editor;
     previous.releaseModifiers();
     tab.editor
+      ..connectionRuler = previous.connectionRuler
       ..snapByDefault = previous.snapByDefault
       ..dimensionsByDefault = previous.dimensionsByDefault
       ..showHiddenOutlines = previous.showHiddenOutlines

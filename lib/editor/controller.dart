@@ -14,7 +14,18 @@ import 'stock_sketch.dart';
 import 'contact.dart';
 import 'positioning.dart';
 
-enum Tool { select, move, beam, ruler, measure, face, rotate, align, gap }
+enum Tool {
+  select,
+  move,
+  beam,
+  ruler,
+  measure,
+  face,
+  rotate,
+  align,
+  gap,
+  connection,
+}
 
 class Editor extends ChangeNotifier {
   Project project;
@@ -37,6 +48,17 @@ class Editor extends ChangeNotifier {
   WorkPlane plane = WorkPlane.xy();
   Tool tool = Tool.select;
   bool snap = true;
+  ConnectionRuler connectionRuler = const ConnectionRuler();
+  ConnectionPattern connectionPattern = const ConnectionPattern(
+    ConnectionKind.dowel,
+    dowels: 1,
+  );
+  ConnectionBase? connectionBase;
+  void beginConnection(ConnectionPattern pattern) {
+    connectionPattern = pattern;
+    setTool(Tool.connection);
+  }
+
   bool snapByDefault = true;
   bool get movementSnapping =>
       snapByDefault !=
@@ -537,6 +559,7 @@ class Editor extends ChangeNotifier {
   }
 
   void resetTransient({bool keepPartToPlace = false}) {
+    connectionBase = null;
     selectedDimension = null;
     _referencePickHeld = false;
     hoverAlignment = null;

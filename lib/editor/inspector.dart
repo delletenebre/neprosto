@@ -15,11 +15,13 @@ import 'joint_dialog.dart';
 import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
 import 'hole_dialog.dart';
+import 'grid_plane_icon.dart';
 import 'part_type_picker.dart';
 import 'name_dialog.dart';
 import 'size_dialog.dart';
 import 'parts_workbook.dart' show stockCut;
 import 'controller.dart';
+import 'edge_banding_dialog.dart';
 import 'hotkeys.dart';
 import 'controls.dart';
 import 'drawing.dart';
@@ -399,17 +401,14 @@ class Inspector extends StatelessWidget {
                     e.chooseRotationAxis(e.rotationAxis);
                   },
                 ),
-              DeskSegments(
-                e.rotationAxis,
-                e.localRotation && part != null
-                    ? {
-                        0: context.strings.length,
-                        1: context.strings.width,
-                        2: context.strings.thickness,
-                      }
-                    : const {2: 'XY', 1: 'XZ', 0: 'YZ'},
-                e.chooseRotationAxis,
-              ),
+              if (e.localRotation && part != null)
+                DeskSegments(e.rotationAxis, {
+                  0: context.strings.length,
+                  1: context.strings.width,
+                  2: context.strings.thickness,
+                }, e.chooseRotationAxis)
+              else
+                RotationPlanePicker(e.rotationAxis, e.chooseRotationAxis),
               Row(
                 spacing: controlGap,
                 children: [
@@ -522,7 +521,7 @@ class Inspector extends StatelessWidget {
                 context,
                 PhosphorIconsRegular.circle,
                 context.strings.panelHoles,
-                part.holes.length,
+                part.drillingCount,
                 () => showPanelHoles(context, e, part),
               ),
             ]),
@@ -534,6 +533,14 @@ class Inspector extends StatelessWidget {
                   );
                 }
               }, key: ValueKey(part.id)),
+              if (part.supportsEdgeBanding) ...[
+                const SizedBox(height: controlGap),
+                EdgeBandingButton(
+                  part,
+                  e.displayUnit,
+                  () => showEdgeBanding(context, e, part),
+                ),
+              ],
             ]),
           ] else if (bounds != null) ...[
             block(context, context.strings.assemblyDimensions, [

@@ -12,16 +12,201 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get layFaceDown => 'Lay this face down';
+
+  @override
+  String get stockTurnHint =>
+      'Choose a plane and click −90° or +90° on the workpiece.';
+
+  @override
+  String linkToHole(int number) {
+    return 'Link to center of hole $number';
+  }
+
+  @override
+  String get holeGroups => 'Hole groups';
+
+  @override
+  String get addLinkedShaft => 'Add linked edge hole';
+
+  @override
+  String get addEdgeBore => 'Add edge hole…';
+
+  @override
+  String linkedFaceHole(int number) {
+    return 'Go to hole $number';
+  }
+
+  @override
+  String anchoredFaceHole(int number) {
+    return 'Anchored to hole $number';
+  }
+
+  @override
+  String get detachHoleAnchor => 'Remove anchor';
+
+  @override
+  String get pointAnchor => 'Anchored to point';
+
+  @override
+  String get faceMagnet => 'Snap while dragging';
+
+  @override
+  String pickHoleAnchor(String modifier) {
+    return '$modifier-click the drawing to anchor to a point or another hole center';
+  }
+
+  @override
+  String get drillMode => '3D';
+
+  @override
+  String get faceMarkA => 'A';
+
+  @override
+  String get faceMarkB => 'B';
+
+  @override
+  String get spatialOverview => 'Overview';
+
+  @override
+  String get clearOrbitPivot => 'Clear rotation pivot';
+
+  @override
+  String holeNavigationHint(String modifier) {
+    return '$modifier+Shift-click to set pivot · Right-drag to rotate · $modifier + wheel to zoom';
+  }
+
+  @override
+  String get openingSensor => 'Opening sensor';
+
+  @override
+  String get customDrill => 'Custom bore';
+
+  @override
+  String get drillMagnet => 'Magnet';
+
+  @override
+  String get drillHint => 'Click to drill · Shift-click to set zero';
+
+  @override
+  String get edgeOrbitHint => 'Click an edge face to select it';
+
+  @override
+  String get resetDatum => 'Reset datum';
+
+  @override
+  String get drillGridInvalid =>
+      'Enter a non-negative offset and a positive spacing.';
+
+  @override
+  String get addConnection => 'Add connection';
+
+  @override
+  String get confirmat => 'Confirmat';
+
+  @override
+  String get dowel => 'Dowel';
+
+  @override
+  String get dowels => 'Dowels';
+
+  @override
+  String get connectionRuler => 'Connection ruler';
+
+  @override
+  String get datumOffset => 'First mark from datum';
+
+  @override
+  String get markPitch => 'Mark spacing';
+
+  @override
+  String get baseDistance => 'Distance from datum';
+
+  @override
+  String get panelFaces => 'Faces';
+
+  @override
+  String get panelEdges => 'Edges';
+
+  @override
+  String get beforeHardware => 'Before';
+
+  @override
+  String get afterHardware => 'After';
+
+  @override
+  String get bothHardware => 'Both sides';
+
+  @override
+  String get chooseConnectionBase =>
+      'Click the edge near the end to use as zero.';
+
+  @override
+  String get placeConnection => 'Move along the ruler and click to drill.';
+
+  @override
+  String get placeOnDrawing => 'Place on drawing';
+
+  @override
+  String get connectionDoesNotFit =>
+      'The drilling pattern does not fit this part.';
+
+  @override
+  String get camThickness => 'Panel too thin for this housing';
+
+  @override
+  String get datum => 'Datum';
+
+  @override
+  String get emptyEdge => 'No bores on this edge';
+
+  @override
+  String get pocketShoulder => 'Depth to shoulder';
+
+  @override
+  String get edgeBanding => 'Edge banding';
+
+  @override
+  String get bandWholePerimeter => 'All edges';
+
+  @override
+  String get deselectAllEdges => 'Clear selection';
+
+  @override
+  String get bandingEdges => 'Edges';
+
+  @override
+  String get bandThickness => 'Tape thickness';
+
+  @override
+  String get bandWidth => 'Tape width';
+
+  @override
+  String get matchPanelThickness => 'Match panel thickness';
+
+  @override
+  String get invalidEdgeBanding => 'Invalid edge banding';
+
+  @override
+  String get positiveBandSize => 'Enter a size greater than zero.';
+
+  @override
+  String get woodBasedPanel => 'Wood-based panel';
+
+  @override
+  String get woodBasedPanelFullName => 'Wood-based panel';
+
+  @override
+  String get panelFaceColor => 'Face color';
+
+  @override
+  String get edgeBandColor => 'Edge band color';
+
+  @override
   String get partFinish => 'Material';
 
   @override
   String get mixedValues => 'Mixed';
-
-  @override
-  String get finishPresets => 'Presets';
-
-  @override
-  String get chooseFinishPreset => 'Choose a preset';
 
   @override
   String get pineColor => 'Pine';
@@ -1744,7 +1929,74 @@ class AppLocalizationsEn extends AppLocalizations {
   String get faceB => 'Face B';
 
   @override
-  String get cupHole => 'Ø35 mm hinge cup';
+  String get edgeBoringCommand => 'Bore along edge…';
+
+  @override
+  String get chooseBoringEdge => 'Select a panel edge';
+
+  @override
+  String get edgeBoringTitle => 'Bore along edge';
+
+  @override
+  String get boltBoreOption => 'Edge bore';
+
+  @override
+  String get boltFaceOffset => 'Axis from face';
+
+  @override
+  String get boltBoreDepth => 'Edge bore depth';
+
+  @override
+  String get boltBoreInvalid =>
+      'Set the diameter and axis offset so the bit fits within the edge and its axis enters the face bore.';
+
+  @override
+  String get drillingParameters => 'Drilling settings';
+
+  @override
+  String get boringReferenceEdge => 'Reference edge';
+
+  @override
+  String get boltReferenceFace => 'Reference face';
+
+  @override
+  String get boreCenterDistance => 'To centre';
+
+  @override
+  String get boreRimDistance => 'To hole rim';
+
+  @override
+  String boreCenterPitch(String length) {
+    return 'Centre-to-centre spacing · $length';
+  }
+
+  @override
+  String get boreCount => 'Number of holes';
+
+  @override
+  String get boreOutsidePanel =>
+      'Set the edge distance so the hole fits on the panel.';
+
+  @override
+  String get enterBoreCount => 'Enter a whole number of holes, at least 1.';
+
+  @override
+  String get boreEndOffsets => 'End distances to hole centres';
+
+  @override
+  String get boreEndMarginsInvalid =>
+      'Set the end distances so each hole fits on the panel.';
+
+  @override
+  String get boreSpacingInvalid =>
+      'There is too little space for this count and these end distances.';
+
+  @override
+  String get boreCollision =>
+      'A new hole overlaps an existing hole. Adjust the offsets or the count.';
+
+  @override
+  String get addBoreRow => 'Add holes';
 
   @override
   String get fromLeft => 'From left edge';
@@ -1757,10 +2009,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fromTop => 'From top edge';
-
-  @override
-  String get holeDiagramHelp =>
-      'Click the diagram to position the hole centre.';
 
   @override
   String get invalidHole =>

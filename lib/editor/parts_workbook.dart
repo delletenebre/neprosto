@@ -50,6 +50,17 @@ String stockCut(Beam b, bool end) {
   return marks.isEmpty ? '0°' : marks.join(' · ');
 }
 
+String stockBanding(Beam part, LengthUnit unit) {
+  final band = part.banding;
+  if (band.edges.isEmpty) return '';
+  final sides = [
+    for (final edge in PanelEdge.values)
+      if (band.edges.contains(edge))
+        '${edge.alongWidth ? editorStrings.lengthInitial : editorStrings.widthInitial}${edge.atMax ? '+' : '−'}',
+  ].join(', ');
+  return '${unit.format(band.thickness)} × ${unit.format(band.width ?? part.size.z)} ${unit.symbol} · ${hexColor(band.rgb)} · $sides';
+}
+
 String stockRabbets(Beam part, LengthUnit unit) => [
   for (final edge in RabbetEdge.values)
     if (part.rabbets[edge] case final cut?)
@@ -59,10 +70,26 @@ String stockRabbets(Beam part, LengthUnit unit) => [
 String stockHoles(Beam part, LengthUnit unit) {
   final s = editorStrings;
   return [
-    for (final h in part.holes)
+    for (final h in part.holes) ...[
       'Ø${unit.format(h.diameter)} · ${s.length} ${unit.format(h.centerX(part.size))} · '
           '${s.width} ${unit.format(h.centerY(part.size))} · '
           '${h.depth == null ? s.throughHole : '${h.back ? s.faceB : s.faceA} · ${s.rabbetDepth} ${unit.format(h.depth!)}'}',
+      if (h.boltBore case final bolt? when h.boringEdge != null)
+        '${s.boltBoreOption} Ø${unit.format(bolt.diameter)} · '
+            '${h.boringEdge!.alongWidth ? s.lengthInitial : s.widthInitial}${h.boringEdge!.atMax ? '+' : '−'} · '
+            '${h.boringEdge!.alongWidth ? s.width : s.length} ${unit.format(h.boringEdge!.alongWidth ? h.centerY(part.size) : h.centerX(part.size))} · '
+            '${h.back ? s.faceB : s.faceA} → ${unit.format(bolt.faceOffset)} · '
+            '${s.rabbetDepth} ${unit.format(h.boringEdge!.centerInset(h, part.size))}',
+    ],
+    for (final h in part.edgeHoles)
+      '${h.kind.label} Ø${unit.format(h.diameter)} · ${h.edge.alongWidth ? s.lengthInitial : s.widthInitial}${h.edge.atMax ? '+' : '−'} · '
+          '${s.datum} ${h.edge.alongWidth ? s.widthInitial : s.lengthInitial}${h.fromEnd ? '+' : '−'} → ${unit.format(h.offset)} · '
+          '${h.back ? s.faceB : s.faceA} → ${unit.format(h.height)} · '
+          '${h.kind == EdgeHoleKind.pocket
+              ? '15° · Ø${unit.format(pocketPilotDiameter)} · ${s.pocketShoulder} ${unit.format(h.depth!)}'
+              : h.depth == null
+              ? s.throughHole
+              : '${s.rabbetDepth} ${unit.format(h.depth!)}'}',
   ].join('\n');
 }
 
@@ -87,11 +114,8 @@ Uint8List encodeBazisCutList(List<StockRow> rows) {
       final preset = FinishPreset.values
           .where((p) => p.finish == b.finish)
           .firstOrNull;
-      final color = b.finish.rgb
-          .toRadixString(16)
-          .padLeft(6, '0')
-          .toUpperCase();
-      final material = preset?.label ?? '${b.finish.texture.name} #$color';
+      final material =
+          preset?.label ?? '${b.finish.texture.name} ${hexColor(b.finish.rgb)}';
       sheet.appendRow([
         IntCellValue(b.id),
         TextCellValue(b.name),
@@ -113,9 +137,10 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
   book.rename(book.getDefaultSheet()!, editorStrings.stock);
   final summary = book[editorStrings.stock],
       details = book[editorStrings.partsLabel];
+  final hasBanding = rows.any((r) => r.sample.banding.edges.isNotEmpty);
   final hasCuts = rows.any((r) => r.sample.bevelled);
   final hasRabbets = rows.any((r) => r.sample.rabbets.isNotEmpty);
-  final hasHoles = rows.any((r) => r.sample.holes.isNotEmpty);
+  final hasHoles = rows.any((r) => r.sample.drillingCount > 0);
   final headerStyle = CellStyle(
     bold: true,
     fontColorHex: ExcelColor.white,
@@ -133,6 +158,7 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
       (editorStrings.widthLabel(unit.symbol), 18.0),
       (editorStrings.thicknessLabel(unit.symbol), 18.0),
       if (sheet == summary) (editorStrings.quantityPcs, 18.0),
+      if (hasBanding) (editorStrings.edgeBanding, 54.0),
       if (hasCuts) ...[
         (editorStrings.startCut, 30.0),
         (editorStrings.endCut, 30.0),
@@ -166,6 +192,7 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
       TextCellValue(name),
       for (final size in sizes) DoubleCellValue(size),
       if (count != null) IntCellValue(count),
+      if (hasBanding) TextCellValue(stockBanding(part, unit)),
       if (hasCuts) ...[
         TextCellValue(stockCut(part, false)),
         TextCellValue(stockCut(part, true)),
@@ -173,14 +200,15 @@ Uint8List encodePartsWorkbook(LengthUnit unit, List<StockRow> rows) {
       if (hasRabbets) TextCellValue(stockRabbets(part, unit)),
       if (hasHoles) TextCellValue(stockHoles(part, unit)),
     ]);
-    final lines = part.rabbets.length > part.holes.length
+    final drillings = part.drillingCount;
+    final lines = part.rabbets.length > drillings
         ? part.rabbets.length
-        : part.holes.length;
+        : drillings;
     if (lines > 1) {
       sheet.setRowHeight(rowIndex, 16.0 * lines);
       for (final column in [
         if (part.rabbets.length > 1) sheet.maxColumns - (hasHoles ? 2 : 1),
-        if (part.holes.length > 1) sheet.maxColumns - 1,
+        if (drillings > 1) sheet.maxColumns - 1,
       ]) {
         sheet
                 .cell(

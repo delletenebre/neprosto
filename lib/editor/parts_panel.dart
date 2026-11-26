@@ -14,6 +14,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart'
     show PhosphorIconsRegular;
 
 import 'controller.dart';
+import 'connection_picker.dart';
 import 'hotkeys.dart';
 import 'controls.dart';
 import 'drawing.dart';
@@ -452,6 +453,23 @@ class _PartsPanelState extends State<PartsPanel> {
               ),
             ),
           ),
+          if (!measures)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                macControls ? 8 : 12,
+                0,
+                macControls ? 8 : 10,
+                8,
+              ),
+              child: DeskButton(
+                active: e.tool == Tool.connection,
+                icon: const Icon(cu.CupertinoIcons.link, size: 16),
+                label: Text(context.strings.addConnection),
+                onPressed: p.beams.any((b) => !b.hidden)
+                    ? () => chooseConnection(context, e)
+                    : null,
+              ),
+            ),
           if (e.tool == Tool.measure || e.tool == Tool.gap)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 10, 8),
@@ -658,58 +676,48 @@ class _PartVisibilityRow extends StatefulWidget {
 }
 
 class _PartVisibilityRowState extends State<_PartVisibilityRow> {
-  bool hovered = false;
-
   @override
-  Widget build(BuildContext context) => MouseRegion(
-    onEnter: (_) => setState(() => hovered = true),
-    onExit: (_) => setState(() => hovered = false),
-    child: DeskControl(
-      onPressed: widget.onPressed,
-      background: widget.selected
-          ? context.selectionFill
-          : hovered && widget.onPressed == null
-          ? context.colors.ink.withValues(alpha: .06)
-          : null,
-      child: Row(
-        spacing: toolbarGap,
-        children: [
-          ?widget.leading?.call(hovered),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              if (macControls &&
-                  widget.showHiddenIndicator &&
-                  !hovered &&
-                  !widget.hasHiddenParts)
-                Icon(
-                  PhosphorIconsRegular.cube,
-                  size: 13,
-                  color: context.colors.muted,
-                ),
-              Visibility(
-                visible:
-                    hovered ||
-                    (widget.showHiddenIndicator && widget.hasHiddenParts),
-                maintainSize: true,
-                maintainAnimation: true,
-                maintainState: true,
-                maintainSemantics: true,
-                child: DeskInlineIcon(
-                  icon: widget.hasHiddenParts
-                      ? (hovered
-                            ? PhosphorIconsRegular.eye
-                            : PhosphorIconsRegular.eyeClosed)
-                      : PhosphorIconsRegular.eyeSlash,
-                  label: widget.tooltip,
-                  onPressed: widget.toggleVisibility,
-                ),
+  Widget build(BuildContext context) => DeskListRow(
+    selected: widget.selected,
+    onPressed: widget.onPressed,
+    builder: (hovered) => Row(
+      spacing: toolbarGap,
+      children: [
+        ?widget.leading?.call(hovered),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            if (macControls &&
+                widget.showHiddenIndicator &&
+                !hovered &&
+                !widget.hasHiddenParts)
+              Icon(
+                PhosphorIconsRegular.cube,
+                size: 13,
+                color: context.colors.muted,
               ),
-            ],
-          ),
-          widget.trailing,
-        ],
-      ),
+            Visibility(
+              visible:
+                  hovered ||
+                  (widget.showHiddenIndicator && widget.hasHiddenParts),
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              maintainSemantics: true,
+              child: DeskInlineIcon(
+                icon: widget.hasHiddenParts
+                    ? (hovered
+                          ? PhosphorIconsRegular.eye
+                          : PhosphorIconsRegular.eyeClosed)
+                    : PhosphorIconsRegular.eyeSlash,
+                label: widget.tooltip,
+                onPressed: widget.toggleVisibility,
+              ),
+            ),
+          ],
+        ),
+        widget.trailing,
+      ],
     ),
   );
 }

@@ -24,6 +24,8 @@ import 'stock_axis.dart';
 import 'step.dart';
 import 'view_cube.dart';
 
+part 'connection_placement.dart';
+
 class DrawingViewport extends StatefulWidget {
   const DrawingViewport(this.editor, {super.key});
   final Editor editor;
@@ -121,6 +123,9 @@ class DrawingViewportState extends State<DrawingViewport> {
     if (moveSnap != null && dragged && last != null && e.tool == Tool.select) {
       translate(last!);
       e.refresh();
+    } else if (resizeEdge != null && dragged && last != null) {
+      stretch(resizeEdge!, last!);
+      e.refresh();
     } else if ((e.tool == Tool.measure || e.tool == Tool.move) &&
         hoverPosition != null) {
       hover(hoverPosition!);
@@ -131,6 +136,7 @@ class DrawingViewportState extends State<DrawingViewport> {
   ResizeEdge? resizeEdge;
   WorkPlane? dragPlane;
   Contact? stop;
+  WorkspaceSnap? resizeWorkspace;
 
   bool get shiftResize =>
       HardwareKeyboard.instance.isShiftPressed &&
@@ -241,18 +247,52 @@ class DrawingViewportState extends State<DrawingViewport> {
     if (point == null) return;
     final initial = before!, part = edge.face.beam;
     final dim = edge.axis, travel = (point - plane.origin).dot(plane.u);
-    final target = e.step.round(part.size[dim] + travel, e.displayUnit);
-    final resized = resizeEnd(
-      part,
-      dim,
-      edge.positive,
-      target - part.size[dim],
-      stop: stop,
-    );
+    final stepped =
+        e.step.round(part.size[dim] + travel, e.displayUnit) - part.size[dim];
+    var change = stepped;
+    Beam? atWall;
+    moveGuides = [];
+    final workspace = resizeWorkspace;
+    if (workspace != null && e.movementSnapping) {
+      final direction = edge.direction;
+      final limit = math.min(
+        workspace.travelLimit(direction),
+        stop?.travel ?? double.infinity,
+      );
+      change = math.min(stepped, limit);
+      final snap = workspace.apply(
+        direction * math.min(travel, limit),
+        direction * change,
+        [direction],
+        e.camera,
+      );
+      final snapped = snap.delta.dot(direction);
+      if (snap.guides.isNotEmpty && snapped <= limit + 1e-7) {
+        final target = resizeEnd(
+          part,
+          dim,
+          edge.positive,
+          math.min(snapped, limit),
+          stop: stop,
+        );
+        if ((target.size[dim] - part.size[dim] - snapped).abs() < 1e-7) {
+          atWall = target;
+          moveGuides = snap.guides;
+        }
+      }
+      if (atWall == null) workspace.release();
+    } else {
+      workspace?.release();
+    }
+    final resized =
+        atWall ?? resizeEnd(part, dim, edge.positive, change, stop: stop);
     e.project = resized.size[dim] == part.size[dim]
         ? initial
         : initial.edit({part.id}, (_) => resized);
-    e.message = stop != null && travel >= stop!.travel
+    e.message = moveGuides.isNotEmpty
+        ? context.strings.projectBounds
+        : stop != null &&
+              resized.size[dim] - part.size[dim] >= stop!.travel - 1e-7
         ? context.strings.stop(initial.byId[stop!.obstacle]!.name)
         : '';
   }
@@ -321,6 +361,15 @@ class DrawingViewportState extends State<DrawingViewport> {
         (e.snap && e.snapMode == SnapMode.surface)) {
       return hit;
     }
+    if (e.snap && e.movementSnapping) {
+      final boundary = scene.workspaceTarget(
+        at,
+        e.snapMode,
+        first.resolve(e.project),
+        exclude: e.selection,
+      );
+      if (boundary != null) return boundary.anchor;
+    }
     final point = pointOnWorkPlane(at);
     return point == null ? null : Anchor(point);
   }
@@ -368,7 +417,7 @@ class DrawingViewportState extends State<DrawingViewport> {
         ? scene.hit(pos)
         : null;
     e.hover = switch (e.tool) {
-      Tool.face || Tool.rotate || Tool.gap => null,
+      Tool.connection || Tool.face || Tool.rotate || Tool.gap => null,
       Tool.select || Tool.ruler => null,
       Tool.measure => measurePoint(pos),
       Tool.beam => beamPoint(pos),
@@ -506,6 +555,30 @@ class DrawingViewportState extends State<DrawingViewport> {
   }
 
   void clickTool(Offset pos) {
+    if (e.tool == Tool.connection) {
+      final view = _ConnectionPlacement.pick(scene, e, pos, forClick: true);
+      if (view == null) return;
+      if (e.connectionBase == null) {
+        e.connectionBase = view.base;
+        e.refresh();
+      } else if (view.issue == null) {
+        final layout = view.layout;
+        e.commit(
+          e.project.edit(
+            {view.part.id},
+            (b) => b.copy(
+              drillGroups: b.drillGroups.assign(
+                layoutRefs(layout, b.holes.length, b.edgeHoles.length),
+              ),
+              holes: [...b.holes, ...layout.faces],
+              edgeHoles: [...b.edgeHoles, ...layout.edges],
+            ),
+          ),
+        );
+        e.setTool(Tool.select);
+      }
+      return;
+    }
     if (e.tool == Tool.ruler) {
       e.selectDimension(painted?.dimensionAt(pos));
       return;
@@ -768,6 +841,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     before = null;
     moving = {};
     resizeEdge = null;
+    resizeWorkspace = null;
     source = null;
     moveSnap = null;
     moveGuides = [];
@@ -804,6 +878,13 @@ class DrawingViewportState extends State<DrawingViewport> {
           edge.positive,
           scene.project.beams,
         );
+        if (before!.workspaceSize case final room?) {
+          final face = faceCorners[edge.axis * 2 + (edge.positive ? 1 : 0)];
+          resizeWorkspace = WorkspaceSnap(
+            room,
+            face.map(edge.face.beam.corner),
+          );
+        }
         e.refresh();
         return;
       }
@@ -872,12 +953,12 @@ class DrawingViewportState extends State<DrawingViewport> {
         delta,
         planeNormal: e.hover == null ? plane.normal : null,
       );
-      if (limited != delta) {
-        delta = limited;
+      if ((limited - delta).length2 > 1e-14) {
         moveGuides = [];
         moveSnap!.release();
         e.hover = null;
       }
+      delta = limited;
       final gap = moveGuides.map((g) => g.gap).nonNulls.firstOrNull;
       if (gap != null) {
         e.message = context.strings.equalGapValue(
@@ -1000,6 +1081,7 @@ class DrawingViewportState extends State<DrawingViewport> {
     down = null;
     before = null;
     resizeEdge = null;
+    resizeWorkspace = null;
     moveSnap = null;
     moveGuides = [];
     modifierClick = null;
@@ -1095,12 +1177,15 @@ class DrawingViewportState extends State<DrawingViewport> {
         final anchor = partToPlace != null && hoverPosition != null
             ? pick(hoverPosition!)
             : null;
+        final connection = e.tool == Tool.connection
+            ? _ConnectionPlacement.pick(scene, e, hoverPosition)
+            : null;
         final feedback = selectionFeedback();
         final drawing = MouseRegion(
           cursor: feedback.cursor,
           onEnter: (ev) {
             hoverPosition = ev.localPosition;
-            if (e.tool == Tool.measure) {
+            if (e.tool == Tool.measure || e.tool == Tool.connection) {
               hover(ev.localPosition);
             } else if (e.tool == Tool.select || e.partToPlace != null) {
               e.refresh();
@@ -1121,6 +1206,7 @@ class DrawingViewportState extends State<DrawingViewport> {
             onPointerUp: finish,
             onPointerCancel: (_) {
               resizeEdge = null;
+              resizeWorkspace = null;
               moveSnap = null;
               moveGuides = [];
               modifierClick = null;
@@ -1257,6 +1343,60 @@ class DrawingViewportState extends State<DrawingViewport> {
                       ),
                     ),
                   ),
+                  if (connection != null) ...[
+                    IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ConnectionScalePainter(
+                          connection,
+                          context.colors,
+                          DefaultTextStyle.of(context).style,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 84,
+                      right: 12,
+                      bottom: 12,
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.colors.field,
+                              border: Border.all(color: context.colors.line),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${connection.part.name} · ${connection.part.bandingEdgeLabel(connection.base.edge)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '${context.strings.baseDistance} · ${[for (final (i, _) in connection.pattern.stations.indexed) e.displayUnit.format(connection.offset + i * connection.ruler.pitch)].join(' / ')} ${e.displayUnit.symbol}',
+                                ),
+                                if (connection.issue case final issue?)
+                                  Text(
+                                    issue,
+                                    style: TextStyle(
+                                      color: context.colors.danger,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

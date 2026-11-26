@@ -6,6 +6,8 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'hotkeys.dart';
 
 import 'controller.dart';
+import 'connection_picker.dart';
+import 'edge_banding_dialog.dart';
 import 'desktop.dart';
 import 'end_cut_dialog.dart';
 import 'rabbet_dialog.dart';
@@ -64,6 +66,14 @@ Future<void> showDrawingMenu(
   final String heading;
   if (partId == null) {
     heading = context.strings.drawing;
+    if (doc.beams.any((b) => !b.hidden)) {
+      add(
+        context.strings.addConnection,
+        CupertinoIcons.link,
+        'link',
+        () => chooseConnection(context, editor),
+      );
+    }
     if (addHere != null) {
       add(context.strings.newPartHere, CupertinoIcons.plus, 'plus', addHere);
     }
@@ -183,11 +193,25 @@ Future<void> showDrawingMenu(
         () => showRabbets(context, editor, part),
       );
       add(
+        context.strings.addConnection,
+        CupertinoIcons.link,
+        'link',
+        () => chooseConnection(context, editor),
+      );
+      add(
         context.strings.panelHoles,
         CupertinoIcons.circle,
         'circle',
         () => showPanelHoles(context, editor, part),
       );
+      if (part.supportsEdgeBanding) {
+        add(
+          context.strings.edgeBanding,
+          CupertinoIcons.rectangle,
+          'rectangle',
+          () => showEdgeBanding(context, editor, part),
+        );
+      }
       if (doc.visibleGeometry.beams.length > 1) {
         add(
           context.strings.alignToReference,

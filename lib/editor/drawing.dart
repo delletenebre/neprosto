@@ -108,6 +108,7 @@ class DrawingPainter extends CustomPainter {
   final Offset? edgePointer;
   final Project? original;
   final List<MoveGuide> moveGuides;
+  final Vector3? rotationPivot;
   final int rotationAxis;
   final int? highlightedSize;
   final ({int axis, Vector3 origin})? positionGuide;
@@ -140,6 +141,7 @@ class DrawingPainter extends CustomPainter {
     this.edgePointer,
     this.original,
     this.rotationAxis = 2,
+    this.rotationPivot,
     this.highlightedSize,
     this.positionGuide,
     this.localRotation = false,
@@ -185,7 +187,9 @@ class DrawingPainter extends CustomPainter {
         _partOutline(c, b, pen);
       }
     }
-    if (original != null && selection.isNotEmpty) _rotation(c);
+    if ((original != null || rotationPivot != null) && selection.isNotEmpty) {
+      _rotation(c);
+    }
     if (activeFace case final face?) {
       _highlightFace(c, face);
     }
@@ -494,11 +498,13 @@ class DrawingPainter extends CustomPainter {
   }
 
   void _rotation(Canvas c) {
-    final pivot = Bounds3.points(
-      original!.beams
-          .where((b) => selection.contains(b.id))
-          .expand((b) => b.corners),
-    ).center;
+    final pivot =
+        rotationPivot ??
+        Bounds3.points(
+          original!.beams
+              .where((b) => selection.contains(b.id))
+              .expand((b) => b.corners),
+        ).center;
     final dial = RotationDial.project(
       scene.camera,
       scene.size,
@@ -648,31 +654,34 @@ class DrawingPainter extends CustomPainter {
     final reference = f.beam.id == referenceId;
     final light = Vector3(-.38, -.48, .79).normalized();
     final finish = f.beam.finish;
-    final cutBoard =
-        f.face < 2 &&
-        (finish.texture == PartTexture.laminate ||
-            finish.texture == PartTexture.woodLaminate);
-    final base = cutBoard ? const Color(0xffbd9d79) : finishColor(finish);
+    final core = panelCoreColor(finish.texture);
+    final cutSurface = f.face < 4 || !f.isOuterFace;
+    final base = (cutSurface ? core : null) ?? finishColor(finish);
     final shade = f.normal.dot(light) * .24 - .12;
-    var fill = Color.lerp(
-      base,
-      shade < 0 ? Colors.black : Colors.white,
-      shade.abs(),
-    )!;
-    if (overlaps.contains(f.beam.id)) {
-      fill = Color.lerp(fill, const Color(0xffda7657), .53)!;
+    Color lit(Color base) {
+      var fill = Color.lerp(
+        base,
+        shade < 0 ? Colors.black : Colors.white,
+        shade.abs(),
+      )!;
+      if (overlaps.contains(f.beam.id)) {
+        fill = Color.lerp(fill, const Color(0xffda7657), .53)!;
+      }
+      if (reference) fill = Color.lerp(fill, const Color(0xff80b6ce), .70)!;
+      if (f.beam.id == alignmentSupport?.id) {
+        fill = Color.lerp(fill, supportColor, .38)!;
+      }
+      if (selected) fill = Color.lerp(fill, EditorPalette.highlight, .22)!;
+      if (selected && highlightedSize == f.face ~/ 2) {
+        fill = Color.lerp(fill, StockAxis.values[highlightedSize!].color, .33)!;
+      }
+      if (original != null && !selected) {
+        fill = Color.lerp(fill, colors.paper, .58)!;
+      }
+      return fill;
     }
-    if (reference) fill = Color.lerp(fill, const Color(0xff80b6ce), .70)!;
-    if (f.beam.id == alignmentSupport?.id) {
-      fill = Color.lerp(fill, supportColor, .38)!;
-    }
-    if (selected) fill = Color.lerp(fill, EditorPalette.highlight, .22)!;
-    if (selected && highlightedSize == f.face ~/ 2) {
-      fill = Color.lerp(fill, StockAxis.values[highlightedSize!].color, .33)!;
-    }
-    if (original != null && !selected) {
-      fill = Color.lerp(fill, colors.paper, .58)!;
-    }
+
+    final fill = lit(base);
     c.drawPath(f.path, Paint()..color = fill);
     final clipTexture = f.boreRim != null || f.points.length != 4;
     if (clipTexture) {
@@ -713,15 +722,34 @@ class DrawingPainter extends CustomPainter {
         points[2],
         points[acrossFirst ? 1 : 3],
         seed: f.beam.id,
-        endGrain: f.face < 2,
+        cutSurface: cutSurface,
       );
     }
-    if (clipTexture) c.restore();
-    if (f.boreFloor case final floor?) {
-      c.drawPath(floor, Paint()..color = Color.lerp(fill, Colors.black, .32)!);
+    final band = f.beam.banding;
+    if (band.edges.isNotEmpty) {
+      final paint = Paint()..color = lit(Color(0xff000000 | band.rgb));
+      for (final strip in f.bandingPolygons) {
+        c.drawPath(
+          Path()..addPolygon(strip.map(project).toList(), true),
+          paint,
+        );
+      }
     }
-    if (f.boreRim case final rim?) {
-      c.drawPath(rim, Paint()..color = Color.lerp(fill, Colors.black, .65)!);
+    if (clipTexture) c.restore();
+    if (f.boreRim != null || f.boreFloor != null) {
+      final boreColor = core == null ? fill : lit(core);
+      if (f.boreFloor case final floor?) {
+        c.drawPath(
+          floor,
+          Paint()..color = Color.lerp(boreColor, Colors.black, .32)!,
+        );
+      }
+      if (f.boreRim case final rim?) {
+        c.drawPath(
+          rim,
+          Paint()..color = Color.lerp(boreColor, Colors.black, .65)!,
+        );
+      }
     }
     c.drawPath(
       f.path,

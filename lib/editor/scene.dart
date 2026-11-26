@@ -65,6 +65,7 @@ enum ViewAngle {
 
 class Camera {
   double yaw = ViewAngle.iso.yaw, pitch = ViewAngle.iso.pitch, scale = 0.5;
+  double roll = 0;
   bool perspective = false;
   double eyeDistance = 2400;
   Vector3 target = Vector3.zero();
@@ -72,12 +73,17 @@ class Camera {
   Camera copy() => Camera()
     ..yaw = yaw
     ..pitch = pitch
+    ..roll = roll
     ..scale = scale
     ..pan = pan
     ..target = target.clone()
     ..perspective = perspective
     ..eyeDistance = eyeDistance;
-  Vector3 get right => Vector3(math.cos(yaw), math.sin(yaw), 0);
+  Vector3 get right {
+    final level = Vector3(math.cos(yaw), math.sin(yaw), 0);
+    return roll == 0 ? level : turn(level, eye, roll);
+  }
+
   Vector3 get eye => Vector3(
     math.sin(yaw) * math.cos(pitch),
     -math.cos(yaw) * math.cos(pitch),
@@ -135,6 +141,7 @@ class Camera {
 
   void view(ViewAngle v) {
     perspective = v == ViewAngle.perspective;
+    roll = 0;
     yaw = v.yaw;
     pitch = v.pitch;
   }
@@ -148,7 +155,23 @@ class Camera {
     target = pivot - right * x - up * y - eye * z;
   }
 
+  void orbitAroundAxis(Vector3 normal, double radians, Vector3 pivot) {
+    final nextEye = turn(eye, normal, radians);
+    final nextRight = turn(right, normal, radians);
+    target = pivot + turn(target - pivot, normal, radians);
+    if (nextEye.x.abs() + nextEye.y.abs() > 1e-9) {
+      yaw = math.atan2(nextEye.x, -nextEye.y);
+    }
+    pitch = math.asin(nextEye.z.clamp(-1, 1));
+    final level = Vector3(math.cos(yaw), math.sin(yaw), 0);
+    roll = math.atan2(
+      nextRight.dot(nextEye.cross(level)),
+      nextRight.dot(level),
+    );
+  }
+
   void facePlane(WorkPlane plane) {
+    roll = 0;
     perspective = false;
     final n = plane.normal;
     yaw = n.x.abs() + n.y.abs() < 1e-8 ? 0 : math.atan2(n.x, -n.y);
@@ -241,55 +264,93 @@ class SceneFace {
          points.map((p) => p.dy).reduce(math.max),
        ),
        depth = world.fold(0.0, (a, b) => a + b.dot(cam.eye)) / world.length {
-    if (beam.holes.isEmpty || face < 4) return;
-    final surface = profileLocal?.first.z ?? (face.isOdd ? 1.0 : 0.0);
+    if (beam.holes.isEmpty && beam.edgeHoles.isEmpty) return;
     final facePath = Path.from(path);
     final cutouts = Path();
-    for (final hole in beam.holes) {
-      final depth = hole.depth;
-      final bottom = depth == null
-          ? (face.isOdd ? 0.0 : 1.0)
-          : hole.back
-          ? 1 - depth / beam.size.z
-          : depth / beam.size.z;
-      if (depth != null &&
-          (hole.back != face.isOdd ||
-              (face.isOdd ? surface <= bottom : surface >= bottom))) {
+    final basis = [beam.along, beam.across, beam.up];
+    final axis = face ~/ 2;
+    final drills = [
+      for (final hole in beam.holes)
+        if (axis == 2 || hole.boringEdge?.faceIndex == face)
+          ...hole.drills(beam.size),
+      for (final hole in beam.edgeHoles)
+        if (hole.kind == EdgeHoleKind.pocket
+            ? face == (hole.back ? 5 : 4)
+            : hole.edge.faceIndex ~/ 2 == axis)
+          hole.drills(beam.size).first,
+    ];
+    for (final drill in drills) {
+      if (drill.axis != axis || (!drill.through && drill.face != face)) {
         continue;
       }
-      final r = hole.diameter / 2;
-      final center =
+      final stop = drill.through && drill.face != face
+          ? drill.entry
+          : drill.stop;
+      final floorCenter =
           beam.origin +
-          beam.along * hole.centerX(beam.size) +
-          beam.across * hole.centerY(beam.size);
-      Path opening(double z) {
-        final at = center + beam.up * (z * beam.size.z);
-        return Path()..addPolygon([
-          for (var i = 0; i < 40; i++)
-            cam.project(
-              at +
-                  beam.along * (r * math.cos(i * math.pi / 20)) +
-                  beam.across * (r * math.sin(i * math.pi / 20)),
-              viewport,
-            ),
-        ], true);
+          beam.along * stop.x +
+          beam.across * stop.y +
+          beam.up * stop.z;
+      // Project along the bit onto the actual surface, including bevels
+      // and the recessed faces left by a rabbet.
+      final segment = drill.stop - drill.entry;
+      final direction = drill.angled
+          ? (basis[0] * segment.x + basis[1] * segment.y + basis[2] * segment.z)
+                .normalized()
+          : basis[axis];
+      final normalComponent = normal.dot(direction);
+      if (normalComponent.abs() < 1e-8) continue;
+      double toSurface(Vector3 p) =>
+          normal.dot(world.first - p) / normalComponent;
+      if (!drill.through && normal.dot(floorCenter - world.first) >= 0) {
+        continue;
       }
-
+      final lateral = drill.angled
+          ? beam.up.cross(direction).normalized()
+          : basis[(axis + 1) % 3];
+      final u = lateral * (drill.diameter / 2);
+      final v = direction.cross(lateral) * (drill.diameter / 2);
+      final rimPoints = <Offset>[], floorPoints = <Offset>[];
+      for (var i = 0; i < 40; i++) {
+        final angle = i * math.pi / 20;
+        final p = floorCenter + u * math.cos(angle) + v * math.sin(angle);
+        rimPoints.add(cam.project(p + direction * toSurface(p), viewport));
+        floorPoints.add(cam.project(p, viewport));
+      }
       final near = Path.combine(
         PathOperation.intersect,
         facePath,
-        opening(surface),
+        Path()..addPolygon(rimPoints, true),
       );
+      if (near.getBounds().isEmpty) continue;
       final floor = Path.combine(
         PathOperation.intersect,
         near,
-        opening(bottom),
+        Path()..addPolygon(floorPoints, true),
       );
       (boreRim ??= Path()).addPath(
         Path.combine(PathOperation.difference, near, floor),
         Offset.zero,
       );
-      if (depth == null) {
+      if (drill.angled) {
+        final ratio = pocketPilotDiameter / drill.diameter;
+        final pilot = Path()
+          ..addPolygon([
+            for (var i = 0; i < 40; i++)
+              cam.project(
+                floorCenter +
+                    (u * math.cos(i * math.pi / 20) +
+                            v * math.sin(i * math.pi / 20)) *
+                        ratio,
+                viewport,
+              ),
+          ], true);
+        boreRim!.addPath(
+          Path.combine(PathOperation.intersect, floor, pilot),
+          Offset.zero,
+        );
+      }
+      if (drill.through) {
         cutouts.addPath(floor, Offset.zero);
       } else {
         (boreFloor ??= Path()).addPath(floor, Offset.zero);
@@ -302,6 +363,42 @@ class SceneFace {
       path.addPath(solid, Offset.zero);
     }
   }
+
+  bool get isOuterFace =>
+      profileLocal == null || profileLocal!.first[face ~/ 2] == face % 2;
+
+  Iterable<List<Vector3>> get bandingPolygons sync* {
+    final band = beam.banding;
+    if (band.edges.isEmpty) return;
+    // Only the outer panel surfaces receive tape. A routed recess stays bare.
+    if (!isOuterFace) return;
+    var surface = world;
+    final width = band.width;
+    if (width != null && width < beam.size.z) {
+      final inset = (beam.size.z - width) / 2;
+      final up = beam.up;
+      double height(Vector3 p) => (p - beam.origin).dot(up);
+      surface = clipPolygon(surface, (p) => height(p) - inset);
+      surface = clipPolygon(surface, (p) => beam.size.z - inset - height(p));
+    }
+    for (final edge in band.edges) {
+      final side = edge.faceIndex;
+      if (side == face) {
+        if (surface.length >= 3) yield surface;
+        continue;
+      }
+      if (side ~/ 2 == face ~/ 2) continue;
+      // Intersect this face with the physical tape thickness, including on mitres.
+      final normal = beam.faceNormal(side);
+      final outer = beam.corner(faceCorners[side].first);
+      final strip = clipPolygon(
+        surface,
+        (p) => band.thickness + (p - outer).dot(normal),
+      );
+      if (strip.length >= 3) yield strip;
+    }
+  }
+
   WorkPlane get plane => WorkPlane(
     'Грань',
     world[0],
@@ -604,7 +701,7 @@ class Scene {
     if (!sticky || surface != null || project.workspaceSize == null) {
       return part;
     }
-    final boundary = _workspaceRulerTarget(pos, mode, planeOrigin);
+    final boundary = workspaceTarget(pos, mode, planeOrigin);
     if (part == null || boundary == null) return part ?? boundary;
     double distance(RulerTarget t) =>
         (camera.project(t.anchor.point, size) - pos).distance;
@@ -663,18 +760,19 @@ class Scene {
     );
   }
 
-  RulerTarget? _workspaceRulerTarget(
+  RulerTarget? workspaceTarget(
     Offset pos,
     SnapMode mode,
-    Vector3? planeOrigin,
-  ) {
+    Vector3? planeOrigin, {
+    Set<int> exclude = const {},
+  }) {
     if (mode != SnapMode.auto &&
         mode != SnapMode.edge &&
         mode != SnapMode.corner) {
       return null;
     }
-    final room = project.workspaceSize!;
-    if (room.x <= 0 || room.y <= 0 || room.z <= 0) return null;
+    final room = project.workspaceSize;
+    if (room == null || room.x <= 0 || room.y <= 0 || room.z <= 0) return null;
     final corners = project.workspaceCorners;
     RulerTarget? best;
     var bestScore = double.infinity, bestDepth = double.negativeInfinity;
@@ -692,7 +790,7 @@ class Scene {
       final depth = point.dot(camera.eye);
       if (score > bestScore + .001 ||
           ((score - bestScore).abs() <= .001 && depth <= bestDepth) ||
-          hit(screen) != null) {
+          hit(screen, exclude: exclude) != null) {
         return;
       }
       best = (
@@ -722,7 +820,10 @@ class Scene {
       final t = _segmentFraction(pos, start, end);
       if (t == null) return;
       final screen = start + (end - start) * t;
-      if ((screen - pos).distance > 8 || hit(screen) != null) return;
+      if ((screen - pos).distance > 8 ||
+          hit(screen, exclude: exclude) != null) {
+        return;
+      }
       // Interpolate in world space using the projected endpoints' depth factors.
       final fromWeight = (1 - t) * camera.projectionFactor(from);
       final toWeight = t * camera.projectionFactor(to);
@@ -993,8 +1094,18 @@ class RotationDial {
         for (var i = 0; i <= 20; i++) at(finish - sign * (20 - i) * .055),
       ];
       final outward = path.last - center;
+      final label = path.last + outward / outward.distance * 23;
+      final marginX = math.min(26.0, size.width / 2);
+      final marginY = math.min(14.0, size.height / 2);
       arrows.add(
-        TurnArrow(sign, path, path.last + outward / outward.distance * 23),
+        TurnArrow(
+          sign,
+          path,
+          Offset(
+            label.dx.clamp(marginX, size.width - marginX),
+            label.dy.clamp(marginY, size.height - marginY),
+          ),
+        ),
       );
     }
     return RotationDial(

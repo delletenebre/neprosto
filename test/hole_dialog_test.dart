@@ -1,4 +1,3 @@
-import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoCheckbox;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
@@ -11,34 +10,37 @@ import 'package:neprosto/editor/palette.dart';
 import 'package:neprosto/editor/step.dart';
 
 void main() {
-  testWidgets(
-    'The macOS hole-number checkbox uses the editor selection colors',
-    (t) async {
-      final board = Beam(
-        1,
-        'Панель',
-        Vector3.zero(),
-        Vector3(600, 160, 18),
-        axis(0),
-        axis(1),
-      );
-      final editor = Editor(Project('', [board]));
-      final opener = GlobalKey();
-      await t.binding.setSurfaceSize(const Size(1100, 800));
-      addTearDown(() => t.binding.setSurfaceSize(null));
-      await t.pumpWidget(MaterialApp(home: SizedBox(key: opener)));
-      showPanelHoles(opener.currentContext!, editor, board);
-      await t.pumpAndSettle();
+  testWidgets('The macOS numbering control toggles without editing the panel', (
+    t,
+  ) async {
+    final board = Beam(
+      1,
+      'Панель',
+      Vector3.zero(),
+      Vector3(600, 160, 18),
+      axis(0),
+      axis(1),
+    );
+    final editor = Editor(Project('', [board]));
+    final opener = GlobalKey();
+    await t.binding.setSurfaceSize(const Size(1100, 800));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    await t.pumpWidget(MaterialApp(home: SizedBox(key: opener)));
+    showPanelHoles(opener.currentContext!, editor, board);
+    await t.pumpAndSettle();
 
-      final checkbox = t.widget<CupertinoCheckbox>(
-        find.byType(CupertinoCheckbox),
-      );
-      expect(checkbox.value, isTrue);
-      expect(checkbox.activeColor, EditorPalette.highlight);
-      expect(checkbox.checkColor, EditorPalette.onHighlight);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+    final numbers = find.byTooltip('Показать номера на схеме');
+    expect(
+      t
+          .widget<DeskIcon>(find.byKey(const ValueKey('hole-show-numbers')))
+          .active,
+      isTrue,
+    );
+    await t.tap(numbers);
+    await t.pumpAndSettle();
+    expect(editor.showHoleNumbers, isFalse);
+    expect(editor.project.beams.single, same(board));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'Invalid holes remain selectable and each row shows its own warning',
@@ -96,6 +98,7 @@ void main() {
 
       await tap(find.text('Открыть'));
       await tap(number(2));
+      await tap(find.text('Параметры сверления'));
       final originalPosition = positionOf(2);
       await edit('depth', '12');
       expect(positionOf(2), originalPosition);
@@ -131,13 +134,24 @@ void main() {
       expect(warnings, findsNWidgets(2));
       expect(number(1), findsOneWidget);
       await tap(number(2));
-      await tap(find.text('Показать номера на схеме'));
+      await tap(find.byTooltip('Показать номера на схеме'));
       await tap(diagram); // Pick the invalid first hole at the panel centre.
-      expect(find.byKey(const ValueKey('hole-depth')), findsNothing);
+      expect(
+        t
+            .widget<EditableText>(
+              find.descendant(
+                of: find.byKey(const ValueKey('hole-depth')),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .controller
+            .text,
+        isEmpty,
+      );
       await edit('diameter', '5');
       expect(warnings, findsOneWidget);
       expect(t.widget<DeskButton>(apply).onPressed, isNull);
-      await tap(find.text('Показать номера на схеме'));
+      await tap(find.byTooltip('Показать номера на схеме'));
       await tap(number(2));
       await edit('horizontal', '150');
       await edit('diameter', '35');
@@ -201,19 +215,30 @@ void main() {
     expect(t.getRect(add).top, greaterThan(t.getRect(diagram).bottom));
     expect(t.getCenter(add).dx, lessThan(t.getRect(diagram).left));
 
-    await tap(find.text('Под петлю Ø35 мм'));
+    await tap(find.text('Присадка по кромке…'));
+    await tap(find.byKey(const ValueKey('cup-edge-top')));
+    await t.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('cup-count')),
+        matching: find.byType(EditableText),
+      ),
+      '1',
+    );
+    await t.pump();
+    await tap(find.text('Добавить отверстия'));
+    await tap(find.text('Параметры сверления'));
     final first = find.text('№ 1 · Ø5 мм');
     final second = find.text('№ 2 · Ø35 мм');
     expect(first.hitTestable(), findsOneWidget);
     expect(second.hitTestable(), findsOneWidget);
     expect(find.text('Отверстие 2 из 2'), findsNothing);
     expect(t.getRect(number(1)).overlaps(t.getRect(number(2))), isFalse);
-    final toggle = find.text('Показать номера на схеме');
-    final checkbox = find.byType(Checkbox);
+    final toggle = find.byTooltip('Показать номера на схеме');
+    final checkbox = find.byKey(const ValueKey('hole-show-numbers'));
     final centre = t.getCenter(diagram);
     expect(t.getRect(toggle).bottom, lessThanOrEqualTo(t.getRect(diagram).top));
     await tap(checkbox);
-    expect(t.widget<Checkbox>(checkbox).value, isFalse);
+    expect(t.widget<DeskIcon>(checkbox).active, isFalse);
     expect(number(1), findsNothing);
     expect(number(2), findsNothing);
     expect(t.getCenter(diagram), centre);
@@ -231,7 +256,18 @@ void main() {
     expect(find.text('№ 2 · Петля'), findsOneWidget);
     expect(find.text('Ø35 мм · Глухое · Сторона Б'), findsOneWidget);
     await tap(first);
-    expect(find.byKey(const ValueKey('hole-depth')), findsNothing);
+    expect(
+      t
+          .widget<EditableText>(
+            find.descendant(
+              of: find.byKey(const ValueKey('hole-depth')),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      isEmpty,
+    );
     await tap(number(2));
     await tap(pencil);
     expect(t.widget<EditableText>(name).controller.text, 'Петля');
@@ -266,7 +302,7 @@ void main() {
       of: find.byType(ListView),
       matching: find.byTooltip('Удалить'),
     );
-    expect(t.getCenter(trash).dy, closeTo(t.getRect(first).center.dy, 16));
+    expect(t.getRect(find.byKey(const ValueKey('hole-row-face-0'))).contains(t.getCenter(trash)),isTrue);
     await tap(trash);
     expect(number(11), findsNothing);
     expect(number(2), findsNothing); // The opposite-face hole is now second.
@@ -336,6 +372,7 @@ void main() {
           t.widget<EditableText>(field(key)).controller.text;
 
       await tap('Открыть');
+      await tap('Параметры сверления');
       expect(value('hole-diameter'), '0.2');
       await tap('Применить');
       expect(editor.project.beams.single, same(board));
@@ -408,7 +445,7 @@ void main() {
       }
 
       expect(t.getRect(diagram).right, lessThan(t.getRect(offsets).left));
-      expect(t.getCenter(face).dx, closeTo(t.getCenter(diagram).dx, 1));
+      expect(t.getRect(face).bottom, lessThanOrEqualTo(t.getRect(diagram).top));
       expect(
         t.getCenter(find.text('Вверх')).dx,
         lessThan(t.getCenter(diagram).dx),
@@ -418,6 +455,8 @@ void main() {
         greaterThan(t.getCenter(diagram).dy),
       );
 
+      await t.tap(find.text('Параметры сверления'));
+      await t.pumpAndSettle();
       await corner(true, true);
       expect(value('hole-horizontal'), '575');
       expect(value('hole-vertical'), '2069');

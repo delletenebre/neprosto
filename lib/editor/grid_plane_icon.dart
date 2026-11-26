@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'grid_visibility.dart';
+import 'desktop.dart';
 import 'palette.dart';
 
 class GridPlaneIcon extends StatelessWidget {
@@ -19,6 +20,41 @@ class GridPlaneIcon extends StatelessWidget {
   Widget build(BuildContext context) => CustomPaint(
     size: Size.square(size),
     painter: _PlaneDiagram(plane, axisGrid, context.colors),
+  );
+}
+
+class RotationPlanePicker extends StatelessWidget {
+  const RotationPlanePicker(this.axis, this.onChanged, {super.key});
+  final int axis;
+  final ValueChanged<int> onChanged;
+  @override
+  Widget build(BuildContext context) => DeskSegmentedControl<int>(
+    value: axis,
+    change: onChanged,
+    children: {
+      for (final (i, p) in [
+        (2, GridPlane.xy),
+        (1, GridPlane.xz),
+        (0, GridPlane.yz),
+      ])
+        i: Tooltip(
+          message: '${p.axes} · ${p.label}',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 4,
+                children: [
+                  GridPlaneIcon(p, size: 21),
+                  Text(p.axes, style: const TextStyle(fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+        ),
+    },
   );
 }
 

@@ -5,6 +5,15 @@ import 'part_finish.dart';
 
 Color finishColor(PartFinish finish) => Color(0xff000000 | finish.rgb);
 
+Color? panelCoreColor(PartTexture texture) => switch (texture) {
+  PartTexture.laminate || PartTexture.woodLaminate => const Color(0xffbd9d79),
+  PartTexture.mdf => finishColor(FinishPreset.mdf.finish),
+  PartTexture.plywood => finishColor(FinishPreset.plywood.finish),
+  PartTexture.wood ||
+  PartTexture.brushedMetal ||
+  PartTexture.paintedMetal => null,
+};
+
 // Corners run around the face. The edge from a to b follows the stock length.
 void paintFinishTexture(
   Canvas canvas,
@@ -15,19 +24,19 @@ void paintFinishTexture(
   Offset c,
   Offset d, {
   int seed = 1,
-  bool endGrain = false,
+  bool cutSurface = false,
 }) {
   if (texture == PartTexture.paintedMetal || texture == PartTexture.mdf) return;
   final laminated =
       texture == PartTexture.laminate || texture == PartTexture.woodLaminate;
-  if (texture == PartTexture.laminate && !endGrain) return;
+  if (texture == PartTexture.laminate && !cutSurface) return;
   final width = (d - a).distance;
   final length = (b - a).distance;
   if (width < 2 || length < 2) return;
 
   Offset point(double u, double v) =>
       Offset.lerp(Offset.lerp(a, d, v)!, Offset.lerp(b, c, v)!, u)!;
-  if (laminated && endGrain) {
+  if (laminated && cutSurface) {
     // Short irregular flecks on a cut chipboard end.
     final pen = Paint()..strokeWidth = 1.2;
     final random = math.Random(seed);

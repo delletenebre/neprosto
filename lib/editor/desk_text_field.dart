@@ -117,6 +117,7 @@ class DeskTextField extends StatelessWidget {
       );
     }
     return CupertinoTextField(
+      placeholder: placeholder,
       controller: controller,
       focusNode: focusNode,
       autofocus: autofocus,

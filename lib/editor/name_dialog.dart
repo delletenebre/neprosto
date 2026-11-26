@@ -5,6 +5,8 @@ import 'controller.dart';
 import 'desk_text_field.dart';
 import 'desktop.dart';
 import 'model.dart';
+import 'edge_banding_dialog.dart';
+import 'finish_picker.dart';
 import 'part_type_picker.dart';
 
 Future<String?> showNameDialog(
@@ -13,6 +15,7 @@ Future<String?> showNameDialog(
   String value, {
   DoorSettingsDraft? door,
   bool group = false,
+  Widget? extra,
   DialogSource? source,
 }) {
   var result = value;
@@ -50,6 +53,7 @@ Future<String?> showNameDialog(
                     refresh: () => update(() {}),
                     submit: submit,
                   ),
+                ?extra,
               ],
             ),
           ),
@@ -77,11 +81,42 @@ Future<void> _editPartProperties(
   Beam part,
 ) async {
   final door = DoorSettingsDraft(part);
+  var draft = part;
   final name = await showNameDialog(
     context,
     context.strings.partName,
     part.name,
     door: door,
+    extra: StatefulBuilder(
+      builder: (ctx, update) => Column(
+        spacing: controlGap,
+        children: [
+          Row(
+            spacing: controlGap,
+            children: [
+              Text(ctx.strings.partFinish),
+              Expanded(
+                child: PartFinishButton(
+                  draft.finish,
+                  (finish) => update(() => draft = draft.copy(finish: finish)),
+                ),
+              ),
+            ],
+          ),
+          if (draft.supportsEdgeBanding)
+            EdgeBandingButton(draft, editor.displayUnit, () async {
+              final band = await editEdgeBanding(
+                ctx,
+                draft,
+                editor.displayUnit,
+              );
+              if (ctx.mounted && band != null) {
+                update(() => draft = draft.copy(banding: band));
+              }
+            }),
+        ],
+      ),
+    ),
   );
   if (name == null ||
       !context.mounted ||
@@ -89,11 +124,13 @@ Future<void> _editPartProperties(
     return;
   }
   if (name == part.name &&
+      draft.finish == part.finish &&
+      draft.banding == part.banding &&
       door.hinge == part.hinge &&
       (door.hinge == null || door.angle == part.openingAngle)) {
     return;
   }
-  final named = name == part.name ? part : part.copy(name: name);
+  final named = name == draft.name ? draft : draft.copy(name: name);
   final updated = editor.configureDoor(named, door.hinge, angle: door.angle);
   editor.commit(editor.project.edit({part.id}, (_) => updated));
 }
