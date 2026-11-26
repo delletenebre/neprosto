@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:cupertino_ui/cupertino_ui.dart' as cu;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show Locale, Localizations;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/widgets.dart' show Key, Locale, Localizations;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/settings.dart';
@@ -40,6 +41,7 @@ void main() {
     const path = '/projects/shelf.neprosto';
     var name = 'Полка';
     var reads = 0;
+    var expectBookmark = false;
     List<String>? paths;
     messenger.setMockMethodCallHandler(picker, (call) async {
       expect(call.method, 'openFile');
@@ -48,7 +50,8 @@ void main() {
     messenger.setMockMethodCallHandler(files, (call) async {
       expect(call.method, 'read');
       expect(call.arguments['path'], path);
-      if (reads++ > 0) expect(call.arguments['bookmark'], 'scope');
+      reads++;
+      expect(call.arguments['bookmark'], expectBookmark ? 'scope' : null);
       if (name.isEmpty) throw PlatformException(code: 'missing');
       return {
         'path': path,
@@ -60,7 +63,7 @@ void main() {
     addTearDown(() => messenger.setMockMethodCallHandler(files, null));
     final prefs = _Preferences();
     final tabs = ProjectTabs(Editor(Project.bench()));
-    final original = tabs.value;
+    final original = tabs.value!;
     await t.pumpWidget(NeprostoApp.withTabs(tabs, preferences: prefs));
     await t.pumpAndSettle();
     Future<void> tap(Finder finder) async {
@@ -78,7 +81,7 @@ void main() {
     paths = [path];
     await tap(plus);
     await tap(find.text('Открыть проект…'));
-    final opened = tabs.value;
+    final opened = tabs.value!;
     expect(opened.file!.path, path);
     expect(reads, 1);
     opened.editor.commit(opened.committed.copy(name: 'Правки'));
@@ -87,29 +90,105 @@ void main() {
     await tap(plus);
     await tap(find.text(path));
     expect(tabs.value, same(opened));
-    expect(tabs.value.committed.name, 'Правки');
+    expect(tabs.value!.committed.name, 'Правки');
     expect(tabs.items, hasLength(2));
     expect(reads, 1);
     tabs.close(opened);
     await t.pumpAndSettle();
     name = 'Полка с диска';
+    expectBookmark = true;
     await tap(plus);
     await tap(find.text(path));
-    expect(tabs.value.committed.name, name);
+    expect(tabs.value!.committed.name, name);
     expect(reads, 2);
     expect(tabs.recent, hasLength(1));
     final restored = ProjectTabs.decode(tabs.encode())
       ..restoreRecent(prefs.values[ProjectTabs.recentKey] as String);
     expect(restored.recent.single.name, name);
     expect(restored.recent.single.file!.bookmark, 'scope');
-    tabs.close(tabs.value);
+    tabs.close(tabs.value!);
     await t.pumpAndSettle();
     name = '';
     await tap(plus);
     await tap(find.text(path));
     expect(tabs.items.single, same(original));
     expect(original.editor.message, editorStrings.openProjectError);
+
+    tabs.close(original);
+    await t.pumpAndSettle();
+    expectBookmark = false;
+    paths = null;
+    await tap(find.text('Открыть проект…'));
+    expect(tabs.items, isEmpty);
+    expect(find.text(editorStrings.openProjectError), findsNothing);
+    paths = [path];
+    await tap(find.text('Открыть проект…'));
+    expect(tabs.items, isEmpty);
+    expect(find.text(editorStrings.openProjectError), findsOneWidget);
+    name = 'Полка из файла';
+    await tap(find.text('Открыть проект…'));
+    expect(tabs.items.single.committed.name, name);
+    expect(find.text(editorStrings.noOpenProjects), findsNothing);
+    tabs.close(tabs.value!);
+    await t.pumpAndSettle();
+    name = 'Недавняя полка';
+    expectBookmark = true;
+    await tap(find.text(path));
+    expect(tabs.items.single.committed.name, name);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets(
+    'The start page opens the template picker without creating a default tab',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(320, 560));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final tabs = ProjectTabs.empty();
+      tabs.editor.displayUnit = LengthUnit.inch;
+      await t.pumpWidget(
+        NeprostoApp.withTabs(tabs, initialPalette: EditorPalette.dark),
+      );
+      await t.pumpAndSettle();
+      final create = find.text(editorStrings.createProjectFromTemplate);
+      final drawing = find.byKey(const Key('drawing'));
+      expect(find.text(editorStrings.noOpenProjects), findsOneWidget);
+      expect(
+        find.text(editorStrings.openProjectMenu).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.byType(ProjectTabBar), findsNothing);
+      expect(drawing, findsNothing);
+
+      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: t.getCenter(create));
+      await t.pumpAndSettle();
+      expect(create.hitTestable(), findsOneWidget);
+      await mouse.removePointer();
+
+      await t.tap(create);
+      await t.pumpAndSettle();
+      await t.tap(find.text(editorStrings.cancel));
+      await t.pumpAndSettle();
+      expect(tabs.value, isNull);
+      expect(tabs.items, isEmpty);
+      expect(create.hitTestable(), findsOneWidget);
+
+      await t.binding.setSurfaceSize(const Size(960, 700));
+      await t.pumpAndSettle();
+      await t.tap(create);
+      await t.pumpAndSettle();
+      await t.tap(find.text(editorStrings.createProject));
+      await t.pumpAndSettle();
+      final project = tabs.items.single.committed;
+      expect(project.name, editorStrings.templateHoodCabinet);
+      expect(project.unit, LengthUnit.inch);
+      expect(project.beams, isNotEmpty);
+      expect(drawing, findsOneWidget);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
+  );
 
   test(
     'Browser copies survive closing and preserve the last saved version',
@@ -118,14 +197,14 @@ void main() {
       final imported = Project('Полка', []);
       tabs.openDocument(imported);
       final id = tabs.recent.single.id;
-      tabs.value.editor.commit(imported.copy(name: 'Несохранённая правка'));
+      tabs.value!.editor.commit(imported.copy(name: 'Несохранённая правка'));
       final restored = ProjectTabs.decode(tabs.encode())
         ..restoreRecent(jsonEncode(tabs.recent));
       expect(restored.forDocument(id), same(restored.value));
-      restored.close(restored.value);
+      restored.close(restored.value!);
       restored.openDocument(restored.recent.single.snapshot!, recentId: id);
-      expect(restored.value.committed.name, 'Полка');
-      expect(restored.value.file, isNull);
+      expect(restored.value!.committed.name, 'Полка');
+      expect(restored.value!.file, isNull);
       expect(restored.recent.single.id, id);
     },
   );
@@ -301,8 +380,9 @@ void main() {
       await t.binding.setSurfaceSize(const Size(960, 700));
       addTearDown(() => t.binding.setSurfaceSize(null));
       final editor = Editor(Project.bench())..select(1);
+      final prefs = _Preferences();
       final tabs = ProjectTabs(editor);
-      await t.pumpWidget(NeprostoApp.withTabs(tabs));
+      await t.pumpWidget(NeprostoApp.withTabs(tabs, preferences: prefs));
       await t.pumpAndSettle();
       editor.commit(editor.project.copy(name: 'Скамья садовая'));
       await t.pump();
@@ -313,9 +393,9 @@ void main() {
       await t.tap(find.text('Пустой проект'));
       await t.pumpAndSettle();
       expect(tabs.items.length, 2);
-      expect(tabs.value.editor.canUndo, false);
-      expect(tabs.value.editor.project.beams, isEmpty);
-      final other = tabs.value;
+      expect(tabs.value!.editor.canUndo, false);
+      expect(tabs.value!.editor.project.beams, isEmpty);
+      final other = tabs.value!;
       other.editor.commit(other.committed.copy(name: 'Стол'));
       await t.pump();
       Future<void> selectTab(String name) async {
@@ -330,18 +410,18 @@ void main() {
       }
 
       await selectTab('Скамья садовая');
-      expect(tabs.value.editor, same(editor));
+      expect(tabs.value!.editor, same(editor));
       expect(editor.single?.id, 1);
       editor.undo();
       await t.pumpAndSettle();
-      expect(tabs.value.committed.name, 'Скамья');
+      expect(tabs.value!.committed.name, 'Скамья');
       expect(other.committed.name, 'Стол');
       await selectTab('Стол');
       Future<void> closeFromMenu() async {
         await t.tap(
           find.descendant(
             of: find.byType(ProjectTabBar),
-            matching: find.text(tabs.value.committed.name),
+            matching: find.text(tabs.value!.committed.name),
           ),
         );
         await t.pumpAndSettle();
@@ -359,7 +439,15 @@ void main() {
       await t.pumpAndSettle();
       expect(tabs.items.single.editor, same(editor));
       await closeFromMenu();
-      expect(tabs.items.single.committed.name, 'Без названия');
+      expect(tabs.items, isEmpty);
+      expect(tabs.value, isNull);
+      expect(find.text(editorStrings.noOpenProjects), findsOneWidget);
+      expect(find.byType(ProjectTabBar), findsNothing);
+      final restored = ProjectTabs.decode(
+        prefs.values[ProjectTabs.storageKey] as String,
+      );
+      expect(restored.items, isEmpty);
+      expect(restored.value, isNull);
     },
   );
 
@@ -370,7 +458,8 @@ void main() {
       addTearDown(() => t.binding.setSurfaceSize(null));
       final prefs = _Preferences();
       final tabs = ProjectTabs(Editor(Project.bench()));
-      final linked = tabs.value..file = const ProjectFile('/tmp/test.neprosto');
+      final linked = tabs.value!
+        ..file = const ProjectFile('/tmp/test.neprosto');
       final fileWrites = <String>[];
       final messenger = t.binding.defaultBinaryMessenger;
       const popup = MethodChannel('neprosto/popup');
@@ -393,7 +482,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.text('Пустой проект'));
       await t.pumpAndSettle();
-      final draft = tabs.value;
+      final draft = tabs.value!;
       draft.editor.commit(draft.committed.copy(name: 'Второй'));
       await t.pump(const Duration(minutes: 4));
       expect(fileWrites, isEmpty);
@@ -403,8 +492,8 @@ void main() {
       final restored = ProjectTabs.decode(
         prefs.values[ProjectTabs.storageKey] as String,
       );
-      expect(restored.value.committed.name, 'Второй');
-      expect(restored.value.dirty, true);
+      expect(restored.value!.committed.name, 'Второй');
+      expect(restored.value!.dirty, true);
       expect(restored.items.first.dirty, false);
       expect(restored.items.first.file!.bookmark, 'test');
 

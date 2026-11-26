@@ -57,6 +57,7 @@ class MainFlutterWindow: NSWindow {
   var workspaceMenuEnabled = false {
     didSet { updateToolbarItems() }
   }
+  private(set) var hasDocument = false
 
   private var toolbarLabels: [String: String] = [:]
   private let toolbarSymbols = [
@@ -68,6 +69,7 @@ class MainFlutterWindow: NSWindow {
           let labels = args["labels"] as? [String: String] else { return }
     title = name
     isDocumentEdited = edited
+    hasDocument = args["hasDocument"] as? Bool ?? true
     toolbarLabels = labels
     if let panels = args["panels"] as? [String: Bool],
        let viewMenu = NSApp.mainMenu?.items.first(where: { $0.identifier?.rawValue == "np.view" })?.submenu {
@@ -76,6 +78,10 @@ class MainFlutterWindow: NSWindow {
               let shown = panels[String(id.dropFirst(3))] else { continue }
         item.state = shown ? .on : .off
       }
+    }
+    guard hasDocument else {
+      toolbar = nil
+      return
     }
     if toolbar == nil {
       let bar = NSToolbar(identifier: "neprosto.document")

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -234,8 +235,15 @@ void main() {
       }
 
       await press('Open');
-      await t.tap(find.byKey(const ValueKey('hole-row-edge-0')));
+      final edge = find.byKey(const ValueKey('hole-row-edge-0'));
+      final trash = find.descendant(
+        of: edge,
+        matching: find.byTooltip('Удалить'),
+      );
+      expect(trash, findsNothing);
+      await t.tap(edge);
       await t.pumpAndSettle();
+      expect(t.getCenter(trash).dy, t.getCenter(edge).dy);
       await press('Правка');
       await t.pumpAndSettle();
       await t.enterText(find.byType(EditableText).first, '75');
@@ -249,6 +257,28 @@ void main() {
       expect(find.text('Параметры сверления'), findsOneWidget);
       await press('Применить');
       expect(editor.project.beams.single.edgeHoles.single.offset, 75);
+      expect(editor.project.beams.single.holes, layout.faces);
+
+      await t.binding.setSurfaceSize(const Size(620, 800));
+      await press('Open');
+      await t.ensureVisible(edge);
+      await t.tap(edge);
+      await t.pumpAndSettle();
+      expect(trash.hitTestable(), findsOneWidget);
+      expect(t.getCenter(trash).dy, t.getCenter(edge).dy);
+      expect(t.getRect(trash).right, lessThan(t.getRect(edge).right));
+      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      await mouse.moveTo(t.getCenter(trash));
+      await t.pump(const Duration(milliseconds: 400));
+      await t.pumpAndSettle();
+      expect(find.text('Удалить'), findsOneWidget);
+      await mouse.removePointer();
+      await t.tap(trash);
+      await t.pumpAndSettle();
+      expect(edge, findsNothing);
+      await press('Применить');
+      expect(editor.project.beams.single.edgeHoles, isEmpty);
       expect(editor.project.beams.single.holes, layout.faces);
     },
   );

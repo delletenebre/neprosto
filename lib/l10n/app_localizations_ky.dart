@@ -1761,6 +1761,9 @@ class AppLocalizationsKy extends AppLocalizations {
   String get createProject => 'Долбоор түзүү';
 
   @override
+  String get createProjectFromTemplate => 'Үлгүдөн долбоор түзүү…';
+
+  @override
   String get plywood => 'Фанера';
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoIcons;
 import 'package:flutter/foundation.dart'
     show listEquals, mapEquals, precisionErrorTolerance;
 import 'package:flutter/gestures.dart'
@@ -1530,7 +1531,7 @@ class _HoleDialogState extends State<_HoleDialog> {
       if (selection.length == 1)
         (
           label: s.delete,
-          icon: Icons.delete_outline,
+          icon: CupertinoIcons.trash,
           run: () => deleteRow(ref),
         ),
     ];
@@ -1829,187 +1830,165 @@ class _HoleDialogState extends State<_HoleDialog> {
     required bool compact,
   }) {
     final s = context.strings, colors = context.colors;
-    Widget rowAction(IconData icon, String label, VoidCallback action) =>
-        SizedBox.square(
-          dimension: 22,
-          child: DeskInlineIcon(icon: icon, label: label, onPressed: action),
-        );
     final ordered = displayRows, all = rows;
-    final list = Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: colors.field,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.line),
-      ),
-      child: ordered.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(s.noPanelHoles, textAlign: TextAlign.center),
-              ),
-            )
-          : ListView.builder(
-              controller: listScroll,
-              padding: EdgeInsets.zero,
-              itemExtent: rowHeight,
-              itemCount: ordered.length,
-              itemBuilder: (context, row) {
-                final ref = ordered[row],
-                    i = ref.$2,
-                    group = groups.members[ref];
-                final draft = ref.$1 == HoleKind.face ? drafts[i] : null;
-                final active = ref == primaryRow;
-                final marked = active || extraSelection.contains(ref);
-                final solo = active && extraSelection.isEmpty;
-                final editing =
-                    solo && draft != null && nameBeforeEditing != null;
-                final title = '№ ${all.indexOf(ref) + 1} · ${refLabel(ref)}';
-                final String details;
-                if (draft != null) {
-                  final type = draft.blind
-                      ? '${s.blindHole} · ${draft.back ? s.faceB : s.faceA}'
-                      : s.throughHole;
-                  final bit = draft.diameter.millimeters;
-                  details = draft.name.isEmpty && !editing
-                      ? type
-                      : 'Ø${bit == null ? '—' : length(bit)} · $type';
-                } else {
-                  details =
-                      'Ø${length(edgeGeometry(ref).diameter)} · ${_drillSideLabel(widget.part, edgeFor(ref).faceIndex)}';
-                }
-                final detailStyle = TextStyle(
-                  fontSize: 12,
-                  height: 1.15,
-                  color: colors.muted,
-                );
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 1),
-                  child: Listener(
-                    onPointerDown: (e) {
-                      if (e.buttons == kSecondaryMouseButton) {
-                        rowMenu(ref, e.position);
-                      }
-                    },
-                    child: GestureDetector(
-                      onLongPressStart: (e) =>
-                          rowMenu(ref, e.globalPosition, additive: true),
-                      child: DeskListRow(
-                        key: ValueKey('hole-row-${ref.$1.name}-$i'),
-                        selected: marked,
-                        onPressed: () => changeWork(
-                          () => selectRow(ref, toggle: pickingAnchor),
-                        ),
-                        padding: const EdgeInsets.fromLTRB(10, 3, 6, 2),
-                        builder: (_) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(minHeight: 22),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Row(
-                                      spacing: 5,
-                                      children: [
-                                        if (draft != null &&
-                                            invalid.contains(i))
-                                          Tooltip(
-                                            message: [
-                                              for (final field in [
-                                                draft.diameter,
-                                                draft.x,
-                                                draft.y,
-                                                if (draft.blind) draft.depth,
-                                              ])
-                                                ?fieldError(draft, field),
-                                              if (draft.hasBolt &&
-                                                  draft.bolt.value?.fitsSection(
-                                                        size.z,
-                                                        draft.sectionDepth,
-                                                      ) !=
-                                                      true)
-                                                s.boltBoreInvalid,
-                                              if (boltCollisions.contains(i))
-                                                s.boreCollision,
-                                            ].join('\n'),
-                                            child: Icon(
-                                              Icons.warning_amber_rounded,
-                                              size: 16,
-                                              color: colors.danger,
-                                            ),
-                                          ),
-                                        if (editing) ...[
-                                          Text('№ ${i + 1}'),
-                                          Expanded(child: inlineName(draft)),
-                                        ] else ...[
-                                          Flexible(
-                                            child: Text(
-                                              title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                          if (solo && draft != null)
-                                            rowAction(
-                                              Icons.edit_outlined,
-                                              s.rename,
-                                              () => startRename(draft),
-                                            ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Row(
+    final detailStyle = TextStyle(
+      fontSize: 11,
+      height: 1.15,
+      color: colors.muted,
+    );
+    final list = ordered.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(s.noPanelHoles, textAlign: TextAlign.center),
+            ),
+          )
+        : ListView.builder(
+            controller: listScroll,
+            padding: EdgeInsets.zero,
+            itemExtent: rowHeight,
+            itemCount: ordered.length,
+            itemBuilder: (context, row) {
+              final ref = ordered[row], i = ref.$2, group = groups.members[ref];
+              final draft = ref.$1 == HoleKind.face ? drafts[i] : null;
+              final active = ref == primaryRow;
+              final marked = active || extraSelection.contains(ref);
+              final solo = active && extraSelection.isEmpty;
+              final editing =
+                  solo && draft != null && nameBeforeEditing != null;
+              final title = '№ ${all.indexOf(ref) + 1} · ${refLabel(ref)}';
+              final String details;
+              if (draft != null) {
+                final type = draft.blind
+                    ? '${s.blindHole} · ${draft.back ? s.faceB : s.faceA}'
+                    : s.throughHole;
+                final bit = draft.diameter.millimeters;
+                details = draft.name.isEmpty && !editing
+                    ? type
+                    : 'Ø${bit == null ? '—' : length(bit)} · $type';
+              } else {
+                details =
+                    'Ø${length(edgeGeometry(ref).diameter)} · ${_drillSideLabel(widget.part, edgeFor(ref).faceIndex)}';
+              }
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Listener(
+                  onPointerDown: (e) {
+                    if (e.buttons == kSecondaryMouseButton) {
+                      rowMenu(ref, e.position);
+                    }
+                  },
+                  child: GestureDetector(
+                    onLongPressStart: (e) =>
+                        rowMenu(ref, e.globalPosition, additive: true),
+                    child: DeskListRow(
+                      key: ValueKey('hole-row-${ref.$1.name}-$i'),
+                      selected: marked,
+                      onPressed: () => changeWork(
+                        () => selectRow(ref, toggle: pickingAnchor),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(8, 2, 4, 2),
+                      builder: (_) => Row(
+                        spacing: toolbarGap,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 22,
+                                  ),
+                                  child: Row(
+                                    spacing: 5,
                                     children: [
-                                      Text(
-                                        details,
-                                        maxLines: group != null || editing
-                                            ? 1
-                                            : 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: detailStyle,
-                                      ),
-                                      if (group != null && !editing)
-                                        Text(
-                                          s.numberedGroup(group),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: detailStyle,
+                                      if (draft != null && invalid.contains(i))
+                                        Tooltip(
+                                          message: [
+                                            for (final field in [
+                                              draft.diameter,
+                                              draft.x,
+                                              draft.y,
+                                              if (draft.blind) draft.depth,
+                                            ])
+                                              ?fieldError(draft, field),
+                                            if (draft.hasBolt &&
+                                                draft.bolt.value?.fitsSection(
+                                                      size.z,
+                                                      draft.sectionDepth,
+                                                    ) !=
+                                                    true)
+                                              s.boltBoreInvalid,
+                                            if (boltCollisions.contains(i))
+                                              s.boreCollision,
+                                          ].join('\n'),
+                                          child: Icon(
+                                            Icons.warning_amber_rounded,
+                                            size: 16,
+                                            color: colors.danger,
+                                          ),
                                         ),
+                                      if (editing) ...[
+                                        Text('№ ${i + 1}'),
+                                        Expanded(child: inlineName(draft)),
+                                      ] else ...[
+                                        Flexible(
+                                          child: Text(
+                                            title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        if (solo && draft != null)
+                                          SizedBox.square(
+                                            dimension: 22,
+                                            child: DeskInlineIcon(
+                                              icon: PhosphorIconsRegular
+                                                  .pencilSimple,
+                                              label: s.rename,
+                                              onPressed: () =>
+                                                  startRename(draft),
+                                            ),
+                                          ),
+                                      ],
                                     ],
                                   ),
                                 ),
-                                if (solo)
-                                  rowAction(
-                                    Icons.delete_outline,
-                                    s.delete,
-                                    () => changeWork(() => deleteRow(ref)),
+                                Text(
+                                  details,
+                                  maxLines: group != null || editing ? 1 : 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: detailStyle,
+                                ),
+                                if (group != null && !editing)
+                                  Text(
+                                    s.numberedGroup(group),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: detailStyle,
                                   ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          if (solo)
+                            DeskIcon(
+                              CupertinoIcons.trash,
+                              s.delete,
+                              () => changeWork(() => deleteRow(ref)),
+                            ),
+                        ],
                       ),
                     ),
                   ),
-                );
-              },
-            ),
-    );
+                ),
+              );
+            },
+          );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2020,10 +1999,7 @@ class _HoleDialogState extends State<_HoleDialog> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         if (compact)
-          SizedBox(
-            height: rowHeight * ordered.length.clamp(1, 3) + 10,
-            child: list,
-          )
+          SizedBox(height: rowHeight * ordered.length.clamp(1, 3), child: list)
         else
           Expanded(child: list),
       ],

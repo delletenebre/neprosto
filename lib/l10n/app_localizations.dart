@@ -3255,6 +3255,12 @@ abstract class AppLocalizations {
   /// **'Создать проект'**
   String get createProject;
 
+  /// No description provided for @createProjectFromTemplate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Создать проект из шаблона…'**
+  String get createProjectFromTemplate;
+
   /// No description provided for @plywood.
   ///
   /// In ru, this message translates to:

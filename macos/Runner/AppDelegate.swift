@@ -15,8 +15,13 @@ class AppDelegate: FlutterAppDelegate, NSMenuItemValidation {
   }
 
   func validateMenuItem(_ item: NSMenuItem) -> Bool {
-    if item.action == #selector(workspaceCommand(_:)) || item.action == #selector(drawingSettings(_:)) {
-      return (mainFlutterWindow as? MainFlutterWindow)?.workspaceMenuEnabled == true
+    let window = mainFlutterWindow as? MainFlutterWindow
+    if item.action == #selector(workspaceCommand(_:)) {
+      guard let window = window, window.workspaceMenuEnabled else { return false }
+      return window.hasDocument || ["np.new", "np.open"].contains(item.identifier?.rawValue ?? "")
+    }
+    if item.action == #selector(drawingSettings(_:)) {
+      return window?.workspaceMenuEnabled == true
     }
     return true
   }

@@ -1755,6 +1755,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createProject => 'Create project';
 
   @override
+  String get createProjectFromTemplate => 'Create project from template…';
+
+  @override
   String get plywood => 'Plywood';
 
   @override

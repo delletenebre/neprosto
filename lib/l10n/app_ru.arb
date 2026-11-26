@@ -1036,6 +1036,7 @@
   "help": "Справка",
   "blankProject": "Пустой проект",
   "createProject": "Создать проект",
+  "createProjectFromTemplate": "Создать проект из шаблона…",
   "plywood": "Фанера",
   "mdf": "МДФ",
   "stockShopping": "Материалы для покупки",

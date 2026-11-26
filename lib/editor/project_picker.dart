@@ -21,52 +21,18 @@ Future<ProjectTabChoice?> chooseProjectForTab(
         Navigator.pop(ctx, (action: action, recent: project));
     return DeskDialog(
       title: Text(strings.recentProjects),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (recent.isEmpty)
-            Padding(
+      content: recent.isEmpty
+          ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
                 strings.noRecentProjects,
                 style: TextStyle(color: ctx.colors.muted),
               ),
+            )
+          : RecentProjectList(
+              recent: recent,
+              onOpen: (project) => choose('recent', project),
             ),
-          for (final project in recent)
-            DeskControl(
-              onPressed: () => choose('recent', project),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-              child: Row(
-                children: [
-                  Icon(CupertinoIcons.doc, size: 18, color: ctx.colors.muted),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          project.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (project.file case final file?)
-                          Text(
-                            file.path,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: ctx.colors.muted,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
       actions: [
         DeskButton(
           plain: true,
@@ -86,3 +52,54 @@ Future<ProjectTabChoice?> chooseProjectForTab(
     );
   },
 );
+
+class RecentProjectList extends StatelessWidget {
+  const RecentProjectList({
+    super.key,
+    required this.recent,
+    required this.onOpen,
+  });
+
+  final List<RecentProject> recent;
+  final ValueChanged<RecentProject> onOpen;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final project in recent)
+        DeskControl(
+          onPressed: () => onOpen(project),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          child: Row(
+            children: [
+              Icon(CupertinoIcons.doc, size: 18, color: context.colors.muted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      project.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (project.file case final file?)
+                      Text(
+                        file.path,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.colors.muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+}

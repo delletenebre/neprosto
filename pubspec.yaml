@@ -1,7 +1,7 @@
 name: neprosto
-description: Настольный редактор для проектирования мебели и деревянных конструкций.
+description: Редактор для проектирования мебели и деревянных конструкций.
 publish_to: none
-version: 0.1.0+1
+version: 26.11.27+1
 environment:
   sdk: ^3.14.0
 dependencies:

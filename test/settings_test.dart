@@ -441,7 +441,7 @@ void main() {
         Project.bench().withWorkspace(Vector3(900, 800, 700)),
       );
       final tabs = ProjectTabs(original)..create();
-      final empty = tabs.value.editor;
+      final empty = tabs.value!.editor;
       expect(empty.project.workspaceSize, Vector3(3000, 3000, 2500));
       await t.pumpWidget(NeprostoApp.withTabs(tabs));
       await t.pumpAndSettle();

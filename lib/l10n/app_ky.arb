@@ -524,6 +524,7 @@
   "help": "Жардам",
   "blankProject": "Бош долбоор",
   "createProject": "Долбоор түзүү",
+  "createProjectFromTemplate": "Үлгүдөн долбоор түзүү…",
   "plywood": "Фанера",
   "mdf": "МДФ",
   "stockShopping": "Сатып алынуучу материалдар",

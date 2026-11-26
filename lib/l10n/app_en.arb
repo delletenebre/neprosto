@@ -531,6 +531,7 @@
   "help": "Help",
   "blankProject": "Blank project",
   "createProject": "Create project",
+  "createProjectFromTemplate": "Create project from template…",
   "plywood": "Plywood",
   "mdf": "MDF",
   "stockShopping": "Shopping list",

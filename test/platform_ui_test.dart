@@ -522,7 +522,7 @@ void main() {
       if (apple) await t.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
       await t.pumpAndSettle();
       expect(dialog, findsNothing);
-      expect(tabs.value.dirty, isTrue);
+      expect(tabs.value!.dirty, isTrue);
 
       await t.tap(find.byTooltip('Настройки'));
       await t.pumpAndSettle();
@@ -616,6 +616,8 @@ void main() {
       final bar = find.byKey(const ValueKey('drawing-toolbar'));
       Finder control(String label) =>
           find.descendant(of: bar, matching: find.byTooltip(label));
+      final magnet = control('Магнит при перемещении');
+      final dimensions = control('Скрыть размеры');
 
       for (final width in [1380.0, 880.0, 790.0]) {
         await t.binding.setSurfaceSize(Size(width, 800));
@@ -634,6 +636,8 @@ void main() {
           save,
           plane,
           grid,
+          magnet,
+          dimensions,
           zoomOut,
           zoomIn,
           settings,
@@ -645,6 +649,8 @@ void main() {
           (undo, redo),
           (redo, save),
           (plane, grid),
+          (grid, magnet),
+          (magnet, dimensions),
           (zoomOut, zoomIn),
         ]) {
           final first = t.getRect(a), second = t.getRect(b);
@@ -674,6 +680,20 @@ void main() {
           expect(t.getCenter(save).dx, lessThan(t.getCenter(plane).dx));
         }
       }
+      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      for (final (button, label) in [
+        (magnet, 'Магнит при перемещении'),
+        (dimensions, 'Скрыть размеры'),
+      ]) {
+        final text = find.text(label);
+        final count = text.evaluate().length;
+        await mouse.moveTo(t.getCenter(button));
+        await t.pump(const Duration(milliseconds: 400));
+        await t.pumpAndSettle();
+        expect(text, findsNWidgets(count + 1));
+      }
+      await mouse.removePointer();
     },
     variant: TargetPlatformVariant({
       TargetPlatform.macOS,
@@ -766,7 +786,7 @@ void main() {
       expect(t.getSize(drawing).width, originalWidth);
       tabs.create();
       await t.pumpAndSettle();
-      expect(toolbar['title'], tabs.value.committed.name);
+      expect(toolbar['title'], tabs.value!.committed.name);
       expect(enabled('Отменить'), isFalse);
       expect(enabled('Повторить'), isFalse);
     },

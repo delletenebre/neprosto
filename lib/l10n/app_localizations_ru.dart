@@ -1756,6 +1756,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createProject => 'Создать проект';
 
   @override
+  String get createProjectFromTemplate => 'Создать проект из шаблона…';
+
+  @override
   String get plywood => 'Фанера';
 
   @override

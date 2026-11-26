@@ -69,12 +69,19 @@ class ProjectTab {
   );
 }
 
-class ProjectTabs extends ValueNotifier<ProjectTab> {
-  ProjectTabs._(this.items, int index) : super(items[index]);
-  factory ProjectTabs(Editor editor, {bool dirty = false}) =>
-      ProjectTabs._([ProjectTab(editor, dirty: dirty)], 0);
+class ProjectTabs extends ValueNotifier<ProjectTab?> {
+  ProjectTabs._(this.items, super.value);
+  ProjectTabs.empty() : this._([], null);
+  factory ProjectTabs(Editor editor, {bool dirty = false}) {
+    final tab = ProjectTab(editor, dirty: dirty);
+    return ProjectTabs._([tab], tab);
+  }
 
   final List<ProjectTab> items;
+  late final _idleEditor = Editor(Project('', const []));
+  // Application settings and shortcuts are available without a document.
+  Editor get editor => value?.editor ?? _idleEditor;
+
   static const storageKey = 'project-tabs-v1';
   static const recentKey = 'recent-projects-v1';
   static const recentLimit = 10;
@@ -89,7 +96,7 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
       return;
     }
     // Seed the history from file links in sessions saved before it existed.
-    for (final tab in [...items.where((tab) => tab != value), value]) {
+    for (final tab in [...items.where((tab) => tab != value), ?value]) {
       if (tab.file case final file?) {
         remember(RecentProject.linked(tab.committed.name, file));
       }
@@ -143,13 +150,13 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
     remember(
       source != null
           ? RecentProject.linked(project.name, source)
-          : savedDocument(value, project),
+          : savedDocument(value!, project),
       previousId: recentId,
     );
   }
 
   String encode() => jsonEncode({
-    'active': items.indexOf(value),
+    'active': value == null ? -1 : items.indexOf(value!),
     'tabs': [for (final tab in items) tab.toJson()],
   });
 
@@ -158,18 +165,22 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
     final tabs = [
       for (final tab in data['tabs'] as List) ProjectTab.fromJson(tab),
     ];
-    if (tabs.isEmpty) throw FormatException(editorStrings.noOpenProjects);
+    if (tabs.isEmpty) return ProjectTabs.empty();
     return ProjectTabs._(
       tabs,
-      (data['active'] as int).clamp(0, tabs.length - 1),
+      tabs[(data['active'] as int).clamp(0, tabs.length - 1)],
     );
   }
 
-  void select(ProjectTab tab) {
+  void select(ProjectTab tab) => _select(tab);
+
+  void _select(ProjectTab? tab) {
     if (tab == value) return;
-    final previous = value.editor;
+    final previous = editor;
+    final next = tab?.editor ?? _idleEditor;
     previous.releaseModifiers();
-    tab.editor
+    if (tab == null) next.message = '';
+    next
       ..connectionRuler = previous.connectionRuler
       ..snapByDefault = previous.snapByDefault
       ..dimensionsByDefault = previous.dimensionsByDefault
@@ -207,7 +218,7 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
     }
     final project =
         template?.copy(name: name) ??
-        Project(name, [], const [], unit ?? value.editor.displayUnit);
+        Project(name, [], const [], unit ?? editor.displayUnit);
     open(project.withDefaultWorkspace(), dirty: template != null);
   }
 
@@ -219,7 +230,7 @@ class ProjectTabs extends ValueNotifier<ProjectTab> {
     if (tab != value) {
       notifyListeners();
     } else if (items.isEmpty) {
-      create();
+      _select(null);
     } else {
       select(items[index.clamp(0, items.length - 1)]);
     }

@@ -72,12 +72,7 @@ Future<void> main() async {
     // An unavailable preference store must not prevent the editor from opening.
   }
   editorStrings = lookupAppLocalizations(language);
-  var tabs = ProjectTabs(
-    Editor(
-      Project.bench(displayUnit ?? LengthUnit.millimeter)
-          .withDefaultWorkspace(),
-    ),
-  );
+  var tabs = ProjectTabs.empty();
   String? issue;
   var autosave = true, minutes = 5;
   try {
@@ -95,7 +90,7 @@ Future<void> main() async {
   } catch (_) {
     tabs.restoreRecent(null);
   }
-  final editor = tabs.value.editor;
+  final editor = tabs.editor;
   try {
     editor.displayUnit = displayUnit ?? editor.project.unit;
     autosave = await prefs.getBool('autosave-enabled') ?? true;
@@ -178,10 +173,10 @@ class _NeprostoAppState extends State<NeprostoApp> {
   }
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<ProjectTab>(
-    valueListenable: widget.tabs,
-    builder: (context, tab, _) {
-      final editor = tab.editor;
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.tabs,
+    builder: (context, _) {
+      final editor = widget.tabs.editor;
       final palette =
           overridePalette ??
           (MediaQuery.platformBrightnessOf(context) == Brightness.dark
@@ -305,8 +300,8 @@ class Workspace extends StatefulWidget {
 
 class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
   ProjectTabs get tabs => widget.tabs;
-  ProjectTab get active => tabs.value;
-  Editor get e => active.editor;
+  ProjectTab? get active => tabs.value;
+  Editor get e => tabs.editor;
   GlobalKey<DrawingViewportState> get viewportKey =>
       GlobalObjectKey<DrawingViewportState>(e);
   bool partsVisible = true, inspectorVisible = true, fileBusy = false;
@@ -333,6 +328,12 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     menu.setMethodCallHandler((call) async {
       if (!{'undo', 'redo', 'selectAll'}.contains(call.method)) {
         if (ModalRoute.isCurrentOf(context) != true || fileBusy) return;
+        if (active == null &&
+            call.method != 'new' &&
+            call.method != 'open' &&
+            call.method != 'settings') {
+          return;
+        }
         switch (call.method) {
           case 'new' ||
               'open' ||
@@ -387,11 +388,11 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
   void toggleInspector() =>
       setState(() => inspectorVisible = !inspectorVisible);
 
-  Future<void> syncDocumentToolbar() async {
+  Future<void> syncDocumentToolbar(ProjectTab? document) async {
     if (!macControls || kIsWeb || hasWindowToolbar == false) return;
     final state = (
-      active.committed.name,
-      active.dirty,
+      document?.committed.name,
+      document?.dirty,
       partsVisible,
       inspectorVisible,
       widget.locale,
@@ -405,12 +406,13 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           await const MethodChannel(
             'neprosto/popup',
           ).invokeMethod<bool>('documentToolbar', {
-            'title': active.committed.name,
-            'edited': active.dirty,
+            'title': document?.committed.name ?? _appName,
+            'hasDocument': document != null,
+            'edited': document?.dirty ?? false,
             'labels': {'partsSidebar': s.partsTree, 'inspector': s.properties},
             'panels': {
-              'partsSidebar': partsVisible,
-              'inspector': inspectorVisible,
+              'partsSidebar': document != null && partsVisible,
+              'inspector': document != null && inspectorVisible,
             },
           }) ==
           true;
@@ -516,14 +518,17 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         ModalRoute.of(context)?.isCurrent != true) {
       return KeyEventResult.ignored;
     }
-    if ((!editingText || e.tool == Tool.align) &&
+    final hasProject = active != null;
+    if (hasProject &&
+        (!editingText || e.tool == Tool.align) &&
         event.logicalKey == LogicalKeyboardKey.escape) {
       e.setTool(
         e.tool == Tool.measure || e.tool == Tool.gap ? Tool.ruler : Tool.select,
       );
       return KeyEventResult.handled;
     }
-    if (e.canApplyRotation &&
+    if (hasProject &&
+        e.canApplyRotation &&
         !editingText &&
         const [
           SingleActivator(LogicalKeyboardKey.enter),
@@ -543,7 +548,9 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                     command == Command.closeTab)))) {
       return KeyEventResult.ignored;
     }
-    if (command == Command.dimensions) heldDimensionKey = event.physicalKey;
+    if (hasProject && command == Command.dimensions) {
+      heldDimensionKey = event.physicalKey;
+    }
     return dispatch(command) ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 
@@ -614,6 +621,12 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
   }
 
   bool dispatch(Command command) {
+    if (active == null &&
+        command != Command.newProject &&
+        command != Command.open &&
+        command != Command.settings) {
+      return false;
+    }
     switch (command) {
       case Command.settings:
         unawaited(editSettings());
@@ -764,6 +777,17 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       await widget.preferences?.setBool('move-snap-default', value);
     } catch (_) {
       e.message = editorStrings.snapSaveError;
+      e.refresh();
+    }
+  }
+
+  Future<void> saveDimensionsDefault(bool value) async {
+    e.dimensionsByDefault = value;
+    e.refresh();
+    try {
+      await widget.preferences?.setBool('dimensions-by-default', value);
+    } catch (_) {
+      e.message = editorStrings.settingsSaveError;
       e.refresh();
     }
   }
@@ -1023,7 +1047,11 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     cache();
   }
 
-  Future<void> file(String action, {ProjectTab? tab}) async {
+  Future<void> file(
+    String action, {
+    ProjectTab? tab,
+    RecentProject? recent,
+  }) async {
     if (fileBusy) return;
     fileBusy = true;
     try {
@@ -1031,14 +1059,16 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       FocusManager.instance.applyFocusChangesIfNeeded();
       if (autosaving case final pending?) await pending;
       if (!mounted) return;
+      final document = tab ?? active;
       final source =
           DialogSource.current ??
           DialogSource.of(
             action == 'new' || action == 'addTab'
                 ? newProjectButton.currentContext
-                : GlobalObjectKey(tab ?? active).currentContext,
+                : document == null
+                ? null
+                : GlobalObjectKey(document).currentContext,
           );
-      RecentProject? recent;
       if (action == 'addTab') {
         final choice = await chooseProjectForTab(
           context,
@@ -1049,33 +1079,37 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         action = choice.action;
         recent = choice.recent;
       }
-      if (action == 'projectSettings') {
-        await showProjectSettings(context, e, source: source);
-        return;
-      }
-      if (action == 'save' || action == 'saveAs') {
-        await save(active, saveAs: action == 'saveAs');
-        return;
-      }
-      if (action == 'rename') {
-        final document = tab ?? active;
-        final value = await showNameDialog(
-          context,
-          context.strings.projectName,
-          document.committed.name,
-          source: source,
-        );
-        if (value != null && mounted && tabs.items.contains(document)) {
-          document.editor.commit(document.editor.project.copy(name: value));
-          if (document != active) setState(() {});
-        }
-        return;
-      }
       switch (action) {
+        case 'projectSettings':
+          if (document != null) {
+            await showProjectSettings(context, document.editor, source: source);
+          }
+          return;
+        case 'save' || 'saveAs':
+          if (document != null) {
+            await save(document, saveAs: action == 'saveAs');
+          }
+          return;
+        case 'rename':
+          if (document == null) return;
+          final value = await showNameDialog(
+            context,
+            context.strings.projectName,
+            document.committed.name,
+            source: source,
+          );
+          if (value != null && mounted && tabs.items.contains(document)) {
+            document.editor.commit(document.editor.project.copy(name: value));
+            if (document != active) setState(() {});
+          }
+          return;
         case 'close':
-          final closing = tab ?? active;
-          if (!await closeAllowed(closing, source) || !mounted) return;
-          tabs.close(closing);
+          if (document == null ||
+              !await closeAllowed(document, source) ||
+              !mounted) {
+            return;
+          }
+          tabs.close(document);
         case 'open':
           final input = await openProject();
           if (!mounted || input == null) return;
@@ -1184,7 +1218,120 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     };
   }
 
-  Widget header() => Container(
+  Widget startPage() {
+    final s = context.strings;
+    final colors = context.colors;
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: settingsControls(),
+            ),
+          ),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 24,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            children: [
+                              Mark(),
+                              Text(
+                                _appName,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -1.1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            s.noOpenProjects,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: colors.muted),
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              DeskButton(
+                                key: newProjectButton,
+                                primary: true,
+                                onPressed: () => file('new'),
+                                icon: const Icon(cu.CupertinoIcons.plus),
+                                label: Text(s.createProjectFromTemplate),
+                              ),
+                              DeskButton(
+                                onPressed: () => file('open'),
+                                icon: const Icon(cu.CupertinoIcons.folder),
+                                label: Text(s.openProjectMenu),
+                              ),
+                            ],
+                          ),
+                          if (e.message.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                e.message,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: colors.danger),
+                              ),
+                            ),
+                          ],
+                          if (tabs.recent.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                s.recentProjects,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.ink,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            RecentProjectList(
+                              recent: tabs.recent,
+                              onOpen: (project) =>
+                                  file('recent', recent: project),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget header(ProjectTab active) => Container(
     height: macControls ? (hasWindowToolbar == true ? 31 : 35) : 47,
     padding: EdgeInsets.symmetric(horizontal: macControls ? 0 : 15),
     decoration: BoxDecoration(
@@ -1297,7 +1444,40 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       ),
   ];
 
+  Widget settingsControls() {
+    final locale = Localizations.localeOf(context);
+    return Wrap(
+      spacing: 2,
+      runSpacing: toolbarGap,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (kIsWeb)
+          MenuChoice<Locale>(
+            label: context.strings.language,
+            compactLabel:
+                '${editorLanguages[locale]!.flag} ${locale.languageCode.toUpperCase()}',
+            items: [
+              for (final language in editorLanguages.entries)
+                (language.key, '${language.value.flag} ${language.value.name}'),
+            ],
+            selected: locale,
+            change: selectLanguage,
+          ),
+        DeskIcon(
+          cu.CupertinoIcons.gear_alt,
+          context.strings.settings,
+          editSettings,
+          key: settingsButton,
+          size: 18,
+        ),
+      ],
+    );
+  }
+
   Widget viewportToolbar() {
+    final s = context.strings;
+    final showDimensions = e.dimensionsByDefault;
+
     Widget group(List<Widget> controls, {double spacing = 2}) => Wrap(
       spacing: spacing,
       runSpacing: toolbarGap,
@@ -1330,7 +1510,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         () => file('save'),
       ),
     ]);
-    final planeAndGrid = Row(
+    final planeControls = Row(
       mainAxisSize: MainAxisSize.min,
       spacing: 2,
       children: [
@@ -1342,6 +1522,24 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           key: gridButton,
           size: 18,
           background: gridControlsOpen ? context.colors.pale : null,
+        ),
+        Semantics(
+          toggled: e.snapByDefault,
+          child: iconAction(
+            PhosphorIconsRegular.magnet,
+            s.faceMagnet,
+            () => saveSnapDefault(!e.snapByDefault),
+            active: e.snapByDefault,
+          ),
+        ),
+        Semantics(
+          toggled: showDimensions,
+          child: iconAction(
+            cu.CupertinoIcons.resize,
+            showDimensions ? s.hideDimensions : s.showDimensions,
+            () => saveDimensionsDefault(!e.dimensionsByDefault),
+            active: showDimensions,
+          ),
         ),
       ],
     );
@@ -1366,30 +1564,6 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       ),
     ]);
 
-    final locale = Localizations.localeOf(context);
-    final settings = afterDivider(
-      group([
-        if (kIsWeb)
-          MenuChoice<Locale>(
-            label: context.strings.language,
-            compactLabel:
-                '${editorLanguages[locale]!.flag} ${locale.languageCode.toUpperCase()}',
-            items: [
-              for (final language in editorLanguages.entries)
-                (language.key, '${language.value.flag} ${language.value.name}'),
-            ],
-            selected: locale,
-            change: selectLanguage,
-          ),
-        DeskIcon(
-          cu.CupertinoIcons.gear_alt,
-          context.strings.settings,
-          editSettings,
-          key: settingsButton,
-          size: 18,
-        ),
-      ]),
-    );
     final editingControls = group([
       if (!macControls)
         iconAction(
@@ -1403,7 +1577,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     final viewActions = Wrap(
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
-      children: [zoomControls, settings],
+      children: [zoomControls, afterDivider(settingsControls())],
     );
 
     return Container(
@@ -1428,7 +1602,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                   overflowAlignment: OverflowBarAlignment.end,
                   spacing: 12,
                   overflowSpacing: toolbarGap,
-                  children: [planeAndGrid, viewActions],
+                  children: [planeControls, viewActions],
                 ),
               ],
             );
@@ -1443,7 +1617,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 12,
                   runSpacing: toolbarGap,
-                  children: [editingControls, planeAndGrid],
+                  children: [editingControls, planeControls],
                 ),
               ),
               ConstrainedBox(
@@ -1554,62 +1728,67 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     );
   }
 
+  Widget drawingWorkspace(ProjectTab active) => Column(
+    children: [
+      header(active),
+      Expanded(
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final compact = box.maxWidth < 1050;
+            final parts = PartsPanel(
+              e,
+              showPartsList: showPartsList,
+              partsListButton: partsListButton,
+              centerOn: (points) {
+                final viewport = viewportKey.currentState;
+                if (viewport == null) return;
+                e.camera.fitPoints(points, viewport.size);
+                e.fitRequested = false;
+                e.refresh();
+              },
+            );
+            return Row(
+              key: ObjectKey(e),
+              children: [
+                if (partsVisible && box.maxWidth >= 780) ...[
+                  SizedBox(
+                    width: macControls
+                        ? (compact ? 185 : 224)
+                        : (compact ? 173 : 214),
+                    child: parts,
+                  ),
+                  const VerticalDivider(width: 1),
+                ],
+                Expanded(child: viewport()),
+                if (!macControls ||
+                    inspectorVisible ||
+                    (box.maxWidth < 780 && e.rulerActive)) ...[
+                  const VerticalDivider(width: 1),
+                  SizedBox(
+                    width: compact ? 210 : 247,
+                    child: box.maxWidth < 780 && e.rulerActive
+                        ? parts
+                        : Inspector(e),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+      statusBar(),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: e,
     builder: (context, _) {
-      unawaited(syncDocumentToolbar());
-      final workspace = Column(
-        children: [
-          header(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, box) {
-                final compact = box.maxWidth < 1050;
-                final parts = PartsPanel(
-                  e,
-                  showPartsList: showPartsList,
-                  partsListButton: partsListButton,
-                  centerOn: (points) {
-                    final viewport = viewportKey.currentState;
-                    if (viewport == null) return;
-                    e.camera.fitPoints(points, viewport.size);
-                    e.fitRequested = false;
-                    e.refresh();
-                  },
-                );
-                return Row(
-                  key: ObjectKey(e),
-                  children: [
-                    if (partsVisible && box.maxWidth >= 780) ...[
-                      SizedBox(
-                        width: macControls
-                            ? (compact ? 185 : 224)
-                            : (compact ? 173 : 214),
-                        child: parts,
-                      ),
-                      const VerticalDivider(width: 1),
-                    ],
-                    Expanded(child: viewport()),
-                    if (!macControls ||
-                        inspectorVisible ||
-                        (box.maxWidth < 780 && e.rulerActive)) ...[
-                      const VerticalDivider(width: 1),
-                      SizedBox(
-                        width: compact ? 210 : 247,
-                        child: box.maxWidth < 780 && e.rulerActive
-                            ? parts
-                            : Inspector(e),
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ),
-          statusBar(),
-        ],
-      );
+      final document = active;
+      unawaited(syncDocumentToolbar(document));
+      final workspace = document == null
+          ? startPage()
+          : drawingWorkspace(document);
       return appleControls
           ? cu.CupertinoPageScaffold(child: workspace)
           : Scaffold(body: workspace);

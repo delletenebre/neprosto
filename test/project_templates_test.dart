@@ -279,7 +279,7 @@ void main() {
       await t.binding.setSurfaceSize(const Size(1080, 760));
       addTearDown(() => t.binding.setSurfaceSize(null));
       final tabs = ProjectTabs(Editor(Project.bench()));
-      final original = tabs.value;
+      final original = tabs.value!;
       await t.pumpWidget(NeprostoApp.withTabs(tabs));
       await t.pumpAndSettle();
       Future<void> tap(Finder f) async {
@@ -335,7 +335,7 @@ void main() {
       expect(find.text(editorStrings.stockShopping), findsNothing);
       expect(find.text(editorStrings.cuttingLayout), findsNothing);
       await tap(find.text('Создать проект'));
-      final created = tabs.value;
+      final created = tabs.value!;
       expect(created.committed.name, editorStrings.templateRaisedBed);
       expect(created.committed.unit, LengthUnit.inch);
       expect(created.committed.beams, isNotEmpty);
@@ -352,9 +352,9 @@ void main() {
       expect(tabs.items, hasLength(2));
       await chooseTemplate();
       await tap(find.text('Пустой проект'));
-      expect(tabs.value.committed.unit, LengthUnit.inch);
-      expect(tabs.value.committed.beams, isEmpty);
-      expect(tabs.value.committed.workspaceSize, Vector3(3000, 3000, 2500));
+      expect(tabs.value!.committed.unit, LengthUnit.inch);
+      expect(tabs.value!.committed.beams, isEmpty);
+      expect(tabs.value!.committed.workspaceSize, Vector3(3000, 3000, 2500));
       tabs.select(original);
       await t.pumpAndSettle();
       expect(original.editor.displayUnit, LengthUnit.inch);

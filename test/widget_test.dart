@@ -1955,8 +1955,19 @@ void main() {
     final drawing = find.byKey(const Key('drawing'));
     Offset at(Vector3 p) =>
         t.getTopLeft(drawing) + e.camera.project(p, t.getSize(drawing));
+    final magnet = find.byTooltip('Магнит при перемещении');
+    bool magnetActive() => t
+        .widget<DeskIcon>(
+          find.ancestor(of: magnet, matching: find.byType(DeskIcon)),
+        )
+        .active;
     for (final sticky in [true, false]) {
-      e.snapByDefault = sticky;
+      if (magnetActive() != sticky) {
+        await t.tap(magnet);
+        await t.pump();
+      }
+      expect(e.snapByDefault, sticky);
+      expect(magnetActive(), sticky);
       for (final mod in [
         LogicalKeyboardKey.controlLeft,
         LogicalKeyboardKey.metaLeft,
@@ -1997,6 +2008,7 @@ void main() {
     await t.tap(find.text('Готово'));
     await t.pumpAndSettle();
     expect(e.snapByDefault, true);
+    expect(magnetActive(), isTrue);
     e.setTool(Tool.measure);
     await t.pump();
     final near = at(Vector3(3, 3, 20));
@@ -2704,7 +2716,17 @@ void main() {
     await mouse.addPointer();
     addTearDown(mouse.removePointer);
     for (final byDefault in [false, true]) {
-      e.dimensionsByDefault = byDefault;
+      final toggle = find.byTooltip(
+        byDefault ? 'Показать размеры' : 'Скрыть размеры',
+      );
+      await t.tap(toggle);
+      await t.pumpAndSettle();
+      expect(e.dimensionsByDefault, byDefault);
+      expect(labels().isNotEmpty, byDefault);
+      expect(
+        find.byTooltip(byDefault ? 'Скрыть размеры' : 'Показать размеры'),
+        findsOneWidget,
+      );
       await t.sendKeyEvent(LogicalKeyboardKey.keyD);
       await t.pumpAndSettle();
       expect(labels(), unorderedEquals(StockAxis.values));
