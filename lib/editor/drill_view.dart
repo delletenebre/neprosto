@@ -781,6 +781,7 @@ class _DrillViewState extends State<_DrillView> with TickerProviderStateMixin {
                 ),
           toggleRotation,
           key: const ValueKey('drill-rotation'),
+          size: 17 - 4 * progress,
           foreground: Color.lerp(
             context.colors.muted,
             context.colors.ink,

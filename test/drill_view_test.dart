@@ -224,6 +224,7 @@ void main() {
         await t.ensureVisible(button);
         await t.pumpAndSettle();
         final anchor = t.getCenter(button);
+        final hitArea = t.getSize(button);
         final hiddenX = t.getCenter(yz).dx;
         expect(yz.hitTestable(), findsNothing);
         await t.tap(button);
@@ -232,6 +233,7 @@ void main() {
         final openingX = t.getCenter(yz).dx;
         expect(closeIcon, findsNothing);
         final openingGlyph = t.widget<CustomPaint>(morph).painter!;
+        expect(t.getSize(morph).width, inExclusiveRange(13, 17));
         expect(
           find.descendant(of: button, matching: find.byTooltip('Закрыть')),
           findsOneWidget,
@@ -256,6 +258,8 @@ void main() {
         expect(t.getCenter(button), anchor);
         expect(t.getCenter(yz).dx, greaterThan(openingX));
         expect(closeIcon, findsOneWidget);
+        expect(t.widget<Icon>(closeIcon).size, 13);
+        expect(t.getSize(button), hitArea);
         expect(morph, findsNothing);
         for (final (plane, index) in [(xy, 2), (xz, 1), (yz, 0)]) {
           expect(plane.hitTestable(), findsOneWidget);
