@@ -265,7 +265,8 @@ enum EdgeHoleKind {
   dowel,
   pocket,
   openingSensor,
-  pushToOpen;
+  pushToOpen,
+  woodScrew;
 
   String get label => switch (this) {
     plain => editorStrings.boltBoreOption,
@@ -274,6 +275,7 @@ enum EdgeHoleKind {
     pocket => 'Pocket Hole',
     openingSensor => editorStrings.openingSensor,
     pushToOpen => 'Push-to-open',
+    woodScrew => editorStrings.connectionWoodScrew,
   };
 }
 

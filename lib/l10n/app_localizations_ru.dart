@@ -1431,6 +1431,50 @@ class AppLocalizationsRu extends AppLocalizations {
   String get miterJointMenu => 'Угловой стык…';
 
   @override
+  String get jointEndToEnd => 'Торец к торцу';
+
+  @override
+  String get jointEndToFace => 'Торец к грани';
+
+  @override
+  String get jointChooseFace => 'Выбрать грань';
+
+  @override
+  String get jointNeedsOverlap =>
+      'Выставьте выбранные детали с нахлёстом у стыка.';
+
+  @override
+  String get jointNoAvailableCut =>
+      'Здесь не получается сквозной запил по месту. Проверьте, хватает ли нахлёста и свободна ли длина деталей.';
+
+  @override
+  String get jointBottomFace => 'Нижняя грань';
+
+  @override
+  String get jointTopFace => 'Верхняя грань';
+
+  @override
+  String get jointCutLine => 'Линия реза';
+
+  @override
+  String get jointOffcut => 'Обрезок';
+
+  @override
+  String get jointApplyCut => 'Подрезать';
+
+  @override
+  String get jointNoCommonCut =>
+      'Выбранные торцы не сходятся по одной плоскости. Проверьте торцы и положение деталей.';
+
+  @override
+  String get jointCutOutsideStock =>
+      'Линия реза выходит за торец заготовки. Проверьте нахлёст деталей.';
+
+  @override
+  String get jointNoFaceCut =>
+      'На опоре нет грани для сквозного запила выбранной детали. Проверьте положение деталей.';
+
+  @override
   String get corner => 'Угол';
 
   @override

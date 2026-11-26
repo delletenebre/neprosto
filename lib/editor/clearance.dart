@@ -1,8 +1,20 @@
 part of 'model.dart';
 
+bool facesMeet(Beam a, int fa, Beam b, int fb) {
+  final gap = _faceGap(a, fa, b, fb);
+  return gap != null && gap.from.distanceTo(gap.to) < 1e-6;
+}
+
 /// Clip the facing polygons in their common plane. A ruler remains normal
 /// to the shelves when one slides sideways or the whole assembly rotates.
-({Vector3 from, Vector3 to, Vector3 direction})? _faceGap(
+typedef _FaceGap = ({
+  Vector3 from,
+  Vector3 to,
+  Vector3 direction,
+  List<Vector3> polygon,
+});
+
+_FaceGap? _faceGap(
   Beam a,
   int fa,
   Beam b,
@@ -22,7 +34,7 @@ part of 'model.dart';
     for (final strip in b.solidStrips(vertical: fb ~/ 2 == 2))
       faceCorners[fb].map(strip.corner).toList(),
   ];
-  ({Vector3 from, Vector3 to, Vector3 direction})? best;
+  _FaceGap? best;
   var nearest = double.infinity;
   for (final strip in a.solidStrips(vertical: fa ~/ 2 == 2)) {
     final face = faceCorners[fa].map(strip.corner).toList();
@@ -39,7 +51,7 @@ part of 'model.dart';
   return best;
 }
 
-({Vector3 from, Vector3 to, Vector3 direction})? _polygonGap(
+_FaceGap? _polygonGap(
   List<Vector3> face,
   List<Vector3> other,
   Vector3 n,
@@ -62,7 +74,12 @@ part of 'model.dart';
   }
   if (area.abs() < 1e-6) return null;
   final p = polygon.reduce((a, b) => a + b) / polygon.length.toDouble();
-  return (from: p, to: p + n * math.max(0, distance), direction: n);
+  return (
+    from: p,
+    to: p + n * math.max(0, distance),
+    direction: n,
+    polygon: polygon,
+  );
 }
 
 Dimension? shelfClearance(Beam first, Beam second) {

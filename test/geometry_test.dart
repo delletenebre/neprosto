@@ -368,6 +368,91 @@ void main() {
       );
     },
   );
+  test('An in-place miter uses the actual angle and keeps both far ends', () {
+    final a = bar(1, 0, 0, 0, 380);
+    final laidOut = makeJoint(
+      a,
+      bar(2, 0, 0, 0, 290),
+      firstEnd: true,
+      secondEnd: false,
+      inside: 120,
+      bendThroughWidth: true,
+      flip: true,
+    );
+    final first = a.copy(size: Vector3(430, 30, 40));
+    final second = laidOut.moving.copy(
+      origin: laidOut.moving.origin - laidOut.moving.along * 50,
+      size: Vector3(340, 30, 40),
+      startCut: (y: 0, z: 0),
+    );
+    final cuts = endJointOption(first, second)!;
+    expect(cuts.map((cut) => cut.end), [true, false]);
+    for (final cut in cuts) {
+      near(cut.part.along, cut.stock.along);
+      near(cut.part.across, cut.stock.across);
+      expect(endAngle(cut.part, cut.end), closeTo(30, 1e-6));
+      for (final i in faceCorners[cut.end ? 0 : 1]) {
+        near(cut.part.corner(i), cut.stock.corner(i));
+      }
+      expect(jointOffcutDepth(cut), greaterThan(0));
+    }
+    expect(facesMeet(cuts.first.part, 1, cuts.last.part, 0), isTrue);
+    expect(intersects(cuts.first.part, cuts.last.part), isFalse);
+    expect(endJointOption(laidOut.fixed, laidOut.moving), isNull);
+    expect(endJointOption(a, second), isNull);
+  });
+
+  test('The inside and outside edges meet across different widths', () {
+    final a = bar(1, 0, 0, 0, 220);
+    final b = Beam(
+      2,
+      'Опора',
+      Vector3(200, -10, 0),
+      Vector3(210, 50, 40),
+      axis(1),
+      -axis(0),
+    );
+    final cuts = endJointOption(a, b)!;
+    final first = cuts.first.part, second = cuts.last.part;
+    expect(facesMeet(first, 1, second, 0), isTrue);
+    expect(endAngle(first, true) + endAngle(second, false), closeTo(90, 1e-6));
+    expect(endAngle(first, true), isNot(closeTo(45, 1e-6)));
+    near(first.corner(1), Vector3(200, 0, 0));
+    near(first.corner(3), Vector3(150, 30, 0));
+    expect(intersects(first, second), isFalse);
+  });
+
+  test('A crossing support creates a compound cut on just the nearby end', () {
+    final a = bar(1, -220, 0, 0, 360);
+    final normal = Vector3(-1, 1, 1).normalized();
+    final along = Vector3(1, 1, 0).normalized();
+    final across = -normal;
+    final b = Beam(
+      2,
+      'Опора',
+      Vector3(0, 15, 20) - along * 230 - along.cross(across) * 50,
+      Vector3(600, 36, 100),
+      along,
+      across,
+    );
+    final option = faceJointOptions(b, a).first;
+    expect(option.support, same(b));
+    expect(option.face, 2);
+    final cut = option.cut;
+    expect(cut.stock, same(a));
+    expect(cut.end, isTrue);
+    expect(cut.part.endCut.y.abs(), greaterThan(1));
+    expect(cut.part.endCut.z.abs(), greaterThan(1));
+    expect(facesMeet(cut.part, 1, b, 2), isTrue);
+    expect(intersects(cut.part, b), isFalse);
+    near(cut.part.origin, a.origin);
+    near(cut.part.along, a.along);
+    expect(
+      () => trimJointToFace(a.copy(locks: 1), b, 2),
+      throwsFormatException,
+    );
+  });
+
   test(
     'Groups, dependent dimensions, cuts and units survive a project round trip',
     () {

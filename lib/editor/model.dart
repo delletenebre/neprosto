@@ -12,6 +12,7 @@ part 'rabbet.dart';
 part 'panel_hole.dart';
 part 'drill_groups.dart';
 part 'connection.dart';
+part 'part_connection.dart';
 part 'edge_banding.dart';
 part 'door.dart';
 

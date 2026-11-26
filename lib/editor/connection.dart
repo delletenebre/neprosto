@@ -22,7 +22,8 @@ enum ConnectionKind {
   confirmat,
   minifix,
   maxifix,
-  pocket;
+  pocket,
+  woodScrew;
 
   String get label => switch (this) {
     dowel => editorStrings.dowel,
@@ -30,6 +31,7 @@ enum ConnectionKind {
     minifix => 'Minifix',
     maxifix => 'Maxifix',
     pocket => 'Pocket Hole',
+    woodScrew => editorStrings.connectionWoodScrew,
   };
 }
 
@@ -57,7 +59,9 @@ class ConnectionPattern {
     if (kind == ConnectionKind.dowel) {
       return List.filled(dowels.clamp(1, 3), kind);
     }
-    if (kind == ConnectionKind.pocket) return [kind];
+    if (kind == ConnectionKind.pocket || kind == ConnectionKind.woodScrew) {
+      return [kind];
+    }
     final before = switch (side) {
       DowelSide.before => dowels,
       DowelSide.after => 0,
@@ -108,13 +112,16 @@ class ConnectionPattern {
         );
       } else {
         final pocket = spec == ConnectionKind.pocket,
-            screw = spec == ConnectionKind.confirmat;
+            screw = spec == ConnectionKind.confirmat,
+            woodScrew = spec == ConnectionKind.woodScrew;
         edges.add((
           datum: null,
           kind: pocket
               ? EdgeHoleKind.pocket
               : screw
               ? EdgeHoleKind.confirmat
+              : woodScrew
+              ? EdgeHoleKind.woodScrew
               : EdgeHoleKind.dowel,
           edge: edge,
           fromEnd: fromEnd,
@@ -124,6 +131,8 @@ class ConnectionPattern {
               ? 9.525
               : screw
               ? 5.0
+              : woodScrew
+              ? 3.0
               : 8.0,
           back: pocket && back,
           depth: pocket
@@ -145,6 +154,14 @@ class ConnectionPattern {
     return layoutIssue(part, layout);
   }
 }
+
+Beam withDrillLayout(Beam part, DrillLayout layout) => part.copy(
+  drillGroups: part.drillGroups.assign(
+    layoutRefs(layout, part.holes.length, part.edgeHoles.length),
+  ),
+  holes: [...part.holes, ...layout.faces],
+  edgeHoles: [...part.edgeHoles, ...layout.edges],
+);
 
 String? layoutIssue(Beam part, DrillLayout additions) {
   final size = part.size;

@@ -1429,6 +1429,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get miterJointMenu => 'Miter joint…';
 
   @override
+  String get jointEndToEnd => 'End to end';
+
+  @override
+  String get jointEndToFace => 'End to face';
+
+  @override
+  String get jointChooseFace => 'Choose face';
+
+  @override
+  String get jointNeedsOverlap =>
+      'Position the selected parts so they overlap at the joint.';
+
+  @override
+  String get jointNoAvailableCut =>
+      'A through cut is unavailable here. Check the overlap and whether the parts’ lengths are locked.';
+
+  @override
+  String get jointBottomFace => 'Bottom face';
+
+  @override
+  String get jointTopFace => 'Top face';
+
+  @override
+  String get jointCutLine => 'Cut line';
+
+  @override
+  String get jointOffcut => 'Offcut';
+
+  @override
+  String get jointApplyCut => 'Trim';
+
+  @override
+  String get jointNoCommonCut =>
+      'The selected ends cannot meet on one plane. Check the ends and part positions.';
+
+  @override
+  String get jointCutOutsideStock =>
+      'The cut line extends beyond the end of the stock. Check how far the parts overlap.';
+
+  @override
+  String get jointNoFaceCut =>
+      'No support face gives a through cut on this part. Check the part positions.';
+
+  @override
   String get corner => 'Corner';
 
   @override

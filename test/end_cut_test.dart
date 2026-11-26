@@ -4,8 +4,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:neprosto/editor/contact.dart';
 import 'package:neprosto/editor/controller.dart';
 import 'package:neprosto/editor/desktop.dart';
+import 'package:neprosto/editor/drawing.dart';
 import 'package:neprosto/editor/joint.dart';
 import 'package:neprosto/editor/model.dart';
 import 'package:neprosto/editor/parts_workbook.dart';
@@ -17,6 +19,146 @@ import 'package:neprosto/editor/saw_preview.dart';
 import 'package:neprosto/main.dart';
 
 void main() {
+  testWidgets('The selected pair trims to the support from the context menu', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(1280, 820));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final a = Beam(
+      1,
+      'Поперечина',
+      Vector3(-240, 0, 0),
+      Vector3(310, 40, 30),
+      axis(0),
+      axis(1),
+    );
+    final along = Vector3(.6, .8, 0), across = Vector3(-.8, .6, 0);
+    final b = Beam(
+      2,
+      'Опора',
+      Vector3(0, 20, 0) - along * 230 - across * 50,
+      Vector3(490, 50, 30),
+      along,
+      across,
+    );
+    final project = Project('Стык', [a, b]);
+    final editor = Editor(project)..select(a.id);
+    await t.pumpWidget(NeprostoApp(editor: editor));
+    await t.pumpAndSettle();
+    expect(find.text('Угловой стык…'), findsNothing);
+    editor.select(b.id, multi: true);
+    await t.pumpAndSettle();
+    expect(find.text('Угловой стык…'), findsOneWidget);
+    final drawing = find.byKey(const Key('drawing'));
+    final point = editor.camera.project(
+      a.pointAt(Vector3(.2, .5, 1)),
+      t.getSize(drawing),
+    );
+    final gesture = await t.startGesture(
+      t.getTopLeft(drawing) + point,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await t.pumpAndSettle();
+    await t.tap(find.text('Угловой стык…').last);
+    await t.pumpAndSettle();
+    final dialog = find.byType(DeskDialog);
+    Finder item(String label) =>
+        find.descendant(of: dialog, matching: find.text(label));
+    expect(item('Торец к грани'), findsOneWidget);
+    expect(item('Линия реза'), findsOneWidget);
+    expect(item('Обрезок'), findsOneWidget);
+    expect(
+      find.descendant(of: dialog, matching: find.byType(EditableText)),
+      findsNothing,
+    );
+    expect(editor.project, same(project));
+
+    final preview = t
+        .widgetList<CustomPaint>(
+          find.descendant(of: dialog, matching: find.byType(CustomPaint)),
+        )
+        .singleWhere(
+          (widget) =>
+              widget.painter is DrawingPainter &&
+              widget.foregroundPainter != null,
+        );
+    final canvas = TestRecordingCanvas();
+    preview.foregroundPainter!.paint(canvas, const Size(440, 185));
+    final colors = t.element(dialog).colors;
+    final marks = canvas.invocations
+        .map((entry) => entry.invocation)
+        .where((call) => call.memberName == #drawPath)
+        .where(
+          (call) => !(call.positionalArguments[0] as Path).getBounds().isEmpty,
+        )
+        .map((call) => (call.positionalArguments[1] as Paint).color.toARGB32());
+    expect(marks, contains(colors.accent.toARGB32()));
+    expect(marks, contains(colors.danger.withValues(alpha: .24).toARGB32()));
+
+    await t.tap(item('Подрезать'));
+    await t.pumpAndSettle();
+    final trimmed = editor.project.byId[a.id]!;
+    expect(trimmed.bevelled, isTrue);
+    expect(trimmed.size.x, lessThan(a.size.x));
+    expect(editor.project.byId[b.id], same(b));
+    expect(intersects(trimmed, b), isFalse);
+    editor.undo();
+    expect(editor.project, same(project));
+    await t.pumpAndSettle();
+  }, variant: const TargetPlatformVariant({TargetPlatform.windows}));
+
+  testWidgets('The in-place miter keeps a vertical frame in position', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(1250, 780));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final a = Beam(
+      1,
+      'Обвязка',
+      Vector3.zero(),
+      Vector3(240, 60, 30),
+      axis(0),
+      axis(1),
+    );
+    final b = Beam(
+      2,
+      'Стойка',
+      Vector3(220, 0, -20),
+      Vector3(440, 60, 30),
+      axis(2),
+      axis(1),
+    );
+    final project = Project('Рама', [a, b]);
+    final editor = Editor(project)
+      ..select(b.id)
+      ..select(a.id, multi: true);
+    await t.pumpWidget(NeprostoApp(editor: editor));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Угловой стык…'));
+    await t.pumpAndSettle();
+    await t.binding.setSurfaceSize(const Size(545, 520));
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    final dialog = find.byType(DeskDialog);
+    Finder item(String label) =>
+        find.descendant(of: dialog, matching: find.text(label));
+    expect(item('Торец к торцу'), findsOneWidget);
+    expect(item('Внутренний угол · 90°'), findsOneWidget);
+    expect(editor.project, same(project));
+    await t.tap(item('Подрезать'));
+    await t.pumpAndSettle();
+    final first = editor.project.byId[a.id]!,
+        second = editor.project.byId[b.id]!;
+    expect(facesMeet(first, 1, second, 0), isTrue);
+    expect(endAngle(first, true), closeTo(45, 1e-6));
+    expect(endAngle(second, false), closeTo(45, 1e-6));
+    expect(first.corner(0), a.corner(0));
+    expect(second.corner(7).distanceTo(b.corner(7)), lessThan(1e-6));
+    expect(second.along, b.along);
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+
   test('Compound markings and saw settings describe the same cut plane', () {
     final part = Project.bench().beams.first.copy(
       size: Vector3(300, 40, 20),

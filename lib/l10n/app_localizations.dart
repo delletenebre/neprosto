@@ -2649,6 +2649,84 @@ abstract class AppLocalizations {
   /// **'Угловой стык…'**
   String get miterJointMenu;
 
+  /// No description provided for @jointEndToEnd.
+  ///
+  /// In ru, this message translates to:
+  /// **'Торец к торцу'**
+  String get jointEndToEnd;
+
+  /// No description provided for @jointEndToFace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Торец к грани'**
+  String get jointEndToFace;
+
+  /// No description provided for @jointChooseFace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать грань'**
+  String get jointChooseFace;
+
+  /// No description provided for @jointNeedsOverlap.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выставьте выбранные детали с нахлёстом у стыка.'**
+  String get jointNeedsOverlap;
+
+  /// No description provided for @jointNoAvailableCut.
+  ///
+  /// In ru, this message translates to:
+  /// **'Здесь не получается сквозной запил по месту. Проверьте, хватает ли нахлёста и свободна ли длина деталей.'**
+  String get jointNoAvailableCut;
+
+  /// No description provided for @jointBottomFace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нижняя грань'**
+  String get jointBottomFace;
+
+  /// No description provided for @jointTopFace.
+  ///
+  /// In ru, this message translates to:
+  /// **'Верхняя грань'**
+  String get jointTopFace;
+
+  /// No description provided for @jointCutLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Линия реза'**
+  String get jointCutLine;
+
+  /// No description provided for @jointOffcut.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обрезок'**
+  String get jointOffcut;
+
+  /// No description provided for @jointApplyCut.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подрезать'**
+  String get jointApplyCut;
+
+  /// No description provided for @jointNoCommonCut.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбранные торцы не сходятся по одной плоскости. Проверьте торцы и положение деталей.'**
+  String get jointNoCommonCut;
+
+  /// No description provided for @jointCutOutsideStock.
+  ///
+  /// In ru, this message translates to:
+  /// **'Линия реза выходит за торец заготовки. Проверьте нахлёст деталей.'**
+  String get jointCutOutsideStock;
+
+  /// No description provided for @jointNoFaceCut.
+  ///
+  /// In ru, this message translates to:
+  /// **'На опоре нет грани для сквозного запила выбранной детали. Проверьте положение деталей.'**
+  String get jointNoFaceCut;
+
   /// No description provided for @corner.
   ///
   /// In ru, this message translates to:

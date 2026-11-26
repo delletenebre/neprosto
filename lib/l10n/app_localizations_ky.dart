@@ -1435,6 +1435,50 @@ class AppLocalizationsKy extends AppLocalizations {
   String get miterJointMenu => 'Кыйгач бирикме…';
 
   @override
+  String get jointEndToEnd => 'Учу учуна';
+
+  @override
+  String get jointEndToFace => 'Учу капталына';
+
+  @override
+  String get jointChooseFace => 'Бетти тандоо';
+
+  @override
+  String get jointNeedsOverlap =>
+      'Тандалган тетиктерди бирикме жеринде кабатташтырып жайгаштырыңыз.';
+
+  @override
+  String get jointNoAvailableCut =>
+      'Бул жерден тетикти толук кесүү мүмкүн эмес. Кабатталууну жана узундуктун кулпуланганын текшериңиз.';
+
+  @override
+  String get jointBottomFace => 'Төмөнкү бет';
+
+  @override
+  String get jointTopFace => 'Үстүңкү бет';
+
+  @override
+  String get jointCutLine => 'Кесүү сызыгы';
+
+  @override
+  String get jointOffcut => 'Кесинди';
+
+  @override
+  String get jointApplyCut => 'Кесүү';
+
+  @override
+  String get jointNoCommonCut =>
+      'Тандалган учтар бир тегиздикте кошулбайт. Учтарды жана тетиктердин ордун текшериңиз.';
+
+  @override
+  String get jointCutOutsideStock =>
+      'Кесүү сызыгы даярдаманын учунан чыгып кетти. Тетиктердин кабатталышын текшериңиз.';
+
+  @override
+  String get jointNoFaceCut =>
+      'Таянычтын эч бир бети бул тетикти толук кесүүгө туура келбейт. Тетиктердин ордун текшериңиз.';
+
+  @override
   String get corner => 'Бурч';
 
   @override
