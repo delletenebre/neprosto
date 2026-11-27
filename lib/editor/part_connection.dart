@@ -88,13 +88,12 @@ class PartContact {
     return low <= high ? (low, high) : null;
   }
 
-  ConnectionPlan? plan(
+  ({Vector3 datum, double low, double high, double clearance})? _rowGeometry(
     ConnectionPattern pattern,
-    ConnectionRuler ruler, {
-    bool fromEnd = false,
-    int groups = 1,
-  }) {
-    if (!_rectangular) return null;
+    Vector3 axis,
+    double diameter,
+    double inset,
+  ) {
     final kind = pattern.kind;
     final cam =
         kind == ConnectionKind.minifix || kind == ConnectionKind.maxifix;
@@ -115,16 +114,6 @@ class PartContact {
       return null;
     }
 
-    final aDepth = part.size[face ~/ 2], bDepth = mate.size[mateFace ~/ 2];
-    final thickness = math.min(part.size.z, mate.size.z);
-    // Round dowels in the sizes used by the wolfcraft Dowelmaster; use the
-    // smaller stock's thickness for the threshold.
-    final diameter = thickness <= 14
-        ? 6.0
-        : thickness <= 18
-        ? 8.0
-        : 10.0;
-    final axis = direction;
     final datum = center - axis * (center - part.origin).dot(axis);
     final row = ConnectionPattern(kind, back: pattern.back);
     final camTemplate = cam
@@ -145,57 +134,126 @@ class PartContact {
       ConnectionKind.woodScrew => 2.25,
       ConnectionKind.dowel => diameter / 2,
     };
-    final limits = _limits(datum, axis, clearance + _contactTolerance);
+    final margin = clearance + _contactTolerance;
+    final limits = _limits(datum, axis, margin);
     if (limits == null) return null;
     final (low, high) = limits;
-    var base = datum;
-    var stationDirection = axis;
-    var stations = _woodStations(kind, low, high, clearance);
-    if (cabinet) {
-      final (start, end) = _limits(datum, axis, 0)!;
-      final usableStart = math.max(low, start + ruler.first);
-      final usableEnd = math.min(high, end - ruler.first);
-      if (fromEnd) {
-        base = datum + axis * length;
-        stationDirection = -axis;
-      }
-      stations = _cabinetStations(
-        pattern,
-        fromEnd ? length - usableEnd : usableStart,
-        fromEnd ? length - usableStart : usableEnd,
-        ruler,
-        groups,
-      );
-    }
-    if (stations.isEmpty) return null;
+    final (start, end) = _limits(datum, axis, 0)!;
+    return (
+      datum: datum,
+      low: math.max(low, start + inset),
+      high: math.min(high, end - inset),
+      clearance: margin,
+    );
+  }
 
-    final rows = {
-      for (final b in [part, mate])
-        b.id: [
-          for (var i = 0; i < (cabinet ? groups : 1); i++)
-            (faces: <PanelHole>[], edges: <EdgeHole>[]),
-        ],
-    };
-    final baseDirection = cabinet ? stationDirection : null;
-    final groupSize = cabinet ? pattern.stations.length : stations.length;
+  ConnectionPlan? plan(
+    ConnectionPattern pattern,
+    ConnectionRuler ruler, {
+    bool fromEnd = false,
+    List<ConnectionPattern>? groups,
+  }) {
+    if (!_rectangular) return null;
+    final patterns = cabinet ? groups ?? [pattern] : [pattern];
+    if (patterns.isEmpty) return null;
+    final axis = direction;
+    final thickness = math.min(part.size.z, mate.size.z);
+    // Round dowels in the sizes used by the wolfcraft Dowelmaster.
+    final diameter = thickness <= 14
+        ? 6.0
+        : thickness <= 18
+        ? 8.0
+        : 10.0;
+    final inset = cabinet ? ruler.first : 0.0;
+    final geometry = [
+      for (final pattern in patterns)
+        _rowGeometry(pattern, axis, diameter, inset),
+    ].nonNulls.toList();
+    if (geometry.length != patterns.length) return null;
+    final low = geometry.map((r) => r.low).reduce(math.max);
+    final high = geometry.map((r) => r.high).reduce(math.min);
+    if (high < low) return null;
+    final reverse = cabinet && fromEnd;
+    final stationDirection = reverse ? -axis : axis;
+    final stationRows = cabinet
+        ? _cabinetStations(
+            patterns,
+            reverse ? length - high : low,
+            reverse ? length - low : high,
+            ruler,
+          )
+        : [_woodStations(pattern.kind, low, high, geometry.single.clearance)];
+    if (stationRows.isEmpty) return null;
+
+    final primary = <DrillLayout>[], secondary = <DrillLayout>[];
     final marks = <Vector3>[];
-    for (final (index, station) in stations.indexed) {
-      final (item, distance) = station;
-      final first = rows[part.id]![index ~/ groupSize];
-      final second = rows[mate.id]![index ~/ groupSize];
-      final point = base + stationDirection * distance;
+    for (final (index, stations) in stationRows.indexed) {
+      final row = geometry[index];
+      final base = reverse ? row.datum + axis * length : row.datum;
+      final layout = _buildRow(
+        patterns[index],
+        stations,
+        base,
+        stationDirection,
+        diameter,
+        reverse,
+      );
+      if (layout == null) return null;
+      primary.add(layout.first);
+      secondary.add(layout.second);
+      marks.addAll(layout.marks);
+    }
+    final base = geometry.first.datum;
+    final plan = ConnectionPlan(this, stationRows, marks, {
+      part.id: primary,
+      mate.id: secondary,
+    }, cabinet ? base + axis * (reverse ? length : 0) : null);
+    if (layoutIssue(part, plan.layouts[part.id]!) != null ||
+        layoutIssue(mate, plan.layouts[mate.id]!) != null) {
+      return null;
+    }
+    return plan;
+  }
+
+  ({DrillLayout first, DrillLayout second, List<Vector3> marks})? _buildRow(
+    ConnectionPattern pattern,
+    List<(ConnectionKind, double)> stations,
+    Vector3 base,
+    Vector3 direction,
+    double diameter,
+    bool fromEnd,
+  ) {
+    final aDepth = part.size[face ~/ 2], bDepth = mate.size[mateFace ~/ 2];
+    final first = (faces: <PanelHole>[], edges: <EdgeHole>[]);
+    final second = (faces: <PanelHole>[], edges: <EdgeHole>[]);
+    final edge = face < 4 ? PanelEdge.values[face] : null;
+    final row = ConnectionPattern(pattern.kind, back: pattern.back);
+    final baseDirection = cabinet ? direction : null;
+    final marks = <Vector3>[];
+    for (final (item, distance) in stations) {
+      final point = base + direction * distance;
       marks.add(point);
       switch (item) {
         case ConnectionKind.dowel:
           final aMax = aDepth - 2, bMax = bDepth - 2;
           if (math.min(aMax, bMax) < diameter) return null;
           final total = math.min(diameter == 6 ? 32.0 : 42.0, aMax + bMax);
-          final a = (total / 2).clamp(
-            math.max(diameter, total - bMax),
-            math.min(aMax, total - diameter),
-          ).toDouble();
-          _addBore(first, part, face, point, diameter, a, EdgeHoleKind.dowel,
-              baseDirection: baseDirection);
+          final a = (total / 2)
+              .clamp(
+                math.max(diameter, total - bMax),
+                math.min(aMax, total - diameter),
+              )
+              .toDouble();
+          _addBore(
+            first,
+            part,
+            face,
+            point,
+            diameter,
+            a,
+            EdgeHoleKind.dowel,
+            baseDirection: baseDirection,
+          );
           _addBore(
             second,
             mate,
@@ -212,13 +270,22 @@ class PartContact {
           final depth = isConfirmat ? 50 - bDepth : math.min(aDepth - 2, 30.0);
           if (depth < (isConfirmat ? 20 : 12) ||
               depth > aDepth - 1 ||
-              bDepth > 40)
+              bDepth > 40) {
             return null;
+          }
           final bit = isConfirmat
               ? EdgeHoleKind.confirmat
               : EdgeHoleKind.woodScrew;
-          _addBore(first, part, face, point, isConfirmat ? 5 : 3, depth, bit,
-              baseDirection: baseDirection);
+          _addBore(
+            first,
+            part,
+            face,
+            point,
+            isConfirmat ? 5 : 3,
+            depth,
+            bit,
+            baseDirection: baseDirection,
+          );
           _addBore(
             second,
             mate,
@@ -262,46 +329,65 @@ class PartContact {
           first.edges.add(pocketHole);
       }
     }
-    final plan = ConnectionPlan(this, stations, marks, rows, cabinet ? base : null);
-    if (pattern.issue(part, plan.layouts[part.id]!) != null ||
-        layoutIssue(mate, plan.layouts[mate.id]!) != null) {
-      return null;
-    }
-    return plan;
+    return pattern.issue(part, first) == null
+        ? (first: first, second: second, marks: marks)
+        : null;
   }
 }
 
 class ConnectionPlan {
-  ConnectionPlan(this.contact, this.stations, this.marks, this.rows, this.datum);
+  ConnectionPlan(
+    this.contact,
+    this.stationRows,
+    this.marks,
+    this.rows,
+    this.datum,
+  );
 
   final PartContact contact;
-  final List<(ConnectionKind, double)> stations;
+  final List<List<(ConnectionKind, double)>> stationRows;
+  late final stations = stationRows.expand((row) => row).toList();
   final List<Vector3> marks;
   final Map<int, List<DrillLayout>> rows;
   final Vector3? datum;
-  late final layouts = rows.map((id, row) => MapEntry(id, (
-    faces: [for (final group in row) ...group.faces],
-    edges: [for (final group in row) ...group.edges],
-  )));
+  late final layouts = rows.map(
+    (id, row) => MapEntry(id, (
+      faces: [for (final group in row) ...group.faces],
+      edges: [for (final group in row) ...group.edges],
+    )),
+  );
 }
 
-List<(ConnectionKind, double)> _cabinetStations(
-  ConnectionPattern pattern,
+List<List<(ConnectionKind, double)>> _cabinetStations(
+  List<ConnectionPattern> patterns,
   double low,
   double high,
   ConnectionRuler ruler,
-  int groups,
 ) {
-  final kinds = pattern.stations;
-  final first = math.max(0, ((low - ruler.first - _contactTolerance) / ruler.pitch).ceil());
+  final first = math.max(
+    0,
+    ((low - ruler.first - _contactTolerance) / ruler.pitch).ceil(),
+  );
   final last = ((high - ruler.first + _contactTolerance) / ruler.pitch).floor();
-  if (last - first + 1 < groups * kinds.length || groups < 1) return const [];
-  final available = last - first - kinds.length + 1;
+  final kinds = patterns.map((p) => p.stations).toList();
+  final required = kinds.fold(0, (sum, row) => sum + row.length);
+  final free = last - first + 1 - required;
+  if (free < 0) return const [];
+  var next = first;
   return [
-    for (var group = 0; group < groups; group++)
-      for (final (index, item) in kinds.indexed)
-        (item, ruler.first + (first + index +
-            (groups == 1 ? 0 : (available * group / (groups - 1)).round())) * ruler.pitch),
+    for (final (group, row) in kinds.indexed)
+      [
+        for (final item in row)
+          (
+            item,
+            ruler.first +
+                (next++ +
+                        (kinds.length == 1
+                            ? 0
+                            : (free * group / (kinds.length - 1)).round())) *
+                    ruler.pitch,
+          ),
+      ],
   ];
 }
 
@@ -345,7 +431,8 @@ void _addBore(
   Vector3? baseDirection,
 }) {
   final p = _stockPoint(b, world);
-  bool endsAtMax(Vector3 axis) => (baseDirection?.dot(axis) ?? 0) < -1 + _contactTolerance;
+  bool endsAtMax(Vector3 axis) =>
+      (baseDirection?.dot(axis) ?? 0) < -1 + _contactTolerance;
   if (face >= 4) {
     final fromEnd = endsAtMax(b.along), fromFar = endsAtMax(b.across);
     layout.faces.add(

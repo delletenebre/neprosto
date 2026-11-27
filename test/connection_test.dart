@@ -161,6 +161,134 @@ void main() {
     },
   );
 
+  test('Cabinet sets share the chosen datum and keep the opposite setback', () {
+    final shelf = board.copy(
+      size: Vector3(600, 210, 19),
+      finish: FinishPreset.whiteBoard.finish,
+    );
+    final side = board.copy(
+      id: 2,
+      origin: Vector3(0, 229, 0),
+      size: Vector3(600, 90, 19),
+      along: axis(0),
+      across: axis(2),
+      finish: FinishPreset.whiteBoard.finish,
+    );
+    final contact = connectionContacts([shelf, side]).first;
+    const front = ConnectionPattern(ConnectionKind.minifix, dowels: 1);
+    const middle = ConnectionPattern(
+      ConnectionKind.confirmat,
+      dowels: 2,
+      side: DowelSide.both,
+    );
+    const rear = ConnectionPattern(ConnectionKind.confirmat);
+    final uniform = contact.plan(front, ruler, groups: [front, front])!;
+    expect(uniform.stationRows.map((row) => row.map((s) => s.$2)), [
+      [37, 69],
+      [517, 549],
+    ]);
+    for (final reversed in [false, true]) {
+      final mixed = contact.plan(
+        front,
+        ruler,
+        fromEnd: reversed,
+        groups: [front, middle, rear],
+      )!;
+      expect(mixed.stationRows, [
+        [(ConnectionKind.minifix, 37.0), (ConnectionKind.dowel, 69.0)],
+        [
+          (ConnectionKind.dowel, 293.0),
+          (ConnectionKind.confirmat, 325.0),
+          (ConnectionKind.dowel, 357.0),
+        ],
+        [(ConnectionKind.confirmat, 549.0)],
+      ]);
+      expect(
+        contact.length - mixed.stationRows.last.last.$2,
+        greaterThanOrEqualTo(37),
+      );
+      expect(mixed.layouts[1]!.faces.single.fromEnd, reversed);
+      expect(
+        mixed.layouts[1]!.edges.every((hole) => hole.fromEnd == reversed),
+        isTrue,
+      );
+      expect(mixed.marks.first.x, reversed ? 563 : 37);
+      expect(mixed.marks.last.x, reversed ? 51 : 549);
+      final drilled = mixed.rows[1]!.fold(shelf, withDrillLayout);
+      expect(drilled.drillGroups.members.values.toSet(), hasLength(2));
+      expect(
+        Beam.fromJson(drilled.toJson()).drillGroups.members,
+        drilled.drillGroups.members,
+      );
+    }
+  });
+
+  testWidgets('Each cabinet set can override the common fastening choice', (
+    t,
+  ) async {
+    await t.binding.setSurfaceSize(const Size(820, 740));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    final shelf = board.copy(finish: FinishPreset.whiteBoard.finish);
+    final side = board.copy(
+      id: 2,
+      origin: Vector3(0, 229, 0),
+      size: Vector3(360, 90, 19),
+      along: axis(0),
+      across: axis(2),
+      finish: FinishPreset.whiteBoard.finish,
+    );
+    final original = Project('Шкаф', [shelf, side]);
+    final editor = Editor(original)
+      ..select(1)
+      ..select(2, multi: true);
+    await t.pumpWidget(NeprostoApp(editor: editor));
+    await t.pumpAndSettle();
+    Future<void> tap(Finder finder) async {
+      await t.ensureVisible(finder);
+      await t.tap(finder);
+      await t.pumpAndSettle();
+    }
+
+    Finder control(String key, String label) => find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.text(label),
+    );
+
+    await tap(find.widgetWithText(DeskButton, 'Добавить соединение'));
+    expect(
+      t
+          .widget<DeskSegments<int>>(
+            find.byKey(const ValueKey('connection-kit-count')),
+          )
+          .value,
+      2,
+    );
+    await t.binding.setSurfaceSize(const Size(570, 740));
+    await t.pumpAndSettle();
+    await tap(control('connection-datum-edge', 'Правый'));
+    await tap(control('connection-kit-count', '3'));
+    await tap(find.byKey(const ValueKey('connection-confirmat')));
+    await tap(control('connection-dowel-count', '1'));
+    await tap(control('connection-edit-kit', '1'));
+    await tap(find.byKey(const ValueKey('connection-minifix')));
+    await tap(control('connection-dowel-count', '1'));
+    await tap(control('connection-edit-kit', '2'));
+    await tap(control('connection-dowel-count', '2'));
+    await tap(control('connection-edit-kit', '3'));
+    await tap(control('connection-dowel-count', '0'));
+    expect(find.text('1 · Minifix + Шкант'), findsOneWidget);
+    expect(find.text('2 · Шкант + Конфирмат + Шкант'), findsOneWidget);
+    expect(find.text('3 · Конфирмат'), findsOneWidget);
+    expect(find.text('293 мм'), findsOneWidget);
+    expect(editor.project, same(original));
+    await tap(find.widgetWithText(DeskButton, 'Применить'));
+    expect(editor.project.byId[1]!.holes.single.fromEnd, isTrue);
+    expect(editor.project.byId[1]!.edgeHoles.last.offset, closeTo(293, 1e-6));
+    expect(editor.project.byId[2]!.holes.last.fromEnd, isTrue);
+    editor.undo();
+    expect(editor.project, same(original));
+  });
+
   test('All templates use a single datum, survive storage and reject overlapping placements', () {
     for (final kind in ConnectionKind.values) {
       for (final count
@@ -307,6 +435,19 @@ void main() {
       expect(editor.project, same(project));
       editor.redo();
       expect(editor.project.byId[1]!.edgeHoles, holes);
+
+      editor.undo();
+      await t.pumpAndSettle();
+      await tap(find.text('Добавить соединение'));
+      await tap(find.byKey(const Key('connection-pocket')));
+      await tap(find.text('Разместить на схеме'));
+      await t.tapAt(at(347));
+      await t.pump();
+      await t.tapAt(at(360 - 70));
+      await t.pumpAndSettle();
+      final pocket = editor.project.byId[1]!.edgeHoles.single;
+      expect(pocket.kind, EdgeHoleKind.pocket);
+      expect(pocket.offset, closeTo(70, 1e-6));
     },
   );
 

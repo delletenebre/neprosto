@@ -105,6 +105,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectionWoodScrew => 'Wood screw';
 
   @override
+  String get connectionDatumEdge => 'Reference edge';
+
+  @override
+  String get connectionKitCount => 'Number of sets';
+
+  @override
+  String get connectionEditKit => 'Edit set';
+
+  @override
+  String get connectionAllKits => 'All';
+
+  @override
   String get connectionTouchRequired =>
       'Select two parts with faces in contact';
 

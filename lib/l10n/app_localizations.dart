@@ -263,6 +263,30 @@ abstract class AppLocalizations {
   /// **'Саморез по дереву'**
   String get connectionWoodScrew;
 
+  /// No description provided for @connectionDatumEdge.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кромка отсчёта'**
+  String get connectionDatumEdge;
+
+  /// No description provided for @connectionKitCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Количество комплектов'**
+  String get connectionKitCount;
+
+  /// No description provided for @connectionEditKit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Настроить комплект'**
+  String get connectionEditKit;
+
+  /// No description provided for @connectionAllKits.
+  ///
+  /// In ru, this message translates to:
+  /// **'Все'**
+  String get connectionAllKits;
+
   /// No description provided for @connectionTouchRequired.
   ///
   /// In ru, this message translates to:

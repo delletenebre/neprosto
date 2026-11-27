@@ -104,6 +104,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get connectionWoodScrew => 'Саморез по дереву';
 
   @override
+  String get connectionDatumEdge => 'Кромка отсчёта';
+
+  @override
+  String get connectionKitCount => 'Количество комплектов';
+
+  @override
+  String get connectionEditKit => 'Настроить комплект';
+
+  @override
+  String get connectionAllKits => 'Все';
+
+  @override
   String get connectionTouchRequired =>
       'Выберите две детали, которые соприкасаются гранями';
 

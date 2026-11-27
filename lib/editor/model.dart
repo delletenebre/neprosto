@@ -536,7 +536,10 @@ class Dimension {
       if (first == null || second == null || a.face == null || b.face == null) {
         return null;
       }
-      return _faceGap(first, a.face!, second, b.face!);
+      final gap = _faceGap(first, a.face!, second, b.face!);
+      return gap == null
+          ? null
+          : (from: gap.from, to: gap.to, direction: gap.direction);
     }
     final start = a.resolve(p), end = b.resolve(p);
     return (from: start, to: end, direction: (end - start).normalized());

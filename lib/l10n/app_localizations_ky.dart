@@ -106,6 +106,18 @@ class AppLocalizationsKy extends AppLocalizations {
   String get connectionWoodScrew => 'Жыгач бурама';
 
   @override
+  String get connectionDatumEdge => 'Эсептөө кыры';
+
+  @override
+  String get connectionKitCount => 'Топтомдордун саны';
+
+  @override
+  String get connectionEditKit => 'Топтомду жөндөө';
+
+  @override
+  String get connectionAllKits => 'Баары';
+
+  @override
   String get connectionTouchRequired => 'Беттери тийишкен эки тетикти тандаңыз';
 
   @override
